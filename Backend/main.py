@@ -1,5 +1,6 @@
 # main.py
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from google.oauth2 import id_token
 from google.auth.transport import requests
@@ -36,6 +37,10 @@ app.add_middleware(
 @app.get("/")
 def read_root():
     return {"message": "Hello! 前端連線成功！"}
+
+@app.get("/admin")
+def read_admin():
+    return RedirectResponse(url="/static/admin.html")
 
 # GOOGLE_CLIENT_ID 請填入你自己的
 GOOGLE_CLIENT_ID = "357528958616-1mbtrri5ii7irbqpftd8ml3qtdr7ho0u.apps.googleusercontent.com"
@@ -247,7 +252,6 @@ def set_slot_capacity(config: schemas.SlotConfigCreate, db: Session = Depends(da
         db.refresh(new_config)
         return new_config
     
-# main.py (新增部分)
 
 # 1. 取得個人的消費紀錄
 @app.get("/my-consumptions/{google_id}", response_model=List[schemas.ConsumptionResponse])
