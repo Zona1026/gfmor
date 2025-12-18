@@ -98,7 +98,7 @@
             if (!acc || !pwd) { err.innerText = "請輸入帳號密碼"; err.style.display="block"; return; }
 
             try {
-                const res = await fetch("http://127.0.0.1:8000/admin/login", {
+                const res = await fetch("/admin/login", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ account: parseInt(acc), password: pwd })
@@ -146,7 +146,7 @@
 
             try {
                 // 4. 送給後端
-                const res = await fetch("http://127.0.0.1:8000/admin/portfolio/upload", {
+                const res = await fetch("/admin/portfolio/upload", {
                     method: "POST",
                     body: formData // 瀏覽器會自己處理 Content-Type
                 });
