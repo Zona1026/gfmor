@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GF Motor | 專業改裝・保養・維修</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <style>
+        /* --- 全域設定 --- */
+        body { margin: 0; font-family: 'Segoe UI', Roboto, sans-serif; background: #f8f9fa; color: #333; display: flex; flex-direction: column; min-height: 100vh;}
+        a { text-decoration: none; }
+        
+        /* 隱藏專用 class */
+        .hidden { display: none !important; }
+
+        /* --- 1. 導覽列 (Navbar) --- */
+        nav {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 15px 40px; background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: sticky; top: 0; z-index: 1000;
+        }
+        .logo { font-size: 1.5rem; font-weight: 900; color: #111; letter-spacing: 1px; }
+        .logo span { color: #e74c3c; }
+
+        .nav-links { display: flex; gap: 20px; align-items: center; }
+        
+        .btn-portfolio {
+            color: #555; font-weight: 500; padding: 8px 15px; border-radius: 20px; transition: 0.3s;
+            border: 1px solid transparent;
+        }
+        .btn-portfolio:hover { background: #f0f0f0; color: #111; }
+
+        .btn-login {
+            background: #111; color: white; padding: 8px 20px; border-radius: 20px; 
+            font-weight: bold; cursor: pointer; border: none; transition: 0.3s;
+        }
+        .btn-login:hover { background: #e74c3c; }
+
+        /* --- 2. 形象區塊 (Hero Section) --- */
+        #landingSection {
+            text-align: center; padding: 80px 20px;
+            background: linear-gradient(135deg, #2c3e50 0%, #000000 100%);
+            color: white; flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+        #landingSection h1 { font-size: 3rem; margin: 0 0 20px 0; }
+        #landingSection p { font-size: 1.2rem; color: #ccc; max-width: 600px; margin-bottom: 40px; }
+        
+        .hero-btn {
+            display: inline-block; padding: 15px 40px; background: #e74c3c; color: white; 
+            font-size: 1.2rem; border-radius: 50px; font-weight: bold; transition: 0.3s; cursor: pointer;
+            margin-bottom: 30px;
+        }
+        .hero-btn:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(231, 76, 60, 0.5); }
+
+        /* ★★★ 新增：社群按鈕區塊 (Hero下方) ★★★ */
+        .social-icons { display: flex; gap: 20px; justify-content: center; }
+        .social-link {
+            width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,0.1);
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 1.5rem; transition: 0.3s; border: 1px solid rgba(255,255,255,0.2);
+        }
+        .social-link:hover { background: white; transform: translateY(-3px); }
+        .social-link.line:hover { color: #06c755; } /* LINE 綠 */
+        .social-link.ig:hover { color: #e1306c; }   /* IG 粉 */
+        .social-link.fb:hover { color: #1877f2; }   /* FB 藍 */
+        .social-link.threads:hover { color: #000000; background: white; }
+
+
+        /* --- 3. 會員功能區塊 --- */
+        #appContainer {
+            max-width: 450px; margin: 50px auto; background: white; padding: 2rem; 
+            border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        /* --- 4. 頁尾區塊 (Footer) --- */
+        footer {
+            background: #111; color: #777; padding: 40px 20px; text-align: center;
+            font-size: 0.9rem; border-top: 1px solid #333; margin-top: auto;
+        }
+        footer p { margin: 5px 0; }
+        .footer-links a { color: #aaa; margin: 0 10px; transition: 0.3s; }
+        .footer-links a:hover { color: white; text-decoration: underline; }
+
+        /* --- 其他原本的 CSS --- */
+        .level-card { padding: 20px; border-radius: 12px; margin-bottom: 20px; text-align: left; color: white; position: relative; overflow: hidden; }
+        .level-card.normal-style { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .level-card.da-gai-style { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .level-card.bao-gai-style { background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%); }
+        .level-card.vvip-style { background: linear-gradient(135deg, #141e30 0%, #243b55 100%); border: 1px solid #d4af37; color: #d4af37; }
+        .level-card.svip-style { background: linear-gradient(135deg, #8E2DE2 0%, #4A00E0 100%); }
+        .spending-amount { font-size: 2.2rem; font-weight: 800; margin: 10px 0; }
+
+        .btn-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        .btn-full { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; margin-top: 10px; background: #007bff; color: white; }
+        .btn-outline { flex: 1; padding: 10px; border: 1px solid #ddd; background: #f8f9fa; cursor: pointer; border-radius: 8px; }
+        .btn-outline.active { background: #e7f1ff; border-color: #007bff; color: #007bff; }
+        
+        input, select, textarea { width: 100%; padding: 10px; margin: 5px 0 15px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        .record-item { padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <div class="logo">GF <span>Motor</span></div>
+        <div class="nav-links">
+            <a href="portfolio.html" class="btn-portfolio">📸 改裝名人堂</a>
+            <button id="navLoginBtn" class="btn-login" onclick="toggleLoginView()">會員登入</button>
+        </div>
+    </nav>
+
+    <div id="landingSection">
+        <h1>定義你的速度與美學</h1>
+        <p>GF Motor 提供最專業的機車改裝、保養與維修服務。<br>從基礎保養到極致爆改，我們實現你對車的所有想像。</p>
+        
+        <div class="hero-btn" onclick="toggleLoginView()">立即預約保養</div>
+
+        <div class="social-icons">
+            <a href="https://www.facebook.com/gf.motor" target="_blank" class="social-link fb" title="Facebook">
+                <i class="fa-brands fa-facebook-f"></i>
+            </a>
+            <a href="https://www.instagram.com/gjufengmotor/" target="_blank" class="social-link ig" title="Instagram">
+                <i class="fa-brands fa-instagram"></i>
+            </a>
+            <a href="https://www.threads.com/@gjufengmotor?xmt=AQF0D9VIJBdycUxBIrAfvyayidhTBSPnbazk2rBn8fKXEZ0" target="_blank" class="social-link threads" title="Threads">
+                <i class="fa-brands fa-threads"></i>
+            </a>
+            <a href="https://lin.ee/23mk4EM" target="_blank" class="social-link line" title="官方 LINE">
+                <i class="fa-brands fa-line"></i>
+            </a>
+
+        </div>
+    </div>
+
+    <div id="appContainer" class="hidden">
+        <div id="loginSection">
+            <h2 style="text-align:center;">歡迎回來</h2>
+            <p style="text-align:center; color:#666; margin-bottom: 30px;">請登入以管理您的預約與消費等級</p>
+            <div id="buttonDiv" style="display: flex; justify-content: center;"></div>
+        </div>
+
+        <div id="phoneSection" class="hidden">
+            <p>👋 嗨，<span id="userNameDisplay"></span><br>請補填手機號碼：</p>
+            <input type="text" id="phoneInput" placeholder="10碼手機號碼" maxlength="10">
+            <button class="btn-full" onclick="submitPhone()">送出資料</button>
+        </div>
+
+        <div id="profileSection" class="hidden">
+            <div id="levelCard" class="level-card normal-style">
+                <div id="p_level" style="font-size: 1.2rem; font-weight:bold;">Loading...</div>
+                <div style="font-size: 0.9rem; opacity: 0.8;">累積消費</div>
+                <div class="spending-amount">$<span id="p_spending">0</span></div>
+                <div style="font-size: 0.8rem;">再消費 $<span id="next_goal">...</span> 升級</div>
+            </div>
+            <p><strong>姓名：</strong><span id="p_name">--</span> &nbsp;|&nbsp; <strong>電話：</strong><span id="p_phone">--</span></p>
+            <button class="btn-full" onclick="showBookingForm()">📅 我要預約</button>
+            <br><br>
+            <div class="btn-group">
+                <button id="btnBooking" class="btn-outline active" onclick="switchTab('booking')">預約紀錄</button>
+                <button id="btnConsumption" class="btn-outline" onclick="switchTab('consumption')">消費紀錄</button>
+            </div>
+            <div id="listContainer" style="max-height: 200px; overflow-y: auto;"></div>
+            <hr style="margin: 20px 0;">
+            <button class="btn-outline" style="width:100%" onclick="logout()">登出</button>
+        </div>
+
+        <div id="bookingFormSection" class="hidden">
+            <h3>📝 預約單</h3>
+            <input type="text" id="b_car_model" placeholder="車種">
+            <select id="b_category"><option>保養</option><option>維修</option><option>改裝</option></select>
+            <input type="date" id="b_date_picker" onchange="updateTimeSlots()">
+            <select id="b_time_slot" disabled><option>請先選日期</option></select>
+            <textarea id="b_note" rows="2" placeholder="備註..."></textarea>
+            <div class="btn-group">
+                <button class="btn-full" onclick="submitBooking()">送出</button>
+                <button class="btn-outline" onclick="backToProfile()" style="margin-top:10px;">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <footer id="mainFooter">
+        <div class="footer-links">
+            <a href="https://line.me/ti/p/@你的ID" target="_blank">官方 LINE 預約</a> |
+            <a href="https://instagram.com/你的帳號" target="_blank">Instagram 作品集</a> |
+            <a href="https://facebook.com/你的粉專" target="_blank">Facebook 粉絲團</a>
+        </div>
+        <p style="margin-top: 15px;">&copy; 2025 GF Motor. All Rights Reserved.</p>
+        <p style="font-size: 0.8rem; color: #555;">台中市西屯區某某路123號 | 營業時間：週一至週六 13:00-22:00</p>
+    </footer>
+
+    <script>
+        // --- 這裡的 JavaScript 邏輯完全保持不變 ---
+        const CLIENT_ID = "357528958616-1mbtrri5ii7irbqpftd8ml3qtdr7ho0u.apps.googleusercontent.com"; 
+        let currentUserId = ""; 
+        let isLoggedIn = false;
+
+        function toggleLoginView() {
+            const landing = document.getElementById("landingSection");
+            const app = document.getElementById("appContainer");
+            const navBtn = document.getElementById("navLoginBtn");
+            const footer = document.getElementById("mainFooter"); // 抓取 footer
+
+            if (isLoggedIn) {
+                landing.classList.add("hidden");
+                footer.classList.add("hidden"); // 登入後隱藏 footer 比較乾淨
+                app.classList.remove("hidden");
+                showSection("profileSection");
+                return;
+            }
+
+            if (app.classList.contains("hidden")) {
+                landing.classList.add("hidden");
+                footer.classList.add("hidden"); // 進入登入畫面時也隱藏 footer
+                app.classList.remove("hidden");
+                showSection("loginSection");
+                navBtn.innerText = "返回首頁";
+                navBtn.onclick = toggleLoginView;
+            } else {
+                landing.classList.remove("hidden");
+                footer.classList.remove("hidden"); // 返回首頁時顯示 footer
+                app.classList.add("hidden");
+                navBtn.innerText = "會員登入";
+            }
+        }
+
+        async function handleCredentialResponse(response) {
+            try {
+                const res = await fetch("/auth/google", {
+                    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: response.credential })
+                });
+                const data = await res.json();
+
+                if (data.action === "FILL_PHONE") {
+                    currentUserId = data.google_id;
+                    document.getElementById("userNameDisplay").innerText = data.user_name;
+                    showSection("phoneSection");
+                } else if (data.action === "GO_HOME") {
+                    currentUserId = data.user.google_id;
+                    isLoggedIn = true;
+                    document.getElementById("navLoginBtn").innerText = "會員中心";
+                    loadProfile();
+                } else { alert("登入錯誤：" + data.detail); }
+            } catch(e) { console.error(e); }
+        }
+
+        async function loadProfile() {
+            showSection("profileSection");
+            try {
+                const res = await fetch(`/users/${currentUserId}`);
+                const user = await res.json();
+                document.getElementById("p_name").innerText = user.name;
+                document.getElementById("p_phone").innerText = user.phone;
+                updateLevelCard(user.level || "一般會員", user.total_spending || 0);
+                switchTab('booking');
+            } catch(e) { console.error(e); }
+        }
+
+        function updateLevelCard(level, spending) {
+            const card = document.getElementById("levelCard");
+            card.className = "level-card"; 
+            document.getElementById("p_level").innerText = level;
+            document.getElementById("p_spending").innerText = spending.toLocaleString();
+            let goal=0, name="";
+            if (spending > 500000) { card.classList.add("svip-style"); goal=0; name="已封頂"; }
+            else if (spending > 300000) { card.classList.add("vvip-style"); goal=500000-spending; name="SVIP"; }
+            else if (spending > 100000) { card.classList.add("bao-gai-style"); goal=300000-spending; name="VVIP"; }
+            else if (spending > 50000) { card.classList.add("da-gai-style"); goal=100000-spending; name="爆改"; }
+            else { card.classList.add("normal-style"); goal=50000-spending; name="大改"; }
+            document.getElementById("next_goal").innerText = goal > 0 ? `${goal.toLocaleString()} (升級${name})` : "已達最高";
+        }
+
+        function showSection(id) {
+            ["loginSection", "phoneSection", "profileSection", "bookingFormSection"].forEach(sid => document.getElementById(sid).classList.add("hidden"));
+            document.getElementById(id).classList.remove("hidden");
+        }
+
+        async function submitPhone() {
+            const phone = document.getElementById("phoneInput").value;
+            if (!/^\d{10}$/.test(phone)) { alert("請輸入10碼"); return; }
+            const res = await fetch("/users/update-phone", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ google_id: currentUserId, phone: phone }) });
+            if (res.ok) { isLoggedIn = true; loadProfile(); }
+        }
+
+        async function switchTab(tab) {
+            const list = document.getElementById("listContainer");
+            document.getElementById("btnBooking").classList.toggle("active", tab==='booking');
+            document.getElementById("btnConsumption").classList.toggle("active", tab!=='booking');
+            list.innerHTML = "載入中...";
+            const url = tab==='booking' ? `/my-bookings/${currentUserId}` : `/my-consumptions/${currentUserId}`;
+            const res = await fetch(url);
+            const data = await res.json();
+            list.innerHTML = "";
+            if(data.length===0) list.innerHTML = "<p style='text-align:center;color:#999'>無紀錄</p>";
+            data.forEach(item => {
+                const d = new Date(item.created_at || item.booking_time).toLocaleDateString();
+                const title = tab==='booking' ? `${item.category}-${item.car_model}` : item.description;
+                const right = tab==='booking' ? item.status : `$${item.amount.toLocaleString()}`;
+                list.innerHTML += `<div class="record-item"><div><strong>${title}</strong><br><small style='color:#888'>${d}</small></div><span>${right}</span></div>`;
+            });
+        }
+
+        function showBookingForm() { showSection("bookingFormSection"); }
+        function backToProfile() { showSection("profileSection"); switchTab('booking'); }
+        function updateTimeSlots() { /* 同前 */ 
+            const dateInput = document.getElementById("b_date_picker").value;
+            const slotSelect = document.getElementById("b_time_slot");
+            slotSelect.innerHTML = ""; 
+            if (!dateInput) { slotSelect.disabled = true; slotSelect.innerHTML = "<option>請先選日期</option>"; return; }
+            const day = new Date(dateInput).getDay();
+            let start = 13, end = 21;
+            if (day === 0) { slotSelect.innerHTML = "<option>本日公休</option>"; slotSelect.disabled = true; return; }
+            if (day === 6) start = 11;
+            slotSelect.disabled = false;
+            for (let h = start; h <= end; h++) { const t = h.toString().padStart(2,'0') + ":00"; slotSelect.add(new Option(t, t)); }
+        }
+        async function submitBooking() { /* 同前 */ 
+             const date = document.getElementById("b_date_picker").value;
+            const time = document.getElementById("b_time_slot").value;
+            const car = document.getElementById("b_car_model").value;
+            if(!date || !time || !car || document.getElementById("b_time_slot").disabled) { alert("請完整填寫"); return; }
+            const payload = { user_google_id: currentUserId, car_model: car, booking_time: `${date}T${time}:00`, category: document.getElementById("b_category").value, note: document.getElementById("b_note").value };
+            const res = await fetch("/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+            if (res.ok) { alert("預約成功"); backToProfile(); } else { alert("失敗"); }
+        }
+        function logout() { window.location.reload(); }
+
+        window.onload = function() {
+            google.accounts.id.initialize({ client_id: CLIENT_ID, callback: handleCredentialResponse });
+            google.accounts.id.renderButton(document.getElementById("buttonDiv"), { theme: "outline", size: "large" });
+        }
+    </script>
+</body>
+</html>

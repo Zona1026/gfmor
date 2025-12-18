@@ -1,0 +1,3 @@
+cd Backend 開啟後端前要先執行這個
+uvicorn main:app --reload 開啟後端
+taskkill /F /IM python.exe 清除所有執行中的終端機(後端卡住非常好用)

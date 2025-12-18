@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GF Motor 改裝名人堂</title>
+    <style>
+        /* --- 全域設定 --- */
+        body { 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            background-color: #121212; /* 深色背景 */
+            color: #e0e0e0; 
+            margin: 0; 
+            padding: 0; 
+            min-height: 100vh;
+        }
+
+        /* --- 頂部導覽 --- */
+        header {
+            background: #1e1e1e;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        h1 {
+            margin: 0;
+            font-weight: 800;
+            letter-spacing: 2px;
+            background: linear-gradient(90deg, #fff, #bbb);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 1.8rem;
+        }
+
+        .back-link {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #888;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: 0.3s;
+        }
+        .back-link:hover { color: white; }
+
+        /* --- 分類按鈕區 (Tabs) --- */
+        .tabs-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            padding: 20px;
+            flex-wrap: wrap;
+            background: #181818;
+        }
+
+        .tab-btn {
+            background: #2c2c2c;
+            border: 1px solid #333;
+            color: #aaa;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .tab-btn:hover { background: #333; color: white; }
+        
+        /* 點選後的狀態 (Active) */
+        .tab-btn.active { 
+            color: white; 
+            font-weight: bold; 
+            border-color: transparent;
+            box-shadow: 0 0 10px rgba(255,255,255,0.2);
+        }
+
+        /* 不同等級的按鈕顏色 */
+        .tab-btn[data-cat="all"].active { background: #555; }
+        .tab-btn[data-cat="dagai"].active { background: linear-gradient(135deg, #667eea, #764ba2); }
+        .tab-btn[data-cat="baogai"].active { background: linear-gradient(135deg, #ff416c, #ff4b2b); }
+        .tab-btn[data-cat="vvip"].active { background: linear-gradient(135deg, #141e30, #243b55); border: 1px solid #d4af37; color: #d4af37; }
+        .tab-btn[data-cat="svip"].active { background: linear-gradient(135deg, #8E2DE2, #4A00E0); }
+
+        /* --- 圖片網格區 --- */
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+            padding: 20px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: #1e1e1e;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: transform 0.3s, box-shadow 0.3s;
+            position: relative;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            z-index: 2;
+        }
+
+        .card-img-container {
+            width: 100%;
+            height: 220px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        .card-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s;
+        }
+
+        .card:hover .card-img {
+            transform: scale(1.05); /* 滑鼠移過去圖片稍微放大 */
+        }
+
+        .card-info {
+            padding: 15px;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* 標籤顏色 (對應不同等級) */
+        .badge-dagai { background: linear-gradient(135deg, #667eea, #764ba2); }
+        .badge-baogai { background: linear-gradient(135deg, #ff416c, #ff4b2b); }
+        .badge-vvip { background: linear-gradient(135deg, #141e30, #243b55); color: #d4af37; border: 1px solid #d4af37;}
+        .badge-svip { background: linear-gradient(135deg, #8E2DE2, #4A00E0); }
+
+        /* 無資料時顯示 */
+        .no-data {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 50px;
+            color: #666;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <a href="index.html" class="back-link">← 返回首頁</a>
+        <h1>GF Motor 改裝作品集</h1>
+    </header>
+
+    <div class="tabs-container">
+        <button class="tab-btn active" data-cat="all" onclick="filterItems('all')">全部展示</button>
+        <button class="tab-btn" data-cat="dagai" onclick="filterItems('dagai')">大改車主 (5-10萬)</button>
+        <button class="tab-btn" data-cat="baogai" onclick="filterItems('baogai')">爆改車主 (10-30萬)</button>
+        <button class="tab-btn" data-cat="vvip" onclick="filterItems('vvip')">VVIP (30-50萬)</button>
+        <button class="tab-btn" data-cat="svip" onclick="filterItems('svip')">SVIP (50萬+)</button>
+    </div>
+
+    <div id="gallery" class="gallery-grid">
+        <div class="no-data">載入中...</div>
+    </div>
+
+    <script>
+        let allItems = []; // 儲存從後端抓回來的所有資料
+
+        // 1. 網頁載入後，馬上去抓資料
+        window.onload = async function() {
+            try {
+                // 注意：這裡假設你的後端是 http://127.0.0.1:8000
+                const res = await fetch("/portfolio");
+                if (res.ok) {
+                    allItems = await res.json();
+                    renderGallery(allItems); // 預設顯示全部
+                } else {
+                    document.getElementById("gallery").innerHTML = '<div class="no-data">無法讀取資料</div>';
+                }
+            } catch (e) {
+                console.error(e);
+                document.getElementById("gallery").innerHTML = '<div class="no-data">連線錯誤，請確認後端已開啟</div>';
+            }
+        };
+
+        // 2. 顯示圖片的函式
+        function renderGallery(items) {
+            const container = document.getElementById("gallery");
+            container.innerHTML = ""; // 清空目前內容
+
+            if (items.length === 0) {
+                container.innerHTML = '<div class="no-data">目前沒有相關作品</div>';
+                return;
+            }
+
+            items.forEach(item => {
+                // 判斷等級名稱和樣式
+                let catName = "";
+                let badgeClass = "";
+                
+                switch(item.category) {
+                    case "dagai": catName = "大改車主"; badgeClass = "badge-dagai"; break;
+                    case "baogai": catName = "爆改車主"; badgeClass = "badge-baogai"; break;
+                    case "vvip": catName = "VVIP"; badgeClass = "badge-vvip"; break;
+                    case "svip": catName = "SVIP"; badgeClass = "badge-svip"; break;
+                    default: catName = "改裝案例"; badgeClass = "badge-dagai";
+                }
+
+                // 組合 HTML 卡片
+                const html = `
+                    <div class="card">
+                        <div class="card-img-container">
+                            <img src="${item.image_url}" class="card-img" alt="${item.title}" loading="lazy">
+                        </div>
+                        <div class="card-info">
+                            <div class="card-title">${item.title}</div>
+                            <span class="badge ${badgeClass}">${catName}</span>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += html;
+            });
+        }
+
+        // 3. 過濾按鈕的邏輯
+        function filterItems(category) {
+            // A. 切換按鈕亮燈樣式
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            // 找到點擊的那顆按鈕 (透過 data-cat 屬性)
+            document.querySelector(`.tab-btn[data-cat="${category}"]`).classList.add('active');
+
+            // B. 過濾資料
+            if (category === 'all') {
+                renderGallery(allItems);
+            } else {
+                // 只留下 category 一樣的
+                const filtered = allItems.filter(item => item.category === category);
+                renderGallery(filtered);
+            }
+        }
+    </script>
+
+</body>
+</html>

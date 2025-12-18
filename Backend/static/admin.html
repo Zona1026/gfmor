@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GF Motor 後台管理系統</title>
+    <style>
+        /* 頁面基礎樣式 */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #2c3e50; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .login-container { background: white; padding: 2.5rem; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); width: 400px; text-align: center; }
+        
+        h2 { color: #34495e; margin-bottom: 20px; border-bottom: 3px solid #e74c3c; display: inline-block; padding-bottom: 5px; }
+        
+        /* 輸入框通用樣式 */
+        .input-group { margin-bottom: 15px; text-align: left; }
+        label { display: block; margin-bottom: 5px; color: #666; font-size: 0.9rem; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; transition: 0.3s; box-sizing: border-box; }
+        
+        /* 按鈕樣式 */
+        button { width: 100%; padding: 12px; background: #e74c3c; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 10px; transition: background 0.3s; }
+        button:hover { background: #c0392b; }
+        
+        /* 錯誤訊息 */
+        .error { color: #e74c3c; margin-top: 15px; font-size: 0.9rem; display: none; background: #fadbd8; padding: 10px; border-radius: 5px; }
+        .hidden { display: none; }
+        
+        /* 儀表板與上傳區塊樣式 */
+        .dashboard { width: 600px; text-align: left; }
+        .admin-info { background: #ecf0f1; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        
+        /* ★★★ 這是新加的樣式：上傳區塊 ★★★ */
+        .upload-section { background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border: 1px solid #eee; margin-top: 20px; }
+        .upload-section h4 { margin-top: 0; color: #2980b9; border-left: 4px solid #2980b9; padding-left: 10px;}
+    </style>
+</head>
+<body>
+
+    <div id="loginSection" class="login-container">
+        <h2>🔒 後台管理系統</h2>
+        <div class="input-group">
+            <label>管理員帳號</label>
+            <input type="number" id="accountInput" placeholder="例如: 1001">
+        </div>
+        <div class="input-group">
+            <label>密碼</label>
+            <input type="password" id="passwordInput">
+        </div>
+        <button onclick="doLogin()">登入系統</button>
+        <div id="errorMsg" class="error"></div>
+    </div>
+
+    <div id="dashboardSection" class="login-container dashboard hidden">
+        <h2 style="color: #27ae60; border-color: #27ae60;">✅ 管理員儀表板</h2>
+        
+        <div class="admin-info">
+            <p><strong>👋 歡迎回來：</strong> <span id="adminNameDisplay" style="color: #2980b9;">--</span></p>
+            <p><strong>🔰 您的權限：</strong> <span id="adminRoleDisplay">--</span></p>
+        </div>
+
+        <div class="upload-section">
+            <h4>📸 上傳改裝案例</h4>
+            
+            <div class="input-group">
+                <label>作品標題</label>
+                <input type="text" id="pf_title" placeholder="例如：消光黑霸氣改裝">
+            </div>
+            
+            <div class="input-group">
+                <label>分類等級</label>
+                <select id="pf_category">
+                    <option value="dagai">大改車主 (5-10萬)</option>
+                    <option value="baogai">爆改車主 (10-30萬)</option>
+                    <option value="vvip">爆改 VVIP (30-50萬)</option>
+                    <option value="svip">爆改 SVIP (50萬以上)</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>選擇照片</label>
+                <input type="file" id="pf_file" accept="image/*">
+            </div>
+
+            <button type="button" onclick="uploadPortfolio()" style="background: #2980b9;">📤 上傳並發布</button>
+        </div>
+        <div style="margin-top: 30px; text-align: center;">
+            <button onclick="logout()" style="background-color: #7f8c8d; width: auto; padding: 10px 30px;">登出</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 登入功能 (保持不變) ---
+        async function doLogin() {
+            const acc = document.getElementById("accountInput").value;
+            const pwd = document.getElementById("passwordInput").value;
+            const err = document.getElementById("errorMsg");
+            err.style.display = "none";
+
+            if (!acc || !pwd) { err.innerText = "請輸入帳號密碼"; err.style.display="block"; return; }
+
+            try {
+                const res = await fetch("http://127.0.0.1:8000/admin/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ account: parseInt(acc), password: pwd })
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    // 切換顯示
+                    document.getElementById("loginSection").classList.add("hidden");
+                    document.getElementById("dashboardSection").classList.remove("hidden");
+                    // 填入資料
+                    document.getElementById("adminNameDisplay").innerText = data.user.name;
+                    document.getElementById("adminRoleDisplay").innerText = data.user.role;
+                } else {
+                    err.innerText = "登入失敗：" + data.detail;
+                    err.style.display = "block";
+                }
+            } catch (e) {
+                console.error(e);
+                err.innerText = "連線錯誤";
+                err.style.display = "block";
+            }
+        }
+
+        function logout() { window.location.reload(); }
+
+        // --- ★★★ 這是新加的功能：上傳作品 ★★★ ---
+        async function uploadPortfolio() {
+            // 1. 抓取欄位資料
+            const title = document.getElementById("pf_title").value;
+            const category = document.getElementById("pf_category").value;
+            const fileInput = document.getElementById("pf_file");
+
+            // 2. 檢查有沒有漏填
+            if(!title || !fileInput.files[0]) {
+                alert("標題和圖片都要填喔！");
+                return;
+            }
+
+            // 3. 打包資料 (因為有圖片，要用 FormData)
+            const formData = new FormData();
+            formData.append("title", title);
+            formData.append("category", category);
+            formData.append("file", fileInput.files[0]);
+
+            try {
+                // 4. 送給後端
+                const res = await fetch("http://127.0.0.1:8000/admin/portfolio/upload", {
+                    method: "POST",
+                    body: formData // 瀏覽器會自己處理 Content-Type
+                });
+
+                if (res.ok) {
+                    alert("✅ 上傳成功！");
+                    // 清空欄位方便下一筆
+                    document.getElementById("pf_title").value = "";
+                    fileInput.value = "";
+                } else {
+                    alert("❌ 上傳失敗");
+                }
+            } catch(e) {
+                alert("連線錯誤，請確認後端有開啟");
+            }
+        }
+    </script>
+</body>
+</html>
