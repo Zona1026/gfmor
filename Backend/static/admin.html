@@ -75,9 +75,18 @@
                 </select>
             </div>
 
-            <div class="input-group">
-                <label>選擇照片</label>
-                <input type="file" id="pf_file" accept="image/*">
+           <div class="mb-3">
+                <label class="form-label">選擇照片</label>
+                <input type="file" id="fileInput" class="form-control" accept="image/*" required>
+                <img id="imgPreview" src="" style="display:none; max-width: 300px; margin-top: 10px; border-radius: 5px;">
+
+            <button type="submit" class="btn btn-primary w-100">📤 上傳並發布</button>
+
+            <hr class="my-5">
+
+            <h3 class="mb-3">📁 已上傳的作品管理</h3>
+            <div id="portfolioList" class="row">
+                <div class="text-center text-muted">正在載入作品...</div>
             </div>
 
             <button type="button" onclick="uploadPortfolio()" style="background: #2980b9;">📤 上傳並發布</button>
@@ -88,81 +97,128 @@
     </div>
 
     <script>
-        // --- 登入功能 (保持不變) ---
-        async function doLogin() {
-            const acc = document.getElementById("accountInput").value;
-            const pwd = document.getElementById("passwordInput").value;
-            const err = document.getElementById("errorMsg");
-            err.style.display = "none";
+    const API_URL = "/portfolios"; 
+    const API_LIST = "/admin/portfolio/list";
+    const API_UPLOAD = "/admin/portfolio/upload";
+    const API_DELETE = "/admin/portfolio"// 確保這是你後端的 API 路徑
 
-            if (!acc || !pwd) { err.innerText = "請輸入帳號密碼"; err.style.display="block"; return; }
+    // --- 1. 圖片預覽功能 (這是你要的！) ---
+    const fileInput = document.getElementById('fileInput');
+    const imgPreview = document.getElementById('imgPreview');
 
-            try {
-                const res = await fetch("/admin/login", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ account: parseInt(acc), password: pwd })
-                });
-                const data = await res.json();
-
-                if (res.ok) {
-                    // 切換顯示
-                    document.getElementById("loginSection").classList.add("hidden");
-                    document.getElementById("dashboardSection").classList.remove("hidden");
-                    // 填入資料
-                    document.getElementById("adminNameDisplay").innerText = data.user.name;
-                    document.getElementById("adminRoleDisplay").innerText = data.user.role;
-                } else {
-                    err.innerText = "登入失敗：" + data.detail;
-                    err.style.display = "block";
-                }
-            } catch (e) {
-                console.error(e);
-                err.innerText = "連線錯誤";
-                err.style.display = "block";
-            }
+    fileInput.addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            // 建立一個暫時的網址來顯示圖片
+            const tempUrl = URL.createObjectURL(file);
+            imgPreview.src = tempUrl;
+            imgPreview.style.display = 'block'; // 顯示圖片
+        } else {
+            imgPreview.style.display = 'none';
         }
+    });
 
-        function logout() { window.location.reload(); }
+    // --- 2. 載入並顯示已上傳的作品 ---
+    async function loadPortfolios() {
+        const listDiv = document.getElementById("portfolioList");
+        try {
+            const res = await fetch(API_LIST);
+            const data = await res.json();
+            
+            listDiv.innerHTML = ""; // 清空目前顯示的
 
-        // --- ★★★ 這是新加的功能：上傳作品 ★★★ ---
-        async function uploadPortfolio() {
-            // 1. 抓取欄位資料
-            const title = document.getElementById("pf_title").value;
-            const category = document.getElementById("pf_category").value;
-            const fileInput = document.getElementById("pf_file");
-
-            // 2. 檢查有沒有漏填
-            if(!title || !fileInput.files[0]) {
-                alert("標題和圖片都要填喔！");
+            if (data.length === 0) {
+                listDiv.innerHTML = '<p class="text-muted">目前沒有任何作品。</p>';
                 return;
             }
 
-            // 3. 打包資料 (因為有圖片，要用 FormData)
-            const formData = new FormData();
-            formData.append("title", title);
-            formData.append("category", category);
-            formData.append("file", fileInput.files[0]);
+            // 跑迴圈把每個作品畫出來
+            data.forEach(item => {
+                const card = `
+                    <div class="col-md-4 mb-4">
+                        <div class="card h-100 shadow-sm">
+                            <div style="height: 200px; overflow: hidden;">
+                                <img src="${item.image_url}" class="card-img-top" style="width: 100%; height: 100%; object-fit: cover;">
+                            </div>
+                            <div class="card-body">
+                                <h5 class="card-title">${item.title}</h5>
+                                <p class="card-text text-muted small">${item.content || '無描述'}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <button onclick="deletePortfolio(${item.id})" class="btn btn-outline-danger btn-sm">🗑️ 刪除</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                listDiv.innerHTML += card;
+            });
 
-            try {
-                // 4. 送給後端
-                const res = await fetch("/admin/portfolio/upload", {
-                    method: "POST",
-                    body: formData // 瀏覽器會自己處理 Content-Type
-                });
-
-                if (res.ok) {
-                    alert("✅ 上傳成功！");
-                    // 清空欄位方便下一筆
-                    document.getElementById("pf_title").value = "";
-                    fileInput.value = "";
-                } else {
-                    alert("❌ 上傳失敗");
-                }
-            } catch(e) {
-                alert("連線錯誤，請確認後端有開啟");
-            }
+        } catch (error) {
+            console.error("載入失敗:", error);
+            listDiv.innerHTML = '<p class="text-danger">無法載入作品，請檢查後端連線。</p>';
         }
-    </script>
+    }
+
+    // --- 3. 刪除作品功能 ---
+    async function deletePortfolio(id) {
+        if (!confirm("確定要永久刪除這個作品嗎？")) return;
+
+        try {
+            const res = await fetch(`${API_DELETE}/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                alert("刪除成功！");
+                loadPortfolios(); // 重新整理列表
+            } else {
+                alert("刪除失敗，請稍後再試");
+            }
+        } catch (error) {
+            console.error("刪除錯誤:", error);
+        }
+    }
+
+    // --- 4. 表單提交 (上傳) ---
+    document.querySelector("form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        
+        // 抓取表單資料
+        const title = document.querySelector('input[placeholder="例如：消光黑霸氣改裝"]').value; // 抓標題
+        const category = document.querySelector('select').value; // 抓分類
+        const file = fileInput.files[0];
+
+        const formData = new FormData();
+        formData.append("title", title);
+        formData.append("content", category); // 這裡我暫時把分類當作 content 存，看你想存哪
+        formData.append("file", file);
+
+        const btn = document.querySelector("button[type='submit']");
+        btn.disabled = true;
+        btn.textContent = "上傳中...";
+
+        try {
+            const res = await fetch(API_UPLOAD, {
+                method: "POST",
+                body: formData
+            });
+
+            if (res.ok) {
+                alert("✨ 發布成功！");
+                document.querySelector("form").reset(); // 清空表單
+                imgPreview.style.display = 'none'; // 隱藏預覽圖
+                loadPortfolios(); // 重新整理下方列表
+            } else {
+                alert("上傳失敗，請檢查後台日誌");
+            }
+        } catch (err) {
+            console.error(err);
+            alert("發生錯誤");
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "📤 上傳並發布";
+        }
+    });
+
+    // 一進來網頁就先載入列表
+    loadPortfolios();
+</script>
 </body>
 </html>

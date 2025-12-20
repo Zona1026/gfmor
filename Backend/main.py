@@ -364,3 +364,8 @@ def delete_portfolio_item(item_id: int, db: Session = Depends(database.get_db)):
     db.delete(item)
     db.commit()
     return {"message": "刪除成功"}
+
+# ★★★ 請補上這一段 (讀取列表) ★★★
+@app.get("/admin/portfolio/list")
+def get_portfolio_items(db: Session = Depends(database.get_db)):
+    return db.query(models.PortfolioItem).all()
