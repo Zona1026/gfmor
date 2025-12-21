@@ -123,40 +123,95 @@
 
             <!-- 作品集管理區塊 -->
             <div id="content-portfolio" class="content-section">
-                <!-- (您原本的建立作品集功能被移到這裡) -->
-                <div class="row g-4 justify-content-center">
-                    <div class="col-lg-7">
-                        <div class="card border-secondary">
-                            <div class="card-header bg-dark text-white">
-                                <h5 class="mb-0"><i class="bi bi-pencil-square me-2"></i>建立/管理作品集</h5>
-                            </div>
-                            <div class="card-body">
-                                <form id="uploadForm">
-                                    <div class="mb-3">
-                                        <label for="postCategory" class="form-label fw-bold">作品分類</label>
-                                        <select class="form-select" id="postCategory" required>
-                                            <option value="" selected disabled>-- 請選擇分類 --</option>
-                                            <option value="大改車主作品集">大改車主作品集 ( 消費5-10萬 )</option>
-                                            <option value="爆改車主作品集">爆改車主作品集 ( 消費10-30萬 )</option>
-                                            <option value="爆改車主之VVIP作品集">爆改車主之VVIP作品集 (消費30-50萬 )</option>
-                                            <option value="爆改車主之SVIP作品集">爆改車主之SVIP作品集 (消費50萬以上 )</option>
-                                        </select>
-                                    </div>
-                                    <div class="mb-3 p-3 border border-secondary-subtle rounded bg-dark-subtle"><label for="uploadImage" class="form-label fw-bold">作品照片</label><p class="text-muted small">分享一張最能代表您作品的相片。</p><input type="file" class="form-control" id="uploadImage" accept="image/*" required></div>
-                                    <div class="mb-3"><label for="postTitle" class="form-label fw-bold">標題</label><input type="text" class="form-control" id="postTitle" placeholder="例如：哈雷經典款全車改造" required></div>
-                                    <div class="mb-3"><label for="postDescription" class="form-label fw-bold">內文</label><textarea class="form-control" id="postDescription" rows="5" placeholder="輸入關於此作品的詳細描述..."></textarea></div>
-                                    <div class="d-grid"><button type="button" class="btn btn-primary btn-lg" onclick="uploadPost()"><i class="bi bi-arrow-up-circle-fill me-2"></i>發佈作品</button></div>
-                                </form>
+                
+                <!-- View 1: 作品集列表 -->
+                <div id="portfolio-list-view">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h3>作品集列表</h3>
+                        <button id="addNewPortfolioBtn" class="btn btn-primary"><i class="bi bi-plus-circle-fill me-2"></i>新增作品集</button>
+                    </div>
+                    <p>此處將顯示所有已上傳的作品集。點擊「編輯」來修改內容，或「新增作品集」來建立全新的項目。</p>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>分類</th>
+                                    <th>標題</th>
+                                    <th>圖片</th>
+                                    <th class="text-end">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="portfolio-table-body">
+                                <!-- 作品集資料將動態載入於此 -->
+                                <tr><td colspan="4" class="text-center text-muted">尚未載入作品集資料...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- View 2: 新增/編輯作品集 (預設隱藏) -->
+                <div id="portfolio-edit-view" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h3 id="edit-view-title">建立新作品</h3>
+                        <button id="backToListBtn" class="btn btn-secondary"><i class="bi bi-arrow-left-circle me-2"></i>返回列表</button>
+                    </div>
+                    <div class="row g-4 justify-content-center">
+                        <div class="col-lg-7">
+                            <div class="card border-secondary">
+                                <div class="card-header bg-dark text-white">
+                                    <h5 class="mb-0"><i class="bi bi-pencil-square me-2"></i>編輯作品內容</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="portfolioForm">
+                                        <input type="hidden" id="portfolioId">
+                                        <div class="mb-3">
+                                            <label for="postCategory" class="form-label fw-bold">作品分類</label>
+                                            <select class="form-select" id="postCategory" required>
+                                                <option value="" selected disabled>-- 請選擇分類 --</option>
+                                                <option value="大改車主作品集">大改車主作品集 ( 消費5-10萬 )</option>
+                                                <option value="爆改車主作品集">爆改車主作品集 ( 消費10-30萬 )</option>
+                                                <option value="爆改車主之VVIP作品集">爆改車主之VVIP作品集 (消費30-50萬 )</option>
+                                                <option value="爆改車主之SVIP作品集">爆改車主之SVIP作品集 (消費50萬以上 )</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3 p-3 border border-secondary-subtle rounded bg-dark-subtle">
+                                            <label for="uploadImage" class="form-label fw-bold">作品照片</label>
+                                            <p class="text-muted small">分享一張最能代表您作品的相片。編輯時若不選擇新圖片，將保留舊圖片。</p>
+                                            <input type="file" class="form-control" id="uploadImage" accept="image/*">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="postTitle" class="form-label fw-bold">標題</label>
+                                            <input type="text" class="form-control" id="postTitle" placeholder="例如：哈雷經典款全車改造" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="postDescription" class="form-label fw-bold">內文</label>
+                                            <textarea class="form-control" id="postDescription" rows="5" placeholder="輸入關於此作品的詳細描述..."></textarea>
+                                        </div>
+                                        <div class="d-grid">
+                                            <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-arrow-up-circle-fill me-2"></i>儲存作品</button>
+                                        </div>
+                                    </form>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-lg-5">
-                        <div class="card border-secondary" style="position: sticky; top: 1.5rem;">
-                            <div class="card-header text-muted small">網站作品集預覽</div>
-                            <div class="card-body p-0">
-                                <div class="d-flex align-items-center justify-content-center" style="min-height: 300px; background-color: var(--bs-secondary-bg);"><img id="imgPreview" src="" class="d-none" style="max-width: 100%; object-fit: cover;"><span id="placeholderText" class="text-muted">尚未選擇圖片</span></div>
-                                <div class="p-3"><h5 id="previewTitle" class="card-title">(標題將顯示於此)</h5><p id="previewText" class="card-text text-body-secondary" style="white-space: pre-wrap;">(內文將顯示於此...)</p></div>
-                                <div class="card-footer bg-transparent border-top-secondary d-flex justify-content-around text-muted small p-2"><span><i class="bi bi-heart"></i> 讚</span><span><i class="bi bi-chat"></i> 留言</span><span><i class="bi bi-share"></i> 分享</span></div>
+                        <div class="col-lg-5">
+                            <div class="card border-secondary" style="position: sticky; top: 1.5rem;">
+                                <div class="card-header text-muted small">網站作品集預覽</div>
+                                <div class="card-body p-0">
+                                    <div class="d-flex align-items-center justify-content-center" style="min-height: 300px; background-color: var(--bs-secondary-bg);">
+                                        <img id="imgPreview" src="" class="d-none" style="max-width: 100%; object-fit: cover;">
+                                        <span id="placeholderText" class="text-muted">尚未選擇圖片</span>
+                                    </div>
+                                    <div class="p-3">
+                                        <h5 id="previewTitle" class="card-title">(標題將顯示於此)</h5>
+                                        <p id="previewText" class="card-text text-body-secondary" style="white-space: pre-wrap;">(內文將顯示於此...)</p>
+                                    </div>
+                                    <div class="card-footer bg-transparent border-top-secondary d-flex justify-content-around text-muted small p-2">
+                                        <span><i class="bi bi-heart"></i> 讚</span>
+                                        <span><i class="bi bi-chat"></i> 留言</span>
+                                        <span><i class="bi bi-share"></i> 分享</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -172,24 +227,28 @@
     </div>
 
 <script>
-    // --- 頁內導覽切換功能 ---
+    // --- Security Token ---
+    const token = sessionStorage.getItem('gfmotor-admin-token');
+    
     document.addEventListener('DOMContentLoaded', function() {
+        // --- Main Navigation ---
         const navLinks = document.querySelectorAll('.sidebar .nav-link');
         const contentSections = document.querySelectorAll('.content-section');
 
         function showContent(targetId) {
-            contentSections.forEach(section => {
-                section.classList.remove('active');
-            });
-            navLinks.forEach(link => {
-                link.classList.remove('active');
-            });
+            contentSections.forEach(section => section.classList.remove('active'));
+            navLinks.forEach(link => link.classList.remove('active'));
 
             const targetSection = document.getElementById('content-' + targetId);
             const targetLink = document.querySelector(`.nav-link[data-target="${targetId}"]`);
             
             if(targetSection) targetSection.classList.add('active');
             if(targetLink) targetLink.classList.add('active');
+
+            // If portfolio tab is shown, load the portfolios
+            if (targetId === 'portfolio') {
+                loadPortfolios();
+            }
         }
 
         navLinks.forEach(link => {
@@ -197,48 +256,216 @@
                 e.preventDefault();
                 const targetId = this.getAttribute('data-target');
                 showContent(targetId);
-                window.location.hash = this.getAttribute('href'); // 更新網址 hash
+                // Using replaceState to avoid cluttering browser history with internal navigation
+                history.replaceState(null, '', '#' + this.getAttribute('data-target'));
             });
         });
 
-        // 檢查網址 hash 來決定預設顯示哪個區塊
-        const hash = window.location.hash.substring(1);
+        const hash = window.location.hash.substring(1).split('?')[0];
         if (hash) {
             showContent(hash);
+        } else {
+            showContent('bookings'); // Default view
         }
 
-        // 登出按鈕
+        // --- Auth ---
         document.getElementById('logoutBtn').addEventListener('click', function(e) {
             e.preventDefault();
             sessionStorage.removeItem('gfmotor-admin-token');
             alert('您已成功登出。');
             window.location.href = '/static/login.html';
         });
+
+        // --- Portfolio Management ---
+        const listView = document.getElementById('portfolio-list-view');
+        const editView = document.getElementById('portfolio-edit-view');
+        const addNewBtn = document.getElementById('addNewPortfolioBtn');
+        const backBtn = document.getElementById('backToListBtn');
+        const portfolioForm = document.getElementById('portfolioForm');
+        const portfolioIdInput = document.getElementById('portfolioId');
+        const editViewTitle = document.getElementById('edit-view-title');
+        
+        const postCategory = document.getElementById('postCategory');
+        const postTitle = document.getElementById('postTitle');
+        const postDescription = document.getElementById('postDescription');
+        const uploadImage = document.getElementById('uploadImage');
+        const imgPreview = document.getElementById('imgPreview');
+        const placeholderText = document.getElementById('placeholderText');
+        const previewTitle = document.getElementById('previewTitle');
+        const previewText = document.getElementById('previewText');
+
+        // Switch to Edit View for creating a new portfolio
+        addNewBtn.addEventListener('click', () => {
+            listView.style.display = 'none';
+            editView.style.display = 'block';
+            editViewTitle.textContent = '建立新作品';
+            portfolioForm.reset();
+            portfolioIdInput.value = '';
+            imgPreview.classList.add('d-none');
+            placeholderText.classList.remove('d-none');
+            previewTitle.textContent = '(標題將顯示於此)';
+            previewText.textContent = '(內文將顯示於此...)';
+        });
+
+        // Switch back to List View
+        backBtn.addEventListener('click', () => {
+            editView.style.display = 'none';
+            listView.style.display = 'block';
+        });
+
+        // Handle form submission for both Create and Update
+        portfolioForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const id = portfolioIdInput.value;
+            const formData = new FormData();
+            formData.append('title', postTitle.value);
+            formData.append('description', postDescription.value);
+            formData.append('category', postCategory.value);
+            
+            // Only append file if one is selected. For updates, no new file means keep the old one.
+            if (uploadImage.files[0]) {
+                formData.append('file', uploadImage.files[0]);
+            }
+
+            // You must select a file when creating
+            if (!id && !uploadImage.files[0]) {
+                alert('建立新作品時必須上傳一張圖片。');
+                return;
+            }
+
+            const url = id ? `/api/portfolios/${id}` : '/api/portfolios';
+            const method = id ? 'PUT' : 'POST';
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || '儲存失敗');
+                }
+
+                alert(`作品集已成功${id ? '更新' : '建立'}！`);
+                editView.style.display = 'none';
+                listView.style.display = 'block';
+                loadPortfolios();
+
+            } catch (error) {
+                console.error('儲存作品集時發生錯誤:', error);
+                alert(`儲存作品集時發生錯誤: ${error.message}`);
+            }
+        });
+        
+        // --- Live Preview Logic ---
+        uploadImage.addEventListener('change', function(e) {
+            if (e.target.files && e.target.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    imgPreview.src = event.target.result;
+                    imgPreview.classList.remove('d-none');
+                    placeholderText.classList.add('d-none');
+                };
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        });
+        postTitle.addEventListener('input', () => { previewTitle.innerText = postTitle.value || "(標題將顯示於此)"; });
+        postDescription.addEventListener('input', () => { previewText.innerText = postDescription.value || "(內文將顯示於此...)"; });
     });
 
-    // --- 您原本的預覽功能 ---
-    const uploadImageInput = document.getElementById('uploadImage');
-    const imgPreview = document.getElementById('imgPreview');
-    const placeholderText = document.getElementById('placeholderText');
-    uploadImageInput.addEventListener('change', function(e){ if(e.target.files[0]){ const reader = new FileReader(); reader.onload = function(event){ imgPreview.src = event.target.result; imgPreview.classList.remove('d-none'); placeholderText.classList.add('d-none'); }; reader.readAsDataURL(e.target.files[0]); } });
-    const titleInput = document.getElementById('postTitle');
-    const previewTitle = document.getElementById('previewTitle');
-    titleInput.addEventListener('input', function(){ previewTitle.innerText = this.value || "(標題將顯示於此)"; });
-    const descInput = document.getElementById('postDescription');
-    const previewText = document.getElementById('previewText');
-    descInput.addEventListener('input', function(){ previewText.innerText = this.value || "(內文將顯示於此...)"; });
-    function uploadPost() {
-        const imageFile = uploadImageInput.files[0];
-        const title = titleInput.value;
-        const category = document.getElementById('postCategory').value;
-        const description = descInput.value;
-        if (!imageFile || !title) { alert("請務必填寫標題並選擇一張圖片！"); return; }
-        alert(`準備發佈！\n標題: ${title}\n分類: ${category}`);
-        const formData = new FormData();
-        formData.append('title', title);
-        formData.append('category', category);
-        formData.append('file', imageFile);
-        // 未來可在此處接上 fetch('/admin/portfolio/upload', ...)
+    // --- Portfolio API Functions ---
+    async function loadPortfolios() {
+        const tableBody = document.getElementById('portfolio-table-body');
+        tableBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">正在載入資料...</td></tr>';
+
+        try {
+            const response = await fetch('/api/portfolios', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error('無法獲取作品集資料');
+            
+            const portfolios = await response.json();
+            
+            if (portfolios.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">目前沒有任何作品集。</td></tr>';
+                return;
+            }
+
+            tableBody.innerHTML = ''; // Clear loading message
+            portfolios.forEach(item => {
+                const row = `
+                    <tr>
+                        <td>${item.category}</td>
+                        <td>${item.title}</td>
+                        <td><img src="${item.image_url}" alt="${item.title}" width="100" class="img-thumbnail"></td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-light me-2" onclick="handleEdit(${item.id})"><i class="bi bi-pencil-fill"></i> 編輯</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="handleDelete(${item.id})"><i class="bi bi-trash-fill"></i> 刪除</button>
+                        </td>
+                    </tr>`;
+                tableBody.insertAdjacentHTML('beforeend', row);
+            });
+        } catch (error) {
+            console.error('載入作品集失敗:', error);
+            tableBody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">資料載入失敗: ${error.message}</td></tr>`;
+        }
+    }
+
+    async function handleEdit(id) {
+        try {
+            const response = await fetch(`/api/portfolios/${id}`, {
+                 headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error('無法獲取該作品的資料');
+            
+            const item = await response.json();
+            
+            // Populate form
+            document.getElementById('portfolioId').value = item.id;
+            document.getElementById('postCategory').value = item.category;
+            document.getElementById('postTitle').value = item.title;
+            document.getElementById('postDescription').value = item.description;
+            
+            // Populate preview
+            document.getElementById('previewTitle').textContent = item.title;
+            document.getElementById('previewText').textContent = item.description;
+            document.getElementById('imgPreview').src = item.image_url;
+            document.getElementById('imgPreview').classList.remove('d-none');
+            document.getElementById('placeholderText').classList.add('d-none');
+
+            // Switch view
+            document.getElementById('edit-view-title').textContent = '編輯作品';
+            document.getElementById('portfolio-list-view').style.display = 'none';
+            document.getElementById('portfolio-edit-view').style.display = 'block';
+
+        } catch (error) {
+            alert('載入編輯資料時發生錯誤: ' + error.message);
+        }
+    }
+
+    async function handleDelete(id) {
+        if (!confirm('您確定要永久刪除這個作品集嗎？此操作無法復原。')) return;
+
+        try {
+            const response = await fetch(`/api/portfolios/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || '刪除失敗');
+            }
+
+            alert('作品集已成功刪除！');
+            loadPortfolios();
+
+        } catch (error) {
+            console.error('刪除作品集時發生錯誤:', error);
+            alert('刪除作品集時發生錯誤: ' + error.message);
+        }
     }
 </script>
 </body>

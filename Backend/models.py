@@ -59,10 +59,12 @@ class Consumption(Base):
 # models.py (加在最下面)
 
 # 修改原本的 Portfolio 類別
-class PortfolioItem(Base):  # ★ 改名：變成 PortfolioItem
-    __tablename__ = "portfolio_items" # ★ 資料表名稱也改一下比較好分辨
+class PortfolioItem(Base):
+    __tablename__ = "portfolio_items"
 
     id = Column(Integer, primary_key=True, index=True)
-    title = Column(String(100))
-    category = Column(String(50))   # ★ 改名：原本是 content，現在改成 category
-    image_url = Column(String(200))
+    title = Column(String(100), nullable=False)
+    description = Column(String(500), nullable=True)
+    category = Column(String(50), nullable=False)
+    image_url = Column(String(200), nullable=False)
+    created_at = Column(DateTime, default=func.now())

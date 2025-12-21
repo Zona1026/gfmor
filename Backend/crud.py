@@ -1,6 +1,7 @@
 # crud.py
 from sqlalchemy.orm import Session
-from . import models
+from . import models, schemas
+from typing import Optional
 
 # 透過 Google ID 找使用者
 def get_user_by_google_id(db: Session, google_id: str):
@@ -20,3 +21,49 @@ def create_google_user(db: Session, user_info: dict):
     db.commit()
     db.refresh(db_user)
     return db_user
+
+# --- Portfolio CRUD ---
+
+def get_portfolio_item(db: Session, item_id: int):
+    return db.query(models.PortfolioItem).filter(models.PortfolioItem.id == item_id).first()
+
+def get_portfolio_items(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(models.PortfolioItem).order_by(models.PortfolioItem.created_at.desc()).offset(skip).limit(limit).all()
+
+def create_portfolio_item(db: Session, title: str, description: str, category: str, image_url: str):
+    db_item = models.PortfolioItem(
+        title=title,
+        description=description,
+        category=category,
+        image_url=image_url
+    )
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+def update_portfolio_item(db: Session, item_id: int, title: str, description: str, category: str, image_url: Optional[str] = None):
+    db_item = get_portfolio_item(db, item_id)
+    if not db_item:
+        return None
+    
+    db_item.title = title
+    db_item.description = description
+    db_item.category = category
+    if image_url:
+        db_item.image_url = image_url
+        
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+def delete_portfolio_item(db: Session, item_id: int):
+    db_item = get_portfolio_item(db, item_id)
+    if not db_item:
+        return None
+    
+    # Return the image_url so we can delete the file
+    image_url = db_item.image_url 
+    db.delete(db_item)
+    db.commit()
+    return image_url

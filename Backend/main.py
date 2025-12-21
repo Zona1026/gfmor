@@ -247,119 +247,134 @@ def set_slot_capacity(config: schemas.SlotConfigCreate, db: Session = Depends(da
         return new_config
     
 
-# 1. 取得個人的消費紀錄
-@app.get("/my-consumptions/{google_id}", response_model=List[schemas.ConsumptionResponse])
-def get_my_consumptions(google_id: str, db: Session = Depends(database.get_db)):
-    return db.query(models.Consumption).filter(
-        models.Consumption.user_google_id == google_id
-    ).order_by(models.Consumption.created_at.desc()).all()
+# ========================================================
+#  作品集 (Portfolio) API
+# ========================================================
+from fastapi import Header, File, UploadFile, Form
+import uuid
+import os
+import shutil
+from typing import Optional
 
-# 2. (管理員用) 新增消費紀錄 & 自動升級邏輯
-# main.py (找到 add_consumption 函式並修改中間一段)
+# 簡易的 token 驗證
+async def verify_token(authorization: str = Header(...)):
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="無效的認證標頭")
+    # 在一個真正的應用中，你會在這裡解碼和驗證 JWT
+    # 但根據目前的登入邏輯，我們只檢查 token 是否存在
+    token = authorization.split(" ")[1]
+    if not token:
+        raise HTTPException(status_code=401, detail="未提供 Token")
+    return token
 
-@app.post("/admin/consumptions")
-def add_consumption(data: schemas.CreateConsumption, db: Session = Depends(database.get_db)):
-    # ... (前面記錄消費的代碼不用變) ...
-    new_record = models.Consumption(
-        user_google_id=data.user_google_id,
-        amount=data.amount,
-        description=data.description
-    )
-    db.add(new_record)
-    
-    # B. 更新使用者累積金額
-    user = db.query(models.User).filter(models.User.google_id == data.user_google_id).first()
-    if user:
-        user.total_spending += data.amount
-        
-        # ★★★ C. 新的自動升級邏輯 (關鍵修改) ★★★
-        current_total = user.total_spending
-        
-        if current_total > 500000:
-            user.level = "爆改車主之SVIP"
-        elif current_total > 300000:
-            user.level = "爆改車主之VVIP"
-        elif current_total > 100000:
-            user.level = "爆改車主"
-        elif current_total > 50000:
-            user.level = "大改車主"
-        else:
-            user.level = "一般會員"
-            
-    db.commit()
-    return {"message": "消費登錄成功", "current_level": user.level, "total_spent": user.total_spending}
+# --- Public Endpoint ---
 
-# 別忘了修改 user profile 接口，讓它回傳 level 和 total_spending
-@app.get("/users/{google_id}")
-def read_user_profile(google_id: str, db: Session = Depends(database.get_db)):
-    user = crud.get_user_by_google_id(db, google_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    return {
-        "google_id": user.google_id,
-        "name": user.name,
-        "email": user.email,
-        "phone": user.phone,
-        "role": user.role,
-        "created_at": user.created_at,
-        # 新增回傳這兩個欄位
-        "level": user.level,
-        "total_spending": user.total_spending
-    }
+@app.get("/api/portfolios", response_model=List[schemas.PortfolioItem])
+def read_portfolio_items(skip: int = 0, limit: int = 100, db: Session = Depends(database.get_db)):
+    """
+    公開的 API，獲取所有作品集項目列表。
+    """
+    items = crud.get_portfolio_items(db, skip=skip, limit=limit)
+    return items
 
-@app.get("/portfolio")
-def get_portfolio_items(db: Session = Depends(database.get_db)):
-    return db.query(models.PortfolioItem).order_by(models.PortfolioItem.created_at.desc()).all()
+# --- Admin-only Endpoints ---
 
-# 上傳作品 (限管理員)
-# 注意：這裡用 Form(...) 和 File(...) 是因為要同時傳文字和檔案
-@app.post("/admin/portfolio/upload")
-def upload_portfolio_item(
+@app.post("/api/portfolios", response_model=schemas.PortfolioItem, status_code=status.HTTP_201_CREATED)
+def create_portfolio_item(
     title: str = Form(...),
+    description: str = Form(...),
     category: str = Form(...),
     file: UploadFile = File(...),
-    db: Session = Depends(database.get_db)
+    db: Session = Depends(database.get_db),
+    token: str = Depends(verify_token)
 ):
-    # 1. 確保資料夾存在
-    upload_dir = "static/uploads"
+    """
+    (管理員) 建立一個新的作品集項目。
+    """
+    upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
     if not os.path.exists(upload_dir):
         os.makedirs(upload_dir)
 
-    # 2. 儲存檔案 (為了避免檔名重複，建議加個時間戳，這裡先簡化直接存)
-    # 或是你可以用 uuid 改名，這裡示範用原始檔名
-    file_location = f"{upload_dir}/{file.filename}"
-    
+    # 產生獨一無二的檔名
+    file_extension = os.path.splitext(file.filename)[1]
+    unique_filename = f"{uuid.uuid4()}{file_extension}"
+    file_location = os.path.join(upload_dir, unique_filename)
+
     with open(file_location, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # 3. 寫入資料庫 (存的是網址路徑 /static/uploads/...)
-    db_url = f"/static/uploads/{file.filename}"
+    image_url = f"/static/uploads/{unique_filename}"
     
-    new_item = models.PortfolioItem(
-        title=title,
-        category=category,
-        image_url=db_url
-    )
-    db.add(new_item)
-    db.commit()
-    
-    return {"message": "上傳成功", "url": db_url}
+    return crud.create_portfolio_item(db=db, title=title, description=description, category=category, image_url=image_url)
 
-# 刪除作品 (限管理員)
-@app.delete("/admin/portfolio/{item_id}")
-def delete_portfolio_item(item_id: int, db: Session = Depends(database.get_db)):
-    item = db.query(models.PortfolioItem).filter(models.PortfolioItem.id == item_id).first()
-    if not item:
+@app.get("/api/portfolios/{item_id}", response_model=schemas.PortfolioItem)
+def read_portfolio_item(item_id: int, db: Session = Depends(database.get_db), token: str = Depends(verify_token)):
+    """
+    (管理員) 獲取單一作品集項目的詳細資訊。
+    """
+    db_item = crud.get_portfolio_item(db, item_id=item_id)
+    if db_item is None:
         raise HTTPException(status_code=404, detail="找不到該作品")
-    
-    # (選擇性) 這裡也可以順便把實體檔案刪除 os.remove(...)
-    
-    db.delete(item)
-    db.commit()
-    return {"message": "刪除成功"}
+    return db_item
 
-# ★★★ 請補上這一段 (讀取列表) ★★★
-@app.get("/admin/portfolio/list")
-def get_portfolio_items(db: Session = Depends(database.get_db)):
-    return db.query(models.PortfolioItem).all()
+@app.put("/api/portfolios/{item_id}", response_model=schemas.PortfolioItem)
+def update_portfolio_item(
+    item_id: int,
+    title: str = Form(...),
+    description: str = Form(...),
+    category: str = Form(...),
+    file: Optional[UploadFile] = File(None),
+    db: Session = Depends(database.get_db),
+    token: str = Depends(verify_token)
+):
+    """
+    (管理員) 更新一個現有的作品集項目。
+    """
+    db_item = crud.get_portfolio_item(db, item_id=item_id)
+    if not db_item:
+        raise HTTPException(status_code=404, detail="找不到該作品")
+
+    image_url = db_item.image_url
+    
+    if file:
+        # 如果有新檔案上傳，則刪除舊檔案並儲存新檔案
+        old_image_path_relative = db_item.image_url.lstrip('/')
+        old_image_path_full = os.path.join(os.path.dirname(__file__), old_image_path_relative)
+        if os.path.exists(old_image_path_full):
+            os.remove(old_image_path_full)
+
+        upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+        file_extension = os.path.splitext(file.filename)[1]
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        file_location = os.path.join(upload_dir, unique_filename)
+
+        with open(file_location, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        image_url = f"/static/uploads/{unique_filename}"
+
+    updated_item = crud.update_portfolio_item(
+        db=db, item_id=item_id, title=title, description=description, category=category, image_url=image_url if file else None
+    )
+    return updated_item
+
+
+@app.delete("/api/portfolios/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_portfolio_item(item_id: int, db: Session = Depends(database.get_db), token: str = Depends(verify_token)):
+    """
+    (管理員) 刪除一個作品集項目。
+    """
+    image_url_to_delete = crud.delete_portfolio_item(db, item_id=item_id)
+
+    if image_url_to_delete is None:
+        raise HTTPException(status_code=404, detail="找不到該作品")
+
+    # 從檔案系統中刪除圖片檔案
+    # 將 URL 路徑轉換為檔案系統路徑
+    image_path_relative = image_url_to_delete.lstrip('/')
+    image_path_full = os.path.join(os.path.dirname(__file__), image_path_relative)
+    
+    if os.path.exists(image_path_full):
+        os.remove(image_path_full)
+    
+    return

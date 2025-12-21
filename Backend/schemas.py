@@ -12,6 +12,28 @@ class PhoneUpdateRequest(BaseModel):
     google_id: str 
     phone: str = Field(..., pattern=r"^\d{10}$", description="必須是10碼數字")
 
+# --- Portfolio Schemas ---
+class PortfolioItemBase(BaseModel):
+    title: str
+    description: Optional[str] = None
+    category: str
+
+class PortfolioItemCreate(PortfolioItemBase):
+    pass
+
+class PortfolioItemUpdate(PortfolioItemBase):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+
+class PortfolioItem(PortfolioItemBase):
+    id: int
+    image_url: str
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+
 # --- 【以下是新增的】 ---
 
 # 1. 建立預約的請求資料
