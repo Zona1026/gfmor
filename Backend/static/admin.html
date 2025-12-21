@@ -132,7 +132,16 @@
                             </div>
                             <div class="card-body">
                                 <form id="uploadForm">
-                                    <div class="mb-3"><label for="postCategory" class="form-label">發佈到</label><select class="form-select" id="postCategory"><option>GF Motor 作品集</option></select></div>
+                                    <div class="mb-3">
+                                        <label for="postCategory" class="form-label fw-bold">作品分類</label>
+                                        <select class="form-select" id="postCategory" required>
+                                            <option value="" selected disabled>-- 請選擇分類 --</option>
+                                            <option value="大改車主作品集">大改車主作品集 ( 消費5-10萬 )</option>
+                                            <option value="爆改車主作品集">爆改車主作品集 ( 消費10-30萬 )</option>
+                                            <option value="爆改車主之VVIP作品集">爆改車主之VVIP作品集 (消費30-50萬 )</option>
+                                            <option value="爆改車主之SVIP作品集">爆改車主之SVIP作品集 (消費50萬以上 )</option>
+                                        </select>
+                                    </div>
                                     <div class="mb-3 p-3 border border-secondary-subtle rounded bg-dark-subtle"><label for="uploadImage" class="form-label fw-bold">作品照片</label><p class="text-muted small">分享一張最能代表您作品的相片。</p><input type="file" class="form-control" id="uploadImage" accept="image/*" required></div>
                                     <div class="mb-3"><label for="postTitle" class="form-label fw-bold">標題</label><input type="text" class="form-control" id="postTitle" placeholder="例如：哈雷經典款全車改造" required></div>
                                     <div class="mb-3"><label for="postDescription" class="form-label fw-bold">內文</label><textarea class="form-control" id="postDescription" rows="5" placeholder="輸入關於此作品的詳細描述..."></textarea></div>
