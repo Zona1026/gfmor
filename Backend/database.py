@@ -7,19 +7,20 @@ import pymysql
 # 這是雲端必備的 (解決密碼加密問題)
 pymysql.install_as_MySQLdb()
 
-# ==========================================
-# 【請填入你在 Aiven 看到的真實資料】
-# 格式: mysql+pymysql://帳號:密碼@主機網址:Port/defaultdb
-# 注意 1: 網址前面要加 mysql+pymysql
-# 注意 2: Port 不要寫 3306，要寫 Aiven 給你的那個五位數
-# ==========================================
+import os
+from dotenv import load_dotenv
 
-# 範例 (請把下面的資料換成你的)：
-USER = "avnadmin"
-PASSWORD = "AVNS_wpMgWFawTeSbnCOGuxo"
-HOST = "gfmotor-gfmotor001.j.aivencloud.com" # 這裡不能打錯
-PORT = "12676" # Aiven 給你的 Port
-DB_NAME = "gfmotor" # Aiven 預設是 defaultdb，除非你自己建了 gf_motor
+# 在本地開發時，從 .env 檔案載入環境變數
+load_dotenv()
+
+# ==========================================
+#  從環境變數讀取資料庫設定
+# ==========================================
+USER = os.getenv("DB_USER", "avnadmin")
+PASSWORD = os.getenv("DB_PASSWORD", "AVNS_wpMgWFawTeSbnCOGuxo")
+HOST = os.getenv("DB_HOST", "gfmotor-gfmotor001.j.aivencloud.com")
+PORT = os.getenv("DB_PORT", "12676")
+DB_NAME = os.getenv("DB_NAME", "gfmotor")
 
 SQLALCHEMY_DATABASE_URL = f"mysql+pymysql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DB_NAME}"
 

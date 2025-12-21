@@ -1,6 +1,6 @@
 # crud.py
 from sqlalchemy.orm import Session
-import models
+from . import models
 
 # 透過 Google ID 找使用者
 def get_user_by_google_id(db: Session, google_id: str):

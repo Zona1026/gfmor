@@ -4,7 +4,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from google.oauth2 import id_token
 from google.auth.transport import requests
-import models, database, schemas, crud
+from . import models, database, schemas, crud
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
@@ -18,13 +18,15 @@ from fastapi import File, UploadFile, Form
 models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# 設定 CORS (保持你的設定)
-origins = [
-    "http://127.0.0.1:5500",
-    "http://localhost:5500",
-]
+# Construct path to static directory relative to this file
+static_path = os.path.join(os.path.dirname(__file__), "static")
+app.mount("/static", StaticFiles(directory=static_path), name="static")
+
+# 設定 CORS
+# 從環境變數讀取允許的來源，如果未設定，則使用本地開發的預設值
+cors_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5500")
+origins = [origin.strip() for origin in cors_origins_str.split(',')]
 
 app.add_middleware(
     CORSMiddleware,
@@ -42,8 +44,8 @@ def read_root():
 def read_admin():
     return RedirectResponse(url="/static/admin.html")
 
-# GOOGLE_CLIENT_ID 請填入你自己的
-GOOGLE_CLIENT_ID = "357528958616-1mbtrri5ii7irbqpftd8ml3qtdr7ho0u.apps.googleusercontent.com"
+# 從環境變數讀取 GOOGLE_CLIENT_ID，若未設定則使用預設值
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "357528958616-1mbtrri5ii7irbqpftd8ml3qtdr7ho0u.apps.googleusercontent.com")
 
 # --- 原有的 Google 登入 API (保持不變) ---
 @app.post("/auth/google")
@@ -99,20 +101,7 @@ def update_phone(request: schemas.PhoneUpdateRequest, db: Session = Depends(data
     db.commit()
     return {"message": "電話更新成功", "action": "GO_HOME"}
 
-# --- 原有的取得個資 API (保持不變) ---
-@app.get("/users/{google_id}")
-def read_user_profile(google_id: str, db: Session = Depends(database.get_db)):
-    user = crud.get_user_by_google_id(db, google_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return {
-        "google_id": user.google_id,
-        "name": user.name,
-        "email": user.email,
-        "phone": user.phone,
-        "role": user.role,
-        "created_at": user.created_at
-    }
+
 
 # --- 原有的管理員登入 API (保持不變) ---
 class AdminLoginRequest(BaseModel):

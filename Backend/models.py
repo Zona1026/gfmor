@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum
 from sqlalchemy.sql import func
-from database import Base
+from .database import Base
 
 # 1. 使用者 (User) - 新增等級與累積消費
 class User(Base):
