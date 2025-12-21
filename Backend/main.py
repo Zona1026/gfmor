@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from typing import List
 import os
 import shutil
+import uuid
 from fastapi.staticfiles import StaticFiles
 from fastapi import File, UploadFile, Form
 
@@ -117,9 +118,13 @@ def admin_login(request: AdminLoginRequest, db: Session = Depends(database.get_d
 
     if not admin:
         raise HTTPException(status_code=401, detail="登入失敗")
+
+    # 產生一個簡單的 session token
+    session_token = str(uuid.uuid4())
     
     return {
         "message": "管理員登入成功",
+        "token": session_token, # 將 token 回傳給前端
         "user": {
             "name": admin.name,
             "role": admin.role,
