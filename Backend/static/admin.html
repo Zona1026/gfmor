@@ -1,108 +1,107 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GF Motor 後台管理系統</title>
+    <title>GF Motor 內容管理</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <style>
-        /* 頁面基礎樣式 */
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #2c3e50; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .login-container { background: white; padding: 2.5rem; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); width: 400px; text-align: center; }
-        
-        h2 { color: #34495e; margin-bottom: 20px; border-bottom: 3px solid #e74c3c; display: inline-block; padding-bottom: 5px; }
-        
-        /* 輸入框通用樣式 */
-        .input-group { margin-bottom: 15px; text-align: left; }
-        label { display: block; margin-bottom: 5px; color: #666; font-size: 0.9rem; }
-        input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; transition: 0.3s; box-sizing: border-box; }
-        
-        /* 按鈕樣式 */
-        button { width: 100%; padding: 12px; background: #e74c3c; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 10px; transition: background 0.3s; }
-        button:hover { background: #c0392b; }
-        
-        /* 錯誤訊息 */
-        .error { color: #e74c3c; margin-top: 15px; font-size: 0.9rem; display: none; background: #fadbd8; padding: 10px; border-radius: 5px; }
-        .hidden { display: none; }
-        
-        /* 儀表板與上傳區塊樣式 */
-        .dashboard { width: 600px; text-align: left; }
-        .admin-info { background: #ecf0f1; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
-        
-        /* ★★★ 這是新加的樣式：上傳區塊 ★★★ */
-        .upload-section { background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border: 1px solid #eee; margin-top: 20px; }
-        .upload-section h4 { margin-top: 0; color: #2980b9; border-left: 4px solid #2980b9; padding-left: 10px;}
+        body {
+            background-color: var(--bs-dark-bg-subtle);
+        }
+        .preview-card {
+            position: sticky;
+            top: 1.5rem;
+        }
+        .preview-header {
+            background-color: var(--bs-tertiary-bg);
+            border-bottom: 0;
+        }
+        .preview-body {
+            background-color: var(--bs-body-bg);
+        }
+        .preview-image-placeholder {
+            min-height: 300px;
+            background-color: var(--bs-secondary-bg);
+        }
+        #imgPreview {
+            max-width: 100%;
+            object-fit: cover;
+        }
     </style>
 </head>
 <body>
-<div class="container-fluid bg-light" style="min-height: 100vh; padding: 20px;">
-    <div class="row justify-content-center">
+<div class="container py-4">
+    <div class="row g-4 justify-content-center">
         
-        <div class="col-md-7">
-            <div class="card shadow-sm">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0">建立貼文 / 上架商品</h5>
+        <!-- 左側：編輯區塊 -->
+        <div class="col-lg-7">
+            <div class="card border-secondary">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="bi bi-pencil-square me-2"></i>建立作品集貼文</h5>
                 </div>
                 <div class="card-body">
-                    <form id="productForm">
+                    <form id="uploadForm">
                         
                         <div class="mb-3">
-                            <label class="text-muted small">發佈到</label>
-                            <select class="form-select form-select-sm">
-                                <option>C&C手機配件3c專賣店</option>
+                            <label for="postCategory" class="form-label">發佈到</label>
+                            <select class="form-select" id="postCategory">
+                                <option>GF Motor 作品集</option>
                             </select>
                         </div>
 
-                        <div class="mb-3 p-3 border rounded bg-light">
-                            <label class="form-label fw-bold">影音素材</label>
-                            <p class="text-muted small">分享相片或影片。</p>
-                            <input type="file" class="form-control" id="productImage" accept="image/*">
+                        <div class="mb-3 p-3 border border-secondary-subtle rounded bg-dark-subtle">
+                            <label for="uploadImage" class="form-label fw-bold">作品照片</label>
+                            <p class="text-muted small">分享一張最能代表您作品的相片。</p>
+                            <input type="file" class="form-control" id="uploadImage" accept="image/*" required>
                         </div>
 
                         <div class="mb-3">
-                            <label for="productDesc" class="form-label fw-bold">文字</label>
-                            <textarea class="form-control" id="productDesc" rows="5" placeholder="輸入商品描述或貼文內容..."></textarea>
-                            <div class="d-flex justify-content-between mt-2">
-                                <span class="text-muted fs-4"><i class="bi bi-type"></i></span>
-                                <span class="text-muted fs-5">😊 # @</span>
-                            </div>
+                            <label for="postTitle" class="form-label fw-bold">標題</label>
+                            <input type="text" class="form-control" id="postTitle" placeholder="例如：哈雷經典款全車改造" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="postDescription" class="form-label fw-bold">內文</label>
+                            <textarea class="form-control" id="postDescription" rows="5" placeholder="輸入關於此作品的詳細描述..."></textarea>
                         </div>
 
                         <div class="d-grid">
-                            <button type="button" class="btn btn-primary" onclick="uploadProduct()">發佈</button>
+                            <button type="button" class="btn btn-primary btn-lg" onclick="uploadPost()">
+                                <i class="bi bi-arrow-up-circle-fill me-2"></i>發佈作品
+                            </button>
                         </div>
                     </form>
                 </div>
             </div>
         </div>
 
-        <div class="col-md-5">
-            <div class="card shadow-sm border-0 sticky-top" style="top: 20px;">
-                <div class="card-header bg-transparent border-bottom-0 text-muted">
-                    Facebook 動態消息預覽
+        <!-- 右側：預覽區塊 -->
+        <div class="col-lg-5">
+            <div class="card border-secondary preview-card">
+                <div class="card-header preview-header text-muted small">
+                    網站作品集預覽
                 </div>
-                <div class="card-body bg-white p-0">
-                    <div class="p-3">
-                        <div class="d-flex align-items-center mb-2">
-                            <div class="bg-secondary rounded-circle" style="width: 40px; height: 40px;"></div> <div class="ms-2">
-                                <div class="fw-bold text-dark">C&C手機配件3c專賣店</div>
-                                <div class="text-muted small">剛剛 <i class="bi bi-globe"></i></div>
-                            </div>
-                        </div>
-
-                        <div id="previewText" class="mb-2" style="white-space: pre-wrap;">
-                            (你的文字會出現在這裡...)
-                        </div>
-                    </div>
-
-                    <div class="bg-light d-flex align-items-center justify-content-center" style="min-height: 300px; overflow: hidden;">
-                        <img id="imgPreview" src="" style="width: 100%; display: none;">
+                <div class="card-body preview-body p-0">
+                    <!-- 預覽圖片 -->
+                    <div class="preview-image-placeholder d-flex align-items-center justify-content-center">
+                        <img id="imgPreview" src="" class="d-none">
                         <span id="placeholderText" class="text-muted">尚未選擇圖片</span>
                     </div>
 
-                    <div class="p-2 border-top d-flex justify-content-around text-muted">
-                        <span>讚</span>
-                        <span>留言</span>
-                        <span>分享</span>
+                    <!-- 預覽文字 -->
+                    <div class="p-3">
+                        <h5 id="previewTitle" class="card-title">(標題將顯示於此)</h5>
+                        <p id="previewText" class="card-text text-body-secondary" style="white-space: pre-wrap;">(內文將顯示於此...)</p>
+                    </div>
+
+                    <div class="card-footer bg-transparent border-top-secondary d-flex justify-content-around text-muted small p-2">
+                        <span><i class="bi bi-heart"></i> 讚</span>
+                        <span><i class="bi bi-chat"></i> 留言</span>
+                        <span><i class="bi bi-share"></i> 分享</span>
                     </div>
                 </div>
             </div>
@@ -111,40 +110,84 @@
     </div>
 </div>
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-
 <script>
-    // 1. 處理圖片預覽
-    const imgInput = document.getElementById('productImage');
+    // --- 預覽功能完全保留，只更新對應的 ID ---
+
+    // 1. 圖片預覽
+    const uploadImageInput = document.getElementById('uploadImage');
     const imgPreview = document.getElementById('imgPreview');
     const placeholderText = document.getElementById('placeholderText');
 
-    imgInput.addEventListener('change', function(e) {
+    uploadImageInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = function(e) {
-                imgPreview.src = e.target.result;
-                imgPreview.style.display = 'block'; // 顯示圖片
-                placeholderText.style.display = 'none'; // 隱藏 "尚未選擇圖片" 文字
+            reader.onload = function(event) {
+                imgPreview.src = event.target.result;
+                imgPreview.classList.remove('d-none');
+                placeholderText.classList.add('d-none');
             }
             reader.readAsDataURL(file);
         }
     });
 
-    // 2. 處理文字即時同步
-    const descInput = document.getElementById('productDesc');
-    const previewText = document.getElementById('previewText');
-
-    descInput.addEventListener('input', function() {
-        // 把左邊輸入框的值，塞進右邊的預覽框
-        // 如果是空的，就顯示預設文字
-        previewText.innerText = this.value || "(你的文字會出現在這裡...)";
+    // 2. 標題即時同步
+    const titleInput = document.getElementById('postTitle');
+    const previewTitle = document.getElementById('previewTitle');
+    titleInput.addEventListener('input', function() {
+        previewTitle.innerText = this.value || "(標題將顯示於此)";
     });
 
-    // 3. 上傳函式 (維持你原本的邏輯，這裡只是範例)
-    function uploadProduct() {
-        alert("準備發佈！(這裡要接上你原本的 API 程式碼)");
+    // 3. 內文即時同步
+    const descInput = document.getElementById('postDescription');
+    const previewText = document.getElementById('previewText');
+    descInput.addEventListener('input', function() {
+        previewText.innerText = this.value || "(內文將顯示於此...)";
+    });
+
+    // 4. 上傳函式 (尚未實作)
+    function uploadPost() {
+        const imageFile = uploadImageInput.files[0];
+        const title = titleInput.value;
+        const category = document.getElementById('postCategory').value; // 假設我們未來會用到
+        const description = descInput.value;
+
+        if (!imageFile || !title) {
+            alert("請務必填寫標題並選擇一張圖片！");
+            return;
+        }
+
+        // 這裡未來會接上後端的 /admin/portfolio/upload API
+        alert(`準備發佈！\n標題: ${title}\n分類: ${category}\n描述: ${description.substring(0,20)}...`);
+
+        // 以下是未來要使用的 FormData 準備
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('category', category);
+        formData.append('description', description); // 假設 API 會接收
+        formData.append('file', imageFile);
+
+        /*
+        // 未來的 API 呼叫
+        fetch('/admin/portfolio/upload', {
+            method: 'POST',
+            body: formData
+            // 注意：使用 FormData 時不要設定 Content-Type header，瀏覽器會自動處理
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.message) {
+                alert('上傳成功！');
+                window.location.reload(); // 重新整理頁面
+            } else {
+                alert('上傳失敗：' + JSON.stringify(data));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('上傳時發生錯誤。');
+        });
+        */
     }
 </script>
 </body>
