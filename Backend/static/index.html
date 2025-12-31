@@ -194,40 +194,64 @@
     </footer>
 
     <script>
-        // --- 這裡的 JavaScript 邏輯完全保持不變 ---
-        const CLIENT_ID = "357528958616-1mbtrri5ii7irbqpftd8ml3qtdr7ho0u.apps.googleusercontent.com"; 
-        let currentUserId = ""; 
+        const CLIENT_ID = "357528958616-1mbtrri5ii7irbqpftd8ml3qtdr7ho0u.apps.googleusercontent.com";
+        let currentUserId = "";
         let isLoggedIn = false;
 
+        // --- NEW: Updates navbar based on login state ---
+        function updateNavbarForLoggedInUser(user) {
+            const userInfoDiv = document.getElementById('user-info');
+            const userNameLink = document.getElementById('user-name-link');
+            const navLoginBtn = document.getElementById('navLoginBtn');
+            const navLogoutBtn = document.getElementById('navLogoutBtn');
+
+            if (user && user.name) {
+                userNameLink.textContent = `你好, ${user.name}`;
+                userNameLink.href = "#"; // Prevent page jump
+                
+                // When name is clicked, show the profile view inside this page
+                userNameLink.onclick = (e) => {
+                    e.preventDefault();
+                    document.getElementById("landingSection").classList.add("hidden");
+                    document.getElementById("mainFooter").classList.add("hidden");
+                    document.getElementById("appContainer").classList.remove("hidden");
+                    
+                    // Set user context and load the profile view
+                    currentUserId = user.google_id;
+                    isLoggedIn = true; 
+                    loadProfile(); 
+                };
+
+                userInfoDiv.classList.remove('hidden');
+                navLoginBtn.classList.add('hidden');
+                navLogoutBtn.onclick = logout; // Assign logout function
+            } else {
+                userInfoDiv.classList.add('hidden');
+                navLoginBtn.classList.remove('hidden');
+            }
+        }
+
+        // --- MODIFIED: Handles showing/hiding main sections ---
         function toggleLoginView() {
             const landing = document.getElementById("landingSection");
             const app = document.getElementById("appContainer");
             const navBtn = document.getElementById("navLoginBtn");
-            const footer = document.getElementById("mainFooter"); // 抓取 footer
+            const footer = document.getElementById("mainFooter");
 
-            if (isLoggedIn) {
-                landing.classList.add("hidden");
-                footer.classList.add("hidden"); // 登入後隱藏 footer 比較乾淨
-                app.classList.remove("hidden");
-                showSection("profileSection");
-                return;
-            }
-
+            // This function is now mainly for showing the login modal
             if (app.classList.contains("hidden")) {
                 landing.classList.add("hidden");
-                footer.classList.add("hidden"); // 進入登入畫面時也隱藏 footer
+                footer.classList.add("hidden");
                 app.classList.remove("hidden");
-                showSection("loginSection");
+                showSection("loginSection"); // Always show login first
                 navBtn.innerText = "返回首頁";
-                navBtn.onclick = toggleLoginView;
+                navBtn.onclick = () => window.location.reload(); // Simple reload to go home
             } else {
-                landing.classList.remove("hidden");
-                footer.classList.remove("hidden"); // 返回首頁時顯示 footer
-                app.classList.add("hidden");
-                navBtn.innerText = "會員登入";
+                window.location.reload();
             }
         }
-
+        
+        // --- MODIFIED: Post-login logic ---
         async function handleCredentialResponse(response) {
             try {
                 const res = await fetch("/auth/google", {
@@ -236,29 +260,86 @@
                 const data = await res.json();
 
                 if (data.action === "FILL_PHONE") {
+                    sessionStorage.setItem('gfmotor-user', JSON.stringify({ google_id: data.google_id, name: data.user_name }));
                     currentUserId = data.google_id;
                     document.getElementById("userNameDisplay").innerText = data.user_name;
                     showSection("phoneSection");
                 } else if (data.action === "GO_HOME") {
-                    currentUserId = data.user.google_id;
+                    sessionStorage.setItem('gfmotor-user', JSON.stringify(data.user));
                     isLoggedIn = true;
-                    document.getElementById("navLoginBtn").innerText = "會員中心";
-                    loadProfile();
-                } else { alert("登入錯誤：" + data.detail); }
-            } catch(e) { console.error(e); }
+                    
+                    document.getElementById("appContainer").classList.add("hidden");
+                    document.getElementById("landingSection").classList.remove("hidden");
+                    document.getElementById("mainFooter").classList.remove("hidden");
+
+                    updateNavbarForLoggedInUser(data.user);
+                } else { 
+                    alert("登入錯誤：" + data.detail); 
+                }
+            } catch(e) { console.error("An error occurred during login:", e); }
         }
 
+        // --- MODIFIED: Get user ID from session ---
         async function loadProfile() {
+            const userStr = sessionStorage.getItem('gfmotor-user');
+            if (!userStr) {
+                alert("請先登入");
+                window.location.reload();
+                return;
+            }
+            const user = JSON.parse(userStr);
+            currentUserId = user.google_id;
+
             showSection("profileSection");
-            try {
-                const res = await fetch(`/users/${currentUserId}`);
-                const user = await res.json();
-                document.getElementById("p_name").innerText = user.name;
-                document.getElementById("p_phone").innerText = user.phone;
-                updateLevelCard(user.level || "一般會員", user.total_spending || 0);
-                switchTab('booking');
-            } catch(e) { console.error(e); }
+            
+            // Populate profile from session data to avoid unnecessary/failing API calls
+            document.getElementById("p_name").innerText = user.name;
+            document.getElementById("p_phone").innerText = user.phone || 'N/A';
+            
+            // The original code was fetching level/spending from a non-existent endpoint.
+            // We will use placeholder data for now.
+            updateLevelCard("一般會員", 0); // Placeholder data
+            switchTab('booking'); 
         }
+
+        function showSection(id) {
+            ["loginSection", "phoneSection", "profileSection", "bookingFormSection"].forEach(sid => document.getElementById(sid).classList.add("hidden"));
+            document.getElementById(id).classList.remove("hidden");
+        }
+
+        // --- NEW: Checks login status on page load ---
+        function checkLoginOnLoad() {
+            const userStr = sessionStorage.getItem('gfmotor-user');
+            if (userStr) {
+                try {
+                    const user = JSON.parse(userStr);
+                    if (user && user.google_id) {
+                        isLoggedIn = true;
+                        currentUserId = user.google_id;
+                        updateNavbarForLoggedInUser(user);
+                    }
+                } catch (e) {
+                    console.error("Failed to parse user data from session.", e);
+                    sessionStorage.removeItem('gfmotor-user');
+                }
+            }
+        }
+        
+        // --- Logout function ---
+        function logout() {
+            sessionStorage.removeItem('gfmotor-user');
+            sessionStorage.removeItem('gfmotor-admin-token'); // Also clear admin token
+            window.location.reload(); 
+        }
+
+        // --- Lifecyle ---
+        window.onload = function() {
+            checkLoginOnLoad();
+            google.accounts.id.initialize({ client_id: CLIENT_ID, callback: handleCredentialResponse });
+            google.accounts.id.renderButton(document.getElementById("buttonDiv"), { theme: "outline", size: "large" });
+        };
+
+        // --- Utility Functions ---
 
         function updateLevelCard(level, spending) {
             const card = document.getElementById("levelCard");
@@ -274,16 +355,25 @@
             document.getElementById("next_goal").innerText = goal > 0 ? `${goal.toLocaleString()} (升級${name})` : "已達最高";
         }
 
-        function showSection(id) {
-            ["loginSection", "phoneSection", "profileSection", "bookingFormSection"].forEach(sid => document.getElementById(sid).classList.add("hidden"));
-            document.getElementById(id).classList.remove("hidden");
-        }
-
         async function submitPhone() {
             const phone = document.getElementById("phoneInput").value;
-            if (!/^\d{10}$/.test(phone)) { alert("請輸入10碼"); return; }
-            const res = await fetch("/users/update-phone", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ google_id: currentUserId, phone: phone }) });
-            if (res.ok) { isLoggedIn = true; loadProfile(); }
+            if (!/^\d{10}$/.test(phone)) { alert("請輸入10碼手機號碼"); return; }
+
+            const userStr = sessionStorage.getItem('gfmotor-user');
+            if(!userStr) { alert("Session 資訊遺失，請重新登入"); window.location.reload(); return; }
+            const user = JSON.parse(userStr);
+
+            const res = await fetch("/users/update-phone", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ google_id: user.google_id, phone: phone }) });
+            if (res.ok) { 
+                user.phone = phone;
+                sessionStorage.setItem('gfmotor-user', JSON.stringify(user));
+                isLoggedIn = true; 
+                
+                 document.getElementById("appContainer").classList.remove("hidden");
+                 loadProfile();
+            } else {
+                alert("更新失敗，請稍後再試");
+            }
         }
 
         async function switchTab(tab) {
@@ -291,22 +381,38 @@
             document.getElementById("btnBooking").classList.toggle("active", tab==='booking');
             document.getElementById("btnConsumption").classList.toggle("active", tab!=='booking');
             list.innerHTML = "載入中...";
-            const url = tab==='booking' ? `/my-bookings/${currentUserId}` : `/my-consumptions/${currentUserId}`;
-            const res = await fetch(url);
-            const data = await res.json();
-            list.innerHTML = "";
-            if(data.length===0) list.innerHTML = "<p style='text-align:center;color:#999'>無紀錄</p>";
-            data.forEach(item => {
-                const d = new Date(item.created_at || item.booking_time).toLocaleDateString();
-                const title = tab==='booking' ? `${item.category}-${item.car_model}` : item.description;
-                const right = tab==='booking' ? item.status : `$${item.amount.toLocaleString()}`;
-                list.innerHTML += `<div class="record-item"><div><strong>${title}</strong><br><small style='color:#888'>${d}</small></div><span>${right}</span></div>`;
-            });
+            
+            if (tab === 'consumption') {
+                 list.innerHTML = "<p style='text-align:center;color:#999'>消費紀錄功能開發中</p>";
+                 return;
+            }
+            // Assumes tab is 'booking'
+            const url = `/my-bookings/${currentUserId}`;
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`Server responded with ${res.status}`);
+                const data = await res.json();
+                list.innerHTML = "";
+                if(data.length===0) {
+                    list.innerHTML = "<p style='text-align:center;color:#999'>無預約紀錄</p>";
+                } else {
+                    data.forEach(item => {
+                        const d = new Date(item.booking_time).toLocaleDateString();
+                        const title = `${item.category} - ${item.car_model}`;
+                        const right = item.status;
+                        list.innerHTML += `<div class="record-item"><div><strong>${title}</strong><br><small style='color:#888'>${d}</small></div><span>${right}</span></div>`;
+                    });
+                }
+            } catch (e) {
+                console.error("Failed to fetch booking records:", e);
+                list.innerHTML = "<p style='text-align:center;color:red'>讀取預約紀錄失敗</p>";
+            }
         }
 
         function showBookingForm() { showSection("bookingFormSection"); }
         function backToProfile() { showSection("profileSection"); switchTab('booking'); }
-        function updateTimeSlots() { /* 同前 */ 
+        
+        function updateTimeSlots() { 
             const dateInput = document.getElementById("b_date_picker").value;
             const slotSelect = document.getElementById("b_time_slot");
             slotSelect.innerHTML = ""; 
@@ -318,64 +424,31 @@
             slotSelect.disabled = false;
             for (let h = start; h <= end; h++) { const t = h.toString().padStart(2,'0') + ":00"; slotSelect.add(new Option(t, t)); }
         }
-        async function submitBooking() { /* 同前 */ 
+
+        async function submitBooking() {
              const date = document.getElementById("b_date_picker").value;
             const time = document.getElementById("b_time_slot").value;
             const car = document.getElementById("b_car_model").value;
-            if(!date || !time || !car || document.getElementById("b_time_slot").disabled) { alert("請完整填寫"); return; }
+            if(!date || !time || !car || document.getElementById("b_time_slot").disabled) { alert("請完整填寫預約資訊"); return; }
             const payload = { user_google_id: currentUserId, car_model: car, booking_time: `${date}T${time}:00`, category: document.getElementById("b_category").value, note: document.getElementById("b_note").value };
-            const res = await fetch("/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-            if (res.ok) { alert("預約成功"); backToProfile(); } else { alert("失敗"); }
-        }
-        function logout() {
-            sessionStorage.removeItem('gfmotor-admin-token');
-            sessionStorage.removeItem('gfmotor-user');
-            window.location.reload(); 
-        }
-
-        window.onload = function() {
-            google.accounts.id.initialize({ client_id: CLIENT_ID, callback: handleCredentialResponse });
-            google.accounts.id.renderButton(document.getElementById("buttonDiv"), { theme: "outline", size: "large" });
-        }
-    </script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const token = sessionStorage.getItem('gfmotor-admin-token');
-            const userStr = sessionStorage.getItem('gfmotor-user');
             
-            if (token && userStr) {
-                try {
-                    const user = JSON.parse(userStr);
-                    
-                    // 顯示使用者資訊
-                    const userInfoDiv = document.getElementById('user-info');
-                    const userNameLink = document.getElementById('user-name-link');
-                    const navLoginBtn = document.getElementById('navLoginBtn');
-                    const navLogoutBtn = document.getElementById('navLogoutBtn');
-
-                    userNameLink.textContent = `你好, ${user.name}`;
-                    userInfoDiv.classList.remove('hidden');
-                    navLoginBtn.classList.add('hidden');
-
-                    // 點擊使用者名稱，跳轉到 profile.html
-                    userNameLink.href = '/static/profile.html';
-
-                    // 登出按鈕
-                    navLogoutBtn.onclick = function() {
-                        logout();
-                    };
-
-                } catch (e) {
-                    console.error("無法解析使用者資訊", e);
-                    // 清除損壞的資料
-                    sessionStorage.removeItem('gfmotor-admin-token');
-                    sessionStorage.removeItem('gfmotor-user');
+            try {
+                const res = await fetch("/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                const result = await res.json();
+                if (res.ok) { 
+                    alert("預約成功！"); 
+                    backToProfile(); 
+                } else { 
+                    alert(`預約失敗：${result.detail || '請檢查預約時間或聯絡我們'}`); 
                 }
+            } catch (e) {
+                alert("預約時發生錯誤，請稍後再試");
             }
-        });
+        }
     </script>
 </body>
 </html>
+
 
 
 

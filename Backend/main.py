@@ -291,21 +291,24 @@ def create_portfolio_item(
     """
     (管理員) 建立一個新的作品集項目。
     """
-    upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
-    if not os.path.exists(upload_dir):
-        os.makedirs(upload_dir)
+    try:
+        upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+        if not os.path.exists(upload_dir):
+            os.makedirs(upload_dir)
 
-    # 產生獨一無二的檔名
-    file_extension = os.path.splitext(file.filename)[1]
-    unique_filename = f"{uuid.uuid4()}{file_extension}"
-    file_location = os.path.join(upload_dir, unique_filename)
+        # 產生獨一無二的檔名
+        file_extension = os.path.splitext(file.filename)[1]
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        file_location = os.path.join(upload_dir, unique_filename)
 
-    with open(file_location, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        with open(file_location, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-    image_url = f"/static/uploads/{unique_filename}"
-    
-    return crud.create_portfolio_item(db=db, title=title, description=description, category=category, image_url=image_url)
+        image_url = f"/static/uploads/{unique_filename}"
+        
+        return crud.create_portfolio_item(db=db, title=title, description=description, category=category, image_url=image_url)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"建立作品時發生錯誤: {str(e)}")
 
 @app.get("/api/portfolios/{item_id}", response_model=schemas.PortfolioItem)
 def read_portfolio_item(item_id: int, db: Session = Depends(database.get_db), token: str = Depends(verify_token)):
@@ -330,33 +333,36 @@ def update_portfolio_item(
     """
     (管理員) 更新一個現有的作品集項目。
     """
-    db_item = crud.get_portfolio_item(db, item_id=item_id)
-    if not db_item:
-        raise HTTPException(status_code=404, detail="找不到該作品")
+    try:
+        db_item = crud.get_portfolio_item(db, item_id=item_id)
+        if not db_item:
+            raise HTTPException(status_code=404, detail="找不到該作品")
 
-    image_url = db_item.image_url
-    
-    if file:
-        # 如果有新檔案上傳，則刪除舊檔案並儲存新檔案
-        old_image_path_relative = db_item.image_url.lstrip('/')
-        old_image_path_full = os.path.join(os.path.dirname(__file__), old_image_path_relative)
-        if os.path.exists(old_image_path_full):
-            os.remove(old_image_path_full)
-
-        upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
-        file_extension = os.path.splitext(file.filename)[1]
-        unique_filename = f"{uuid.uuid4()}{file_extension}"
-        file_location = os.path.join(upload_dir, unique_filename)
-
-        with open(file_location, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        image_url = db_item.image_url
         
-        image_url = f"/static/uploads/{unique_filename}"
+        if file:
+            # 如果有新檔案上傳，則刪除舊檔案並儲存新檔案
+            old_image_path_relative = db_item.image_url.lstrip('/')
+            old_image_path_full = os.path.join(os.path.dirname(__file__), old_image_path_relative)
+            if os.path.exists(old_image_path_full):
+                os.remove(old_image_path_full)
 
-    updated_item = crud.update_portfolio_item(
-        db=db, item_id=item_id, title=title, description=description, category=category, image_url=image_url if file else None
-    )
-    return updated_item
+            upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+            file_extension = os.path.splitext(file.filename)[1]
+            unique_filename = f"{uuid.uuid4()}{file_extension}"
+            file_location = os.path.join(upload_dir, unique_filename)
+
+            with open(file_location, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            
+            image_url = f"/static/uploads/{unique_filename}"
+
+        updated_item = crud.update_portfolio_item(
+            db=db, item_id=item_id, title=title, description=description, category=category, image_url=image_url if file else None
+        )
+        return updated_item
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"更新作品時發生錯誤: {str(e)}")
 
 
 @app.delete("/api/portfolios/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
