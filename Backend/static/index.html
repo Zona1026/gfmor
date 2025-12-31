@@ -157,13 +157,20 @@
                 <div class="spending-amount">$<span id="p_spending">0</span></div>
                 <div style="font-size: 0.8rem;">再消費 $<span id="next_goal">...</span> 升級</div>
             </div>
-            <p style="margin-bottom: 5px;"><strong>姓名：</strong><span id="p_name">--</span></p>
-            <div id="phone-display">
+            <div id="profile-display-mode">
+                <p style="margin-bottom: 5px;"><strong>姓名：</strong><span id="p_name">--</span></p>
                 <p><strong>電話：</strong><span id="p_phone">--</span></p>
             </div>
-            <div id="phone-edit" class="hidden">
-                <label for="p_phone_input"><strong>電話：</strong></label>
-                <input type="text" id="p_phone_input" placeholder="10碼手機號碼" maxlength="10">
+
+            <div id="profile-edit-mode" class="hidden">
+                <div style="margin-bottom: 10px;">
+                    <label for="p_name_input" style="font-weight: bold;">姓名：</label>
+                    <input type="text" id="p_name_input" class="w-full" placeholder="您的姓名" maxlength="50">
+                </div>
+                <div>
+                    <label for="p_phone_input" style="font-weight: bold;">電話：</label>
+                    <input type="text" id="p_phone_input" class="w-full" placeholder="10碼手機號碼" maxlength="10">
+                </div>
             </div>
             
             <div id="profile-buttons" style="margin-top: 15px; margin-bottom: 15px;">

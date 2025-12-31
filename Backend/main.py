@@ -92,15 +92,16 @@ def google_login(request: schemas.GoogleLoginRequest, db: Session = Depends(data
             }
         }
 
-# --- 原有的更新電話 API (保持不變) ---
-@app.put("/users/update-phone")
-def update_phone(request: schemas.PhoneUpdateRequest, db: Session = Depends(database.get_db)):
-    user = crud.get_user_by_google_id(db, google_id=request.google_id)
+# --- User Profile Update ---
+@app.put("/users/{google_id}/profile", response_model=schemas.User)
+def update_user_profile(google_id: str, request: schemas.UserUpdateRequest, db: Session = Depends(database.get_db)):
+    """
+    更新使用者資料 (姓名、電話)
+    """
+    user = crud.update_user(db, google_id=google_id, user_update=request)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    user.phone = request.phone
-    db.commit()
-    return {"message": "電話更新成功", "action": "GO_HOME"}
+    return user
 
 
 

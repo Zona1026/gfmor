@@ -86,3 +86,21 @@ class CreateConsumption(BaseModel):
     user_google_id: str
     amount: int
     description: str
+
+# --- User Schemas ---
+class UserUpdateRequest(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=50)
+    phone: Optional[str] = Field(None, pattern=r"^\d{10}$")
+
+class User(BaseModel):
+    google_id: str
+    name: str
+    phone: Optional[str]
+    email: str
+    role: str
+    created_at: datetime
+    level: Optional[str]
+    total_spending: Optional[int]
+
+    class Config:
+        orm_mode = True

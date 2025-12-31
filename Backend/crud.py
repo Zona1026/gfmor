@@ -67,3 +67,16 @@ def delete_portfolio_item(db: Session, item_id: int):
     db.delete(db_item)
     db.commit()
     return image_url
+
+def update_user(db: Session, google_id: str, user_update: schemas.UserUpdateRequest):
+    db_user = get_user_by_google_id(db, google_id=google_id)
+    if not db_user:
+        return None
+    
+    update_data = user_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_user, key, value)
+        
+    db.commit()
+    db.refresh(db_user)
+    return db_user
