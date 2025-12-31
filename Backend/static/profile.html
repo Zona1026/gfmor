@@ -1,0 +1,83 @@
+<!-- c:/Users/Zona/Desktop/Google AI/GF motor/Backend/static/admin.html -->
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GF Motor 會員資訊</title>
+    <!-- 引入 Tailwind CSS 進行美化 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Axios 處理 API 請求 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.2/axios.min.js"></script>
+    <!-- 引入 FontAwesome 圖示 -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* 自定義捲軸樣式 */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .preview-card { transition: all 0.3s ease; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans antialiased text-gray-800">
+    <div id="profile-section" class="min-h-screen flex items-center justify-center">
+        <main class="w-full max-w-lg mx-auto bg-white rounded-xl shadow-2xl p-8">
+            <header class="flex justify-between items-center mb-8 border-b pb-4">
+                <h2 class="text-3xl font-bold text-gray-800">會員資訊</h2>
+                <button onclick="logout()" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition">
+                    登出
+                </button>
+            </header>
+            <div id="user-details" class="space-y-4">
+                <div class="flex items-center">
+                    <strong class="w-24 text-gray-500">姓名:</strong>
+                    <span id="user-name" class="text-lg font-semibold text-gray-900"></span>
+                </div>
+                <div class="flex items-center">
+                    <strong class="w-24 text-gray-500">帳號:</strong>
+                    <span id="user-account" class="text-lg font-semibold text-gray-900"></span>
+                </div>
+                <div class="flex items-center">
+                    <strong class="w-24 text-gray-500">角色:</strong>
+                    <span id="user-role" class="text-lg font-semibold text-gray-900"></span>
+                </div>
+                 <div class="flex items-center mt-6">
+                    <a href="/static/index.html" class="text-blue-500 hover:underline">返回首頁</a>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const userStr = sessionStorage.getItem('gfmotor-user');
+            const token = sessionStorage.getItem('gfmotor-admin-token');
+
+            if (!userStr || !token) {
+                // 如果沒有登入資訊，跳轉回登入頁面
+                window.location.href = '/static/login.html';
+                return;
+            }
+            
+            try {
+                const user = JSON.parse(userStr);
+                document.getElementById('user-name').textContent = user.name || 'N/A';
+                document.getElementById('user-account').textContent = user.account || 'N/A';
+                document.getElementById('user-role').textContent = user.role || 'N/A';
+            } catch (e) {
+                console.error("無法解析使用者資訊", e);
+                window.location.href = '/static/login.html';
+            }
+        });
+
+        function logout() {
+            if(confirm('確定要登出嗎？')) {
+                sessionStorage.removeItem('gfmotor-admin-token');
+                sessionStorage.removeItem('gfmotor-user');
+                window.location.href = '/static/index.html';
+            }
+        }
+    </script>
+</body>
+</html>

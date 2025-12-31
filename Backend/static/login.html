@@ -58,12 +58,15 @@
                 const result = await response.json();
 
                 if (response.ok && result.token) {
-                    // ★★★ 登入成功，將通行證儲存到瀏覽器 ★★★
+                    // ★★★ 登入成功，將通行證和使用者資訊儲存到瀏覽器 ★★★
                     sessionStorage.setItem('gfmotor-admin-token', result.token);
+                    if (result.user) {
+                        sessionStorage.setItem('gfmotor-user', JSON.stringify(result.user));
+                    }
 
                     alert(result.message);
-                    // 跳轉到後台儀表板
-                    window.location.href = '/admin';
+                    // 跳轉到首頁
+                    window.location.href = '/static/index.html';
                 } else {
                     // 登入失敗
                     errorElement.textContent = '登入失敗：' + (result.detail || '帳號或密碼錯誤');

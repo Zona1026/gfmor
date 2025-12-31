@@ -106,7 +106,11 @@
         <div class="logo">GF <span>Motor</span></div>
         <div class="nav-links">
             <a href="portfolio.html" class="btn-portfolio">📸 改裝名人堂</a>
-            <button id="navLoginBtn" class="btn-login" onclick="toggleLoginView()">會員登入</button>
+            <div id="user-info" class="hidden" style="display: flex; align-items: center; gap: 15px;">
+                <a href="#" id="user-name-link" style="font-weight: bold; color: #333;"></a>
+                <button id="navLogoutBtn" class="btn-login" style="background: #555;">登出</button>
+            </div>
+            <button id="navLoginBtn" class="btn-login" onclick="location.href='/static/login.html'">會員登入</button>
         </div>
     </nav>
 
@@ -323,12 +327,52 @@
             const res = await fetch("/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
             if (res.ok) { alert("預約成功"); backToProfile(); } else { alert("失敗"); }
         }
-        function logout() { window.location.reload(); }
+        function logout() {
+            sessionStorage.removeItem('gfmotor-admin-token');
+            sessionStorage.removeItem('gfmotor-user');
+            window.location.reload(); 
+        }
 
         window.onload = function() {
             google.accounts.id.initialize({ client_id: CLIENT_ID, callback: handleCredentialResponse });
             google.accounts.id.renderButton(document.getElementById("buttonDiv"), { theme: "outline", size: "large" });
         }
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = sessionStorage.getItem('gfmotor-admin-token');
+            const userStr = sessionStorage.getItem('gfmotor-user');
+            
+            if (token && userStr) {
+                try {
+                    const user = JSON.parse(userStr);
+                    
+                    // 顯示使用者資訊
+                    const userInfoDiv = document.getElementById('user-info');
+                    const userNameLink = document.getElementById('user-name-link');
+                    const navLoginBtn = document.getElementById('navLoginBtn');
+                    const navLogoutBtn = document.getElementById('navLogoutBtn');
+
+                    userNameLink.textContent = `你好, ${user.name}`;
+                    userInfoDiv.classList.remove('hidden');
+                    navLoginBtn.classList.add('hidden');
+
+                    // 點擊使用者名稱，跳轉到 profile.html
+                    userNameLink.href = '/static/profile.html';
+
+                    // 登出按鈕
+                    navLogoutBtn.onclick = function() {
+                        logout();
+                    };
+
+                } catch (e) {
+                    console.error("無法解析使用者資訊", e);
+                    // 清除損壞的資料
+                    sessionStorage.removeItem('gfmotor-admin-token');
+                    sessionStorage.removeItem('gfmotor-user');
+                }
+            }
+        });
     </script>
 </body>
 </html>
