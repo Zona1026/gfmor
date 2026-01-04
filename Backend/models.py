@@ -63,8 +63,8 @@ class PortfolioItem(Base):
     __tablename__ = "portfolio_items"
 
     id = Column(Integer, primary_key=True, index=True)
-    title = Column(String(100), nullable=False)
-    description = Column(String(500), nullable=True)
-    category = Column(String(50), nullable=False)
-    image_url = Column(String(200), nullable=False)
-    created_at = Column(DateTime, default=func.now())
+    title = Column("標題", String(100), nullable=False)
+    description = Column("描述", String(500), nullable=True)
+    category = Column("分類", String(50), nullable=False)
+    image_url = Column("圖片路徑", String(200), nullable=False)
+    created_at = Column("上傳時間", DateTime, default=func.now())
