@@ -9,19 +9,20 @@ services:
     startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: DATABASE_URL
-        sync: false # 改為從 Render 後台手動貼上 Aiven 的連線字串，更安全
+        sync: false # 稍後在 Render Dashboard 手動貼入 Aiven 連線字串
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: PYTHON_VERSION
         value: 3.12
 
-  # --- 前端服務 (靜態網站) ---
-  - type: static
+  # --- 前端服務 (修正後的靜態網站設定) ---
+  - type: web           # <--- 這裡必須是 web
     name: gfmotor-frontend
-    env: static
-    rootDir: Frontend # 你的前端資料夾名稱
-    buildCommand: "npm install && npm run build" # 如果是純 HTML，這行可以删掉或改為 ""
-    publishPath: dist # 編譯後輸出的資料夾，如果是 Vite 通常是 dist，React 可能是 build
+    env: static         # <--- 這裡指定為 static，Render 就會把它當成靜態網站處理
+    rootDir: Frontend
+    plan: free
+    buildCommand: "npm install && npm run build" # 如果是純 HTML/CSS，這裡可以寫 ""
+    staticPublishPath: dist # <--- 注意：靜態網站是用 staticPublishPath，不是 publishPath
     envVars:
-      - key: BACKEND_URL # 讓前端知道後端的網址
-        value: https://gfmotor-backend.onrender.com # 這是你上方設定的後端服務網址
+      - key: BACKEND_URL
+        value: https://gfmotor-backend.onrender.com
