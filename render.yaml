@@ -4,7 +4,7 @@ services:
     name: gfmotor-backend
     env: python
     rootDir: Backend
-    plan: free
+    plan: free                # 後端是動態服務，需要這個
     buildCommand: "pip install -r requirements.txt"
     startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
     envVars:
@@ -16,8 +16,10 @@ services:
         value: 3.12
 
   # --- 前端服務 (靜態網站) ---
-  - type: static          # 官方規範：靜態站就是用 static
+  - type: web                 # 既然 type: static 報錯，就用 web
     name: gfmotor-frontend
+    env: static               # 這裡指定它是靜態環境
     rootDir: Frontend
-    buildCommand: "npm install && npm run build" # 如果是純 HTML，這行改為 ""
-    publishPath: dist     # 這是靜態網站編譯後輸出的資料夾
+    # ！！！注意：這裡絕對不能寫 plan: free ！！！
+    buildCommand: "npm install && npm run build" # 如果是純 HTML，請改為 ""
+    staticPublishPath: dist    # env 為 static 時，必須使用 staticPublishPath
