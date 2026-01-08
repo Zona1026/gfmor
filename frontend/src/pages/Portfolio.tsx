@@ -26,14 +26,29 @@ const Portfolio: React.FC = () => {
         setLoading(true);
         setError(null);
         const response = await fetch(`${apiBaseUrl}/api/portfolios`);
+        
+        console.log('--- Portfolio API Response ---');
+        console.log('Response Status:', response.status);
+        console.log('Response OK:', response.ok);
+        
         if (!response.ok) {
-          // Try to get more error details from the response body
           const errorBody = await response.text();
+          console.error('API Error Body:', errorBody);
           throw new Error(`HTTP error! status: ${response.status}, body: ${errorBody}`);
         }
+        
         const data: PortfolioItem[] = await response.json();
+        
+        console.log('--- Parsed Data ---');
+        console.log('Data Received:', data);
+        console.log('Number of Items:', data.length);
+        console.log('--------------------');
+        
         setItems(data);
       } catch (e: any) {
+        console.error('--- Fetch Error ---');
+        console.error(e);
+        console.log('--------------------');
         setError(e);
       } finally {
         setLoading(false);

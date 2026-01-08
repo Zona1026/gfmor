@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: gfmotor-backend
+    env: python
+    rootDir: Backend
+    plan: free # optional
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: gfmotor # Replace with your database name on Render
+          property: connectionString
+      - key: GOOGLE_CLIENT_ID
+        sync: false # Set this in the Render dashboard
+      - key: PYTHON_VERSION
+        value: 3.12 # Specify your python version
