@@ -22,4 +22,4 @@ services:
     rootDir: Frontend
     # ！！！注意：這裡絕對不能寫 plan: free ！！！
     buildCommand: "npm install && npm run build" # 如果是純 HTML，請改為 ""
-    staticPublishPath: dist    # env 為 static 時，必須使用 staticPublishPath
+    staticPublishPath: dist    # env 為 static 時，必須使用 staticPublishPath 
