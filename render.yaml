@@ -19,6 +19,6 @@ services:
   - type: web
     name: gfmotor-frontend
     env: static
-    rootDir: Backend/static
+    rootDir: frontend
     buildCommand: "npm install && npm run build" # 如果是純 HTML，這行改為 ""
     staticPublishPath: dist
