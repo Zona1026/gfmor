@@ -1,17 +1,27 @@
 services:
+  # --- 後端服務 (Python) ---
   - type: web
     name: gfmotor-backend
     env: python
     rootDir: Backend
-    plan: free # optional
+    plan: free
     buildCommand: "pip install -r requirements.txt"
     startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: gfmotor # Replace with your database name on Render
-          property: connectionString
+        sync: false # 改為從 Render 後台手動貼上 Aiven 的連線字串，更安全
       - key: GOOGLE_CLIENT_ID
-        sync: false # Set this in the Render dashboard
+        sync: false
       - key: PYTHON_VERSION
-        value: 3.12 # Specify your python version
+        value: 3.12
+
+  # --- 前端服務 (靜態網站) ---
+  - type: static
+    name: gfmotor-frontend
+    env: static
+    rootDir: Frontend # 你的前端資料夾名稱
+    buildCommand: "npm install && npm run build" # 如果是純 HTML，這行可以删掉或改為 ""
+    publishPath: dist # 編譯後輸出的資料夾，如果是 Vite 通常是 dist，React 可能是 build
+    envVars:
+      - key: BACKEND_URL # 讓前端知道後端的網址
+        value: https://gfmotor-backend.onrender.com # 這是你上方設定的後端服務網址
