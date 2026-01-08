@@ -26,8 +26,9 @@ app.mount("/static", StaticFiles(directory=static_path), name="static")
 
 # 設定 CORS
 # 從環境變數讀取允許的來源，如果未設定，則使用本地開發的預設值
-cors_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5500")
-origins = [origin.strip() for origin in cors_origins_str.split(',')]
+# cors_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5500")
+# origins = [origin.strip() for origin in cors_origins_str.split(',')]
+origins = ["*"] # 暫時開放所有來源以便除錯
 
 app.add_middleware(
     CORSMiddleware,
