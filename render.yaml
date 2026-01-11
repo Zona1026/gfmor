@@ -13,7 +13,7 @@ services:
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: PYTHON_VERSION
-        value: 3.8.2  # 這裡已改為完整版本號
+        value: 3.9.25  # 這裡已改為完整版本號
 
   # --- 前端服務 (靜態網站) ---
   - type: web
