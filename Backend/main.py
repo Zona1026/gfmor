@@ -253,12 +253,44 @@ def set_slot_capacity(config: schemas.SlotConfigCreate, db: Session = Depends(da
 #  作品集 (Portfolio) API
 # ========================================================
 from fastapi import Header, File, UploadFile, Form
-import uuid
 import os
-import shutil
 from typing import Optional
 
-# 簡易的 token 驗證
+# Cloudinary Imports
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+
+# 從環境變數配置 Cloudinary
+# 請確保在 Render 的環境變數中設定了這些值
+cloudinary.config(
+  cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME"),
+  api_key = os.getenv("CLOUDINARY_API_KEY"),
+  api_secret = os.getenv("CLOUDINARY_API_SECRET"),
+  secure = True
+)
+
+def extract_public_id_from_url(url: str) -> Optional[str]:
+    """從 Cloudinary URL 中提取 public_id，使其能被API用來刪除"""
+    if not url:
+        return None
+    try:
+        # 範例 URL: http://res.cloudinary.com/cloud_name/image/upload/v123456/folder/public_id.jpg
+        # 我們需要 'folder/public_id' 這部分
+        parts = url.split('/')
+        if 'upload' in parts:
+            upload_index = parts.index('upload')
+            # 找到 'upload' 後面、版本號之後的部分
+            if len(parts) > upload_index + 2:
+                public_id_full = '/'.join(parts[upload_index+2:])
+                # 移除副檔名
+                return os.path.splitext(public_id_full)[0]
+    except Exception:
+        return None
+    return None
+
+
+# 簡易的 token 驗證 (保持不變)
 async def verify_token(authorization: str = Header(...)):
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="無效的認證標頭")
@@ -269,7 +301,7 @@ async def verify_token(authorization: str = Header(...)):
         raise HTTPException(status_code=401, detail="未提供 Token")
     return token
 
-# --- Public Endpoint ---
+# --- Public Endpoint (No changes needed) ---
 
 @app.get("/api/portfolios", response_model=List[schemas.PortfolioItem])
 def read_portfolio_items(skip: int = 0, limit: int = 100, db: Session = Depends(database.get_db)):
@@ -279,7 +311,7 @@ def read_portfolio_items(skip: int = 0, limit: int = 100, db: Session = Depends(
     items = crud.get_portfolio_items(db, skip=skip, limit=limit)
     return items
 
-# --- Admin-only Endpoints ---
+# --- Admin-only Endpoints (Modified for Cloudinary) ---
 
 @app.post("/api/portfolios", response_model=schemas.PortfolioItem, status_code=status.HTTP_201_CREATED)
 def create_portfolio_item(
@@ -290,33 +322,23 @@ def create_portfolio_item(
     db: Session = Depends(database.get_db),
     token: str = Depends(verify_token)
 ):
-    """
-    (管理員) 建立一個新的作品集項目。
-    """
+    """(管理員) 建立一個新的作品集項目，並上傳圖片到 Cloudinary。"""
     try:
-        upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
-        if not os.path.exists(upload_dir):
-            os.makedirs(upload_dir)
+        # 上傳到 Cloudinary，並放入指定的資料夾
+        upload_result = cloudinary.uploader.upload(file.file, folder="gfmotor_portfolio")
+        image_url = upload_result.get("secure_url")
 
-        # 產生獨一無二的檔名
-        file_extension = os.path.splitext(file.filename)[1]
-        unique_filename = f"{uuid.uuid4()}{file_extension}"
-        file_location = os.path.join(upload_dir, unique_filename)
+        if not image_url:
+            raise HTTPException(status_code=500, detail="圖片上傳到 Cloudinary 失敗")
 
-        with open(file_location, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-
-        image_url = f"/static/uploads/{unique_filename}"
-        
+        # 將 Cloudinary URL 存入資料庫
         return crud.create_portfolio_item(db=db, title=title, description=description, category=category, image_url=image_url)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"建立作品時發生錯誤: {str(e)}")
 
 @app.get("/api/portfolios/{item_id}", response_model=schemas.PortfolioItem)
 def read_portfolio_item(item_id: int, db: Session = Depends(database.get_db), token: str = Depends(verify_token)):
-    """
-    (管理員) 獲取單一作品集項目的詳細資訊。
-    """
+    """(管理員) 獲取單一作品集項目的詳細資訊。"""
     db_item = crud.get_portfolio_item(db, item_id=item_id)
     if db_item is None:
         raise HTTPException(status_code=404, detail="找不到該作品")
@@ -332,57 +354,52 @@ def update_portfolio_item(
     db: Session = Depends(database.get_db),
     token: str = Depends(verify_token)
 ):
-    """
-    (管理員) 更新一個現有的作品集項目。
-    """
+    """(管理員) 更新一個現有的作品集項目。如果提供新圖片，則會更新 Cloudinary 上的圖片。"""
+    db_item = crud.get_portfolio_item(db, item_id=item_id)
+    if not db_item:
+        raise HTTPException(status_code=404, detail="找不到該作品")
+
+    new_image_url = db_item.image_url
+
     try:
-        db_item = crud.get_portfolio_item(db, item_id=item_id)
-        if not db_item:
-            raise HTTPException(status_code=404, detail="找不到該作品")
-
-        image_url = db_item.image_url
-        
         if file:
-            # 如果有新檔案上傳，則刪除舊檔案並儲存新檔案
-            old_image_path_relative = db_item.image_url.lstrip('/')
-            old_image_path_full = os.path.join(os.path.dirname(__file__), old_image_path_relative)
-            if os.path.exists(old_image_path_full):
-                os.remove(old_image_path_full)
+            # 如果有新檔案，先刪除 Cloudinary 上的舊圖片
+            old_public_id = extract_public_id_from_url(db_item.image_url)
+            if old_public_id:
+                cloudinary.uploader.destroy(old_public_id)
 
-            upload_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
-            file_extension = os.path.splitext(file.filename)[1]
-            unique_filename = f"{uuid.uuid4()}{file_extension}"
-            file_location = os.path.join(upload_dir, unique_filename)
+            # 上傳新圖片
+            upload_result = cloudinary.uploader.upload(file.file, folder="gfmotor_portfolio")
+            new_image_url = upload_result.get("secure_url")
+            if not new_image_url:
+                raise HTTPException(status_code=500, detail="新圖片上傳到 Cloudinary 失敗")
 
-            with open(file_location, "wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
-            
-            image_url = f"/static/uploads/{unique_filename}"
-
+        # 更新資料庫
         updated_item = crud.update_portfolio_item(
-            db=db, item_id=item_id, title=title, description=description, category=category, image_url=image_url if file else None
+            db=db, item_id=item_id, title=title, description=description, category=category, image_url=new_image_url
         )
         return updated_item
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"更新作品時發生錯誤: {str(e)}")
 
-
 @app.delete("/api/portfolios/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_portfolio_item(item_id: int, db: Session = Depends(database.get_db), token: str = Depends(verify_token)):
-    """
-    (管理員) 刪除一個作品集項目。
-    """
-    image_url_to_delete = crud.delete_portfolio_item(db, item_id=item_id)
-
-    if image_url_to_delete is None:
+    """(管理員) 刪除一個作品集項目，並從 Cloudinary 刪除對應的圖片。"""
+    db_item = crud.get_portfolio_item(db, item_id=item_id)
+    if not db_item:
         raise HTTPException(status_code=404, detail="找不到該作品")
 
-    # 從檔案系統中刪除圖片檔案
-    # 將 URL 路徑轉換為檔案系統路徑
-    image_path_relative = image_url_to_delete.lstrip('/')
-    image_path_full = os.path.join(os.path.dirname(__file__), image_path_relative)
-    
-    if os.path.exists(image_path_full):
-        os.remove(image_path_full)
+    # 從 Cloudinary 刪除圖片
+    public_id = extract_public_id_from_url(db_item.image_url)
+    if public_id:
+        try:
+            cloudinary.uploader.destroy(public_id)
+        except Exception as e:
+            # 即使 Cloudinary 刪除失敗，我們還是要繼續刪除資料庫紀錄
+            # 可以在這裡記錄錯誤日誌，以便追蹤未被刪除的檔案
+            print(f"警告：從 Cloudinary 刪除圖片 {public_id} 失敗: {str(e)}")
+
+    # 從資料庫刪除紀錄
+    crud.delete_portfolio_item(db, item_id=item_id)
     
     return
