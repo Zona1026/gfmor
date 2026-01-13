@@ -188,11 +188,19 @@
     <script>
         let allItems = []; // 儲存從後端抓回來的所有資料
 
+        // ★ 定義分類名稱的對應關係
+        const categoryMap = {
+            'dagai': '大改車主作品集 ( 消費5-10萬 )',
+            'baogai': '爆改車主作品集 ( 消費10-30萬 )',
+            'vvip': '爆改車主之VVIP作品集 (消費30-50萬 ）',
+            'svip': '爆改車主之SVIP作品集 (消費50萬以上 ）'
+        };
+
         // 1. 網頁載入後，馬上去抓資料
         window.onload = async function() {
             try {
-                // 注意：這裡假設你的後端是 http://127.0.0.1:8000
-                const res = await fetch("/portfolio");
+                // ★ 修正 API 路徑，與 admin.html 保持一致
+                const res = await fetch("/api/portfolios");
                 if (res.ok) {
                     allItems = await res.json();
                     renderGallery(allItems); // 預設顯示全部
@@ -220,11 +228,12 @@
                 let catName = "";
                 let badgeClass = "";
                 
+                // ★ 修正 switch-case，比對完整的分類名稱
                 switch(item.category) {
-                    case "dagai": catName = "大改車主"; badgeClass = "badge-dagai"; break;
-                    case "baogai": catName = "爆改車主"; badgeClass = "badge-baogai"; break;
-                    case "vvip": catName = "VVIP"; badgeClass = "badge-vvip"; break;
-                    case "svip": catName = "SVIP"; badgeClass = "badge-svip"; break;
+                    case categoryMap.dagai: catName = "大改車主"; badgeClass = "badge-dagai"; break;
+                    case categoryMap.baogai: catName = "爆改車主"; badgeClass = "badge-baogai"; break;
+                    case categoryMap.vvip: catName = "VVIP"; badgeClass = "badge-vvip"; break;
+                    case categoryMap.svip: catName = "SVIP"; badgeClass = "badge-svip"; break;
                     default: catName = "改裝案例"; badgeClass = "badge-dagai";
                 }
 
@@ -245,18 +254,17 @@
         }
 
         // 3. 過濾按鈕的邏輯
-        function filterItems(category) {
+        function filterItems(categoryKey) {
             // A. 切換按鈕亮燈樣式
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            // 找到點擊的那顆按鈕 (透過 data-cat 屬性)
-            document.querySelector(`.tab-btn[data-cat="${category}"]`).classList.add('active');
+            document.querySelector(`.tab-btn[data-cat="${categoryKey}"]`).classList.add('active');
 
-            // B. 過濾資料
-            if (category === 'all') {
+            // B. 過濾資料 (★ 修正篩選邏輯)
+            if (categoryKey === 'all') {
                 renderGallery(allItems);
             } else {
-                // 只留下 category 一樣的
-                const filtered = allItems.filter(item => item.category === category);
+                const fullCategoryName = categoryMap[categoryKey]; // 透過 key 找到完整名稱
+                const filtered = allItems.filter(item => item.category === fullCategoryName);
                 renderGallery(filtered);
             }
         }
