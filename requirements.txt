@@ -1,0 +1,18 @@
+# Web Framework
+fastapi
+
+# ASGI Server
+uvicorn[standard]
+
+# Database ORM & Driver
+sqlalchemy
+pymysql
+
+# Settings & Environment Variables
+pydantic
+python-dotenv
+
+# Security & Authentication
+passlib[bcrypt]
+python-jose[cryptography]
+google-auth
