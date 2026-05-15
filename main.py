@@ -41,6 +41,33 @@ def read_root():
 def health_check():
     return {"status": "ok"}
 
+@app.on_event("startup")
+def on_startup():
+    """應用啟動時，自動檢查並建立/遷移資料表"""
+    from sqlalchemy import text, inspect
+    from db.database import engine
+    from db.models import Base
+    
+    try:
+        inspector = inspect(engine)
+        existing_tables = inspector.get_table_names()
+        
+        # 針對 portfolio_items：若存在舊版中文欄位，先刪除再重建
+        if "portfolio_items" in existing_tables:
+            columns = [col["name"] for col in inspector.get_columns("portfolio_items")]
+            if "標題" in columns or "title" not in columns:
+                # 舊版中文欄位的表，需要遷移
+                with engine.connect() as conn:
+                    conn.execute(text("DROP TABLE IF EXISTS portfolio_items"))
+                    conn.commit()
+                print("[Startup] 已刪除舊版 portfolio_items 表，將重新建立")
+        
+        # 建立所有不存在的表（包括剛刪除的 portfolio_items）
+        Base.metadata.create_all(bind=engine)
+        print("[Startup] 資料表檢查完成")
+    except Exception as e:
+        print(f"[Startup] 資料表初始化警告: {e}")
+
 # 引入由 api/router.py 定義的路由
 from api.router import api_router
 
