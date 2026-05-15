@@ -16,8 +16,11 @@ router = APIRouter()
 
 GOOGLE_CLIENT_ID = "357528958616-1mbtrri5ii7irbqpftd8ml3qtdr7ho0u.apps.googleusercontent.com"
 
+last_auth_error = {"error": "No errors recorded yet"}
+
 @router.post("/google", response_model=LoginResponse)
 async def login_with_google(google_token: GoogleToken, db: Session = Depends(database.get_db)):
+    global last_auth_error
     print("=== [AUTH] 收到 Google 登入請求 ===")
     try:
         # 驗證從前端傳來的 Google ID Token
@@ -62,28 +65,32 @@ async def login_with_google(google_token: GoogleToken, db: Session = Depends(dat
         )
         print(f"[AUTH] Access Token 建立成功!")
 
-        # 在回傳的資料中，除了 token，也可以額外附加使用者資訊
-        # 這裡我們回傳一個符合 Token schema 的物件
         result = {"access_token": access_token, "token_type": "bearer", "user": user}
         print(f"[AUTH] 登入流程完成，準備回傳結果")
         return result
 
     except ValueError as e:
-        # 如果 token 無效 (例如過期、簽名不符等)
+        last_auth_error = {"type": "ValueError", "detail": str(e)}
         print(f"[AUTH] ValueError: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"無效的 Google Token: {e}",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    except HTTPException:
+    except HTTPException as e:
+        last_auth_error = {"type": "HTTPException", "detail": str(e.detail)}
         raise
     except Exception as e:
-        # 處理其他可能的錯誤
         import traceback
+        error_trace = traceback.format_exc()
+        last_auth_error = {"type": type(e).__name__, "detail": str(e), "trace": error_trace}
         print(f"[AUTH] Exception: {type(e).__name__}: {e}")
         traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"伺服器內部錯誤: {e}",
         )
+
+@router.get("/debug_last_error")
+def get_last_auth_error():
+    return last_auth_error
