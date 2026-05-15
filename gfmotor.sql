@@ -74,11 +74,16 @@ CREATE TABLE `motor` (
   `ID` int NOT NULL AUTO_INCREMENT,
   `Google ID` varchar(255) NOT NULL,
   `車牌` varchar(45) NOT NULL,
-  `引擎號碼` varchar(45) DEFAULT NULL,
-  `車種` varchar(45) DEFAULT NULL,
+  `廠牌` varchar(45) DEFAULT NULL,
+  `型號` varchar(45) DEFAULT NULL,
+  `車身號碼` varchar(45) DEFAULT NULL,
+  `里程數` int DEFAULT NULL,
+  `狀態` varchar(45) DEFAULT NULL COMMENT '用於軟刪除，正常為 NULL，刪除為 ''已刪除''',
   PRIMARY KEY (`ID`),
-  KEY `關聯_idx` (`Google ID`),
+  UNIQUE KEY `車牌_UNIQUE` (`車牌`),
+  UNIQUE KEY `車身號碼_UNIQUE` (`車身號碼`),
   KEY `fk_motor_users_idx` (`Google ID`),
+  KEY `idx_status` (`狀態`),
   CONSTRAINT `fk_motor_users` FOREIGN KEY (`Google ID`) REFERENCES `users` (`Google ID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

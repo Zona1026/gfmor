@@ -1,0 +1,261 @@
+{
+  "bookings_count": 4,
+  "bookings_sample": [
+    "ID:1, Status:BookingStatus.TIMEOUT",
+    "ID:2, Status:BookingStatus.CANCELED",
+    "ID:3, Status:BookingStatus.CANCELED",
+    "ID:4, Status:BookingStatus.PENDING"
+  ],
+  "orders_error": "'未付款' is not among the defined enum values. Enum name: orderstatus. Possible values: UNPAID, DEPOSIT_PAI.., FULL_PAID, ..., CANCELED",
+  "bookings_columns": [
+    {
+      "Field": "預約單號",
+      "Type": "int",
+      "Null": "NO",
+      "Key": "PRI",
+      "Default": null,
+      "Extra": "auto_increment"
+    },
+    {
+      "Field": "Google ID",
+      "Type": "varchar(255)",
+      "Null": "NO",
+      "Key": "MUL",
+      "Default": null,
+      "Extra": ""
+    },
+    {
+      "Field": "車籍ID",
+      "Type": "int",
+      "Null": "NO",
+      "Key": "MUL",
+      "Default": null,
+      "Extra": ""
+    },
+    {
+      "Field": "預約時間",
+      "Type": "datetime",
+      "Null": "NO",
+      "Key": "",
+      "Default": null,
+      "Extra": ""
+    },
+    {
+      "Field": "類別",
+      "Type": "enum('REPAIR','MAINTENANCE','CONSULTATION')",
+      "Null": "NO",
+      "Key": "",
+      "Default": null,
+      "Extra": ""
+    },
+    {
+      "Field": "預約單成立時間",
+      "Type": "datetime",
+      "Null": "YES",
+      "Key": "",
+      "Default": "CURRENT_TIMESTAMP",
+      "Extra": "DEFAULT_GENERATED"
+    },
+    {
+      "Field": "狀態",
+      "Type": "enum('PENDING','CANCELED','TIMEOUT','COMPLETED','SYSTEM_OPEN')",
+      "Null": "NO",
+      "Key": "",
+      "Default": null,
+      "Extra": ""
+    },
+    {
+      "Field": "備註",
+      "Type": "varchar(100)",
+      "Null": "YES",
+      "Key": "",
+      "Default": null,
+      "Extra": ""
+    }
+  ],
+  "bookings_info_error": "(pymysql.err.OperationalError) (1054, \"Unknown column 'status' in 'field list'\")\n[SQL: SELECT DISTINCT status FROM bookings]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
+  "orders_columns": [
+    {
+      "Field": "id",
+      "Type": "int",
+      "Null": "NO",
+      "Key": "PRI",
+      "Default": null,
+      "Extra": "auto_increment"
+    },
+    {
+      "Field": "google_id",
+      "Type": "varchar(255)",
+      "Null": "NO",
+      "Key": "MUL",
+      "Default": null,
+      "Extra": ""
+    },
+    {
+      "Field": "status",
+      "Type": "enum('未付款','已付訂金未取貨','已付全款未取貨','已結案','已取消')",
+      "Null": "NO",
+      "Key": "",
+      "Default": "未付款",
+      "Extra": ""
+    },
+    {
+      "Field": "total_amount",
+      "Type": "int",
+      "Null": "NO",
+      "Key": "",
+      "Default": null,
+      "Extra": ""
+    },
+    {
+      "Field": "recipient_name",
+      "Type": "varchar(50)",
+      "Null": "NO",
+      "Key": "",
+      "Default": null,
+      "Extra": ""
+    },
+    {
+      "Field": "recipient_phone",
+      "Type": "varchar(20)",
+      "Null": "NO",
+      "Key": "",
+      "Default": null,
+      "Extra": ""
+    },
+    {
+      "Field": "shipping_address",
+      "Type": "varchar(255)",
+      "Null": "NO",
+      "Key": "",
+      "Default": null,
+      "Extra": ""
+    },
+    {
+      "Field": "notes",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": null,
+      "Extra": ""
+    },
+    {
+      "Field": "created_at",
+      "Type": "datetime",
+      "Null": "NO",
+      "Key": "",
+      "Default": "CURRENT_TIMESTAMP",
+      "Extra": "DEFAULT_GENERATED"
+    },
+    {
+      "Field": "updated_at",
+      "Type": "datetime",
+      "Null": "NO",
+      "Key": "",
+      "Default": "CURRENT_TIMESTAMP",
+      "Extra": "DEFAULT_GENERATED"
+    },
+    {
+      "Field": "source",
+      "Type": "varchar(20)",
+      "Null": "NO",
+      "Key": "",
+      "Default": "online",
+      "Extra": ""
+    }
+  ],
+  "orders_distinct_status": [
+    "未付款"
+  ],
+  "users_columns": [
+    {
+      "Field": "Google ID",
+      "Type": "varchar(255)",
+      "Null": "NO",
+      "Key": "PRI",
+      "Default": null,
+      "Extra": ""
+    },
+    {
+      "Field": "車主姓名",
+      "Type": "varchar(10)",
+      "Null": "NO",
+      "Key": "",
+      "Default": null,
+      "Extra": ""
+    },
+    {
+      "Field": "電話",
+      "Type": "varchar(10)",
+      "Null": "YES",
+      "Key": "",
+      "Default": null,
+      "Extra": ""
+    },
+    {
+      "Field": "email",
+      "Type": "varchar(100)",
+      "Null": "NO",
+      "Key": "UNI",
+      "Default": null,
+      "Extra": ""
+    },
+    {
+      "Field": "類別",
+      "Type": "enum('MEMBER','ADMIN')",
+      "Null": "YES",
+      "Key": "",
+      "Default": "MEMBER",
+      "Extra": ""
+    },
+    {
+      "Field": "加入時間",
+      "Type": "datetime",
+      "Null": "YES",
+      "Key": "",
+      "Default": "CURRENT_TIMESTAMP",
+      "Extra": "DEFAULT_GENERATED"
+    },
+    {
+      "Field": "會員等級",
+      "Type": "varchar(45)",
+      "Null": "YES",
+      "Key": "",
+      "Default": null,
+      "Extra": ""
+    },
+    {
+      "Field": "累積消費",
+      "Type": "int",
+      "Null": "YES",
+      "Key": "",
+      "Default": null,
+      "Extra": ""
+    },
+    {
+      "Field": "車牌",
+      "Type": "varchar(45)",
+      "Null": "YES",
+      "Key": "",
+      "Default": null,
+      "Extra": ""
+    },
+    {
+      "Field": "頭像",
+      "Type": "varchar(255)",
+      "Null": "YES",
+      "Key": "",
+      "Default": null,
+      "Extra": ""
+    },
+    {
+      "Field": "店家註記",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": null,
+      "Extra": ""
+    }
+  ],
+  "users_info_error": "(pymysql.err.OperationalError) (1054, \"Unknown column 'status' in 'field list'\")\n[SQL: SELECT DISTINCT status FROM users]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+}

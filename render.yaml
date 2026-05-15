@@ -1,0 +1,28 @@
+services:
+  # 後端 API 服務 (FastAPI)
+  - type: web
+    name: gfmotor-api
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: DATABASE_URL
+        value: "mysql+pymysql://avnadmin:AVNS_wpMgWFawTeSbnCOGuxo@gfmotor-gfmotor001.j.aivencloud.com:12676/gfmotor?ssl_disabled=False"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: FRONTEND_URL
+        value: "https://gfmotor-frontend.onrender.com"
+
+  # 前端靜態網站 (Vue 3)
+  - type: web
+    name: gfmotor-frontend
+    env: static
+    buildCommand: "cd frontend && npm install && npm run build"
+    staticPublishPath: "./frontend/dist"
+    envVars:
+      - key: VITE_API_URL
+        value: "https://gfmotor-api.onrender.com"
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
