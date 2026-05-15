@@ -6,13 +6,20 @@ uvicorn[standard]
 
 # Database ORM & Driver
 sqlalchemy
+mysql-connector-python
 pymysql
 
 # Settings & Environment Variables
-pydantic
+pydantic[email]
+pydantic-settings
 python-dotenv
 
 # Security & Authentication
 passlib[bcrypt]
 python-jose[cryptography]
 google-auth
+requests
+
+# File Upload & Media
+cloudinary
+python-multipart

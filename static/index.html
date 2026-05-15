@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GFmotor API 測試介面</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 2rem;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+        }
+        h1, h2, h3 {
+            color: #e53935; /* 熱血紅 */
+            border-bottom: 2px solid #424242;
+            padding-bottom: 10px;
+        }
+        h3 {
+            border-bottom-width: 1px;
+            font-size: 1.1rem;
+            margin-top: 1.5rem;
+        }
+        fieldset {
+            border: 1px solid #424242; /* 深灰色 */
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+        }
+        legend {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #e53935;
+            padding: 0 10px;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        input[type="text"], input[type="number"], input[type="email"] {
+            width: calc(100% - 22px);
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #616161;
+            background-color: #333;
+            color: #e0e0e0;
+        }
+        button {
+            background-color: #e53935;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #c62828;
+        }
+        #response-area {
+            background-color: #212121;
+            border: 1px solid #424242;
+            border-radius: 4px;
+            padding: 1rem;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            min-height: 100px;
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>GFmotor API 測試介面</h1>
+
+    <fieldset>
+        <legend>通用</legend>
+        <p>API 根路徑: <code id="api-base-url">/api/v1</code></p>
+    </fieldset>
+
+    <hr>
+    <h2>使用者 (Users)</h2>
+    <hr>
+
+    <fieldset>
+        <legend>建立測試用使用者 (POST /users/)</legend>
+        <p style="font-size: 0.9rem; color: #b0b0b0;">此功能僅供測試，會自動產生假的 Google ID。可選填車籍資料。</p>
+        <form id="create-test-user-form">
+            <h3>基本資料</h3>
+            <div class="form-group">
+                <label for="create-user-name">姓名:</label>
+                <input type="text" id="create-user-name" required>
+            </div>
+            <div class="form-group">
+                <label for="create-user-email">Email:</label>
+                <input type="email" id="create-user-email" required>
+            </div>
+            <div class="form-group">
+                <label for="create-user-phone">電話 (選填):</label>
+                <input type="text" id="create-user-phone">
+            </div>
+
+            <h3>車籍資料 (選填)</h3>
+            <div class="form-group">
+                <label for="create-user-motor-plate">車牌號碼:</label>
+                <input type="text" id="create-user-motor-plate">
+            </div>
+            <div class="form-group">
+                <label for="create-user-motor-brand">廠牌:</label>
+                <input type="text" id="create-user-motor-brand">
+            </div>
+            <div class="form-group">
+                <label for="create-user-motor-model">型號:</label>
+                <input type="text" id="create-user-motor-model">
+            </div>
+            
+            <button type="submit">建立測試會員</button>
+        </form>
+    </fieldset>
+
+    <fieldset>
+        <legend>讀取使用者列表 (GET /users/)</legend>
+        <div class="form-group">
+            <button onclick="getUsers()">取得所有使用者</button>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>讀取單一使用者 (GET /users/{id})</legend>
+        <div class="form-group">
+            <label for="get-user-id">客戶 Google ID:</label>
+            <input type="text" id="get-user-id" placeholder="請輸入要查詢的客戶 Google ID">
+        </div>
+        <button onclick="getUserById()">依 ID 查詢使用者</button>
+    </fieldset>
+
+    <fieldset>
+        <legend>更新使用者資訊 (PUT /users/{id})</legend>
+        <form id="update-user-form">
+            <div class="form-group">
+                <label for="update-user-id">要更新的客戶 Google ID:</label>
+                <input type="text" id="update-user-id" required>
+            </div>
+
+            <h3>基本資料 (選填)</h3>
+            <div class="form-group">
+                <label for="update-user-name">新名稱:</label>
+                <input type="text" id="update-user-name">
+            </div>
+            <div class="form-group">
+                <label for="update-user-phone">新電話:</label>
+                <input type="text" id="update-user-phone">
+            </div>
+            <div class="form-group">
+                <label for="update-user-membership">新會員等級:</label>
+                <input type="text" id="update-user-membership">
+            </div>
+            
+            <h3>新增車籍資料 (選填)</h3>
+            <p style="font-size: 0.9rem; color: #b0b0b0;">此處只會「新增」車輛，不會修改舊有車籍。</p>
+            <div class="form-group">
+                <label for="update-user-motor-plate">車牌號碼:</label>
+                <input type="text" id="update-user-motor-plate">
+            </div>
+            <div class="form-group">
+                <label for="update-user-motor-brand">廠牌:</label>
+                <input type="text" id="update-user-motor-brand">
+            </div>
+            <div class="form-group">
+                <label for="update-user-motor-model">型號:</label>
+                <input type="text" id="update-user-motor-model">
+            </div>
+
+            <button type="submit">更新使用者</button>
+        </form>
+    </fieldset>
+
+    <fieldset>
+        <legend>刪除使用者 (DELETE /users/{id})</legend>
+        <div class="form-group">
+            <label for="delete-user-id">客戶 Google ID:</label>
+            <input type="text" id="delete-user-id" placeholder="請輸入要刪除的客戶 Google ID">
+        </div>
+        <button onclick="deleteUserById()">依 ID 刪除使用者</button>
+    </fieldset>
+
+    <hr>
+    <h2>車籍管理 (Motors)</h2>
+    <hr>
+
+    <fieldset>
+        <legend>更新車籍資料 (PUT /motors/{id})</legend>
+        <form id="update-motor-form">
+            <div class="form-group">
+                <label for="update-motor-id">要更新的車籍 ID:</label>
+                <input type="number" id="update-motor-id" required>
+            </div>
+            <p>（只需填寫要更新的欄位）</p>
+            <div class="form-group">
+                <label for="update-motor-plate">新車牌號碼:</label>
+                <input type="text" id="update-motor-plate">
+            </div>
+            <div class="form-group">
+                <label for="update-motor-brand">新廠牌:</label>
+                <input type="text" id="update-motor-brand">
+            </div>
+            <div class="form-group">
+                <label for="update-motor-model">新型號:</label>
+                <input type="text" id="update-motor-model">
+            </div>
+             <div class="form-group">
+                <label for="update-motor-mileage">新里程數:</label>
+                <input type="number" id="update-motor-mileage">
+            </div>
+            <button type="submit">更新車籍</button>
+        </form>
+    </fieldset>
+
+    <fieldset>
+        <legend>刪除車籍 (DELETE /motors/{id})</legend>
+        <form id="delete-motor-form">
+            <div class="form-group">
+                <label for="delete-motor-id">要刪除的車籍 ID:</label>
+                <input type="number" id="delete-motor-id" required>
+            </div>
+            <button type="submit">刪除車籍</button>
+        </form>
+    </fieldset>
+
+    <hr>
+    <h2>商品 (Products)</h2>
+    <hr>
+
+    <fieldset>
+        <legend>讀取商品列表 (GET /products/)</legend>
+        <div class="form-group">
+            <button onclick="getProducts()">取得所有商品</button>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>讀取單一商品 (GET /products/{id})</legend>
+        <div class="form-group">
+            <label for="get-product-id">商品 ID:</label>
+            <input type="number" id="get-product-id" placeholder="請輸入要查詢的商品 ID">
+        </div>
+        <button onclick="getProductById()">依 ID 查詢商品</button>
+    </fieldset>
+
+    <fieldset>
+        <legend>建立新商品 (POST /products/)</legend>
+        <form id="create-product-form">
+            <div class="form-group">
+                <label for="create-name">名稱:</label>
+                <input type="text" id="create-name" required>
+            </div>
+            <div class="form-group">
+                <label for="create-price">價格:</label>
+                <input type="number" id="create-price" required>
+            </div>
+            <div class="form-group">
+                <label for="create-stock">庫存:</label>
+                <input type="number" id="create-stock" required>
+            </div>
+            <div class="form-group">
+                <label for="create-description">描述:</label>
+                <input type="text" id="create-description">
+            </div>
+            <div class="form-group">
+                <label for="create-category">分類:</label>
+                <input type="text" id="create-category">
+            </div>
+            <button type="submit">建立商品</button>
+        </form>
+    </fieldset>
+
+    <fieldset>
+        <legend>更新商品資訊 (PUT /products/{id})</legend>
+        <form id="update-product-form">
+            <div class="form-group">
+                <label for="update-product-id">要更新的商品 ID:</label>
+                <input type="number" id="update-product-id" required>
+            </div>
+            <p>（只需填寫要更新的欄位）</p>
+            <div class="form-group">
+                <label for="update-name">新名稱:</label>
+                <input type="text" id="update-name">
+            </div>
+            <div class="form-group">
+                <label for="update-price">新價格:</label>
+                <input type="number" id="update-price">
+            </div>
+            <div class="form-group">
+                <label for="update-stock">新庫存:</label>
+                <input type="number" id="update-stock">
+            </div>
+            <div class="form-group">
+                <label for="update-description">新描述:</label>
+                <input type="text" id="update-description">
+            </div>
+            <div class="form-group">
+                <label for="update-category">新分類:</label>
+                <input type="text" id="update-category">
+            </div>
+            <button type="submit">更新商品</button>
+        </form>
+    </fieldset>
+
+    <fieldset>
+        <legend>刪除商品 (DELETE /products/{id})</legend>
+        <div class="form-group">
+            <label for="delete-product-id">商品 ID:</label>
+            <input type="number" id="delete-product-id" placeholder="請輸入要刪除的商品 ID">
+        </div>
+        <button onclick="deleteProductById()">依 ID 刪除商品</button>
+    </fieldset>
+
+    <hr>
+    <h2>預約 (Bookings)</h2>
+    <hr>
+
+    <fieldset>
+        <legend>建立新預約 (POST /bookings/)</legend>
+        <div class="form-group" style="background-color: #2c2c2c; padding: 1rem; border-radius: 4px;">
+            <label for="search-b-user-name" style="font-weight: bold;">步驟 1: 依姓名查詢客戶</label>
+            <input type="text" id="search-b-user-name" placeholder="請輸入客戶姓名">
+            <button type="button" onclick="searchUserByName()" style="margin-top: 0.5rem;">查詢</button>
+            <p style="font-size: 0.8rem; color: #b0b0b0; margin-top: 0.5rem;">查詢結果會顯示在頁面下方，請將查到的 Google ID 和車籍 ID 複製到下方的欄位中。</p>
+        </div>
+        
+        <hr style="border-color: #424242; margin: 1.5rem 0;">
+
+        <form id="create-booking-form">
+            <p style="font-weight: bold;">步驟 2: 填寫預約資料並建立</p>
+            <div class="form-group">
+                <label for="create-b-google-id">客戶 Google ID:</label>
+                <input type="text" id="create-b-google-id" required placeholder="從上方查詢結果複製貼上">
+            </div>
+            <div class="form-group">
+                <label for="create-b-motor-id">車籍 ID:</label>
+                <input type="number" id="create-b-motor-id" required placeholder="從上方查詢結果複製貼上">
+            </div>
+            <div class="form-group">
+                <label for="create-b-booking-time">預約時間:</label>
+                <input type="datetime-local" id="create-b-booking-time" required style="width: calc(100% - 22px); padding: 10px; border-radius: 4px; border: 1px solid #616161; background-color: #333; color: #e0e0e0;">
+            </div>
+            <div class="form-group">
+                <label for="create-b-category">服務類型:</label>
+                <select id="create-b-category" required style="width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #616161; background-color: #333; color: #e0e0e0;">
+                    <option value="維修">維修</option>
+                    <option value="保養">保養</option>
+                    <option value="諮詢">諮詢</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="create-b-notes">備註:</label>
+                <input type="text" id="create-b-notes">
+            </div>
+            <button type="submit">建立預約</button>
+        </form>
+    </fieldset>
+
+     <fieldset>
+        <legend>讀取預約列表 (GET /bookings/)</legend>
+        <div class="form-group">
+            <button onclick="getBookings()">取得所有預約</button>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>讀取單一預約 (GET /bookings/{id})</legend>
+        <div class="form-group">
+            <label for="get-b-id">預約單 ID:</label>
+            <input type="number" id="get-b-id" placeholder="請輸入要查詢的預約單 ID">
+        </div>
+        <button onclick="getBookingById()">依 ID 查詢預約</button>
+    </fieldset>
+
+    <fieldset>
+        <legend>更新預約資訊 (PUT /bookings/{id})</legend>
+        <form id="update-booking-form">
+            <div class="form-group">
+                <label for="update-b-id">要更新的預約單 ID:</label>
+                <input type="number" id="update-b-id" required>
+            </div>
+            <div class="form-group">
+                <label for="update-b-body">要更新的內容 - JSON 格式:</label>
+                <textarea id="update-b-body" rows="3" placeholder='{"status": "已結案"}' required style="width: calc(100% - 22px); padding: 10px; border-radius: 4px; border: 1px solid #616161; background-color: #333; color: #e0e0e0; font-family: monospace;"></textarea>
+            </div>
+            <button type="submit">更新預約</button>
+        </form>
+    </fieldset>
+
+    <hr>
+    <h2>工單 (Work Orders)</h2>
+    <hr>
+
+    <fieldset>
+        <legend>建立新工單 (POST /work-orders/)</legend>
+        <form id="create-work-order-form">
+            <div class="form-group">
+                <label for="create-wo-booking-id">來源預約單號:</label>
+                <input type="number" id="create-wo-booking-id" required>
+            </div>
+            
+            <hr style="border-color: #424242; margin: 1.5rem 0;">
+
+            <div style="background-color: #2c2c2c; padding: 1rem; border-radius: 4px;">
+                <h3 style="margin-top: 0; padding-bottom: 0.5rem; border-bottom: 1px solid #e53935;">新增零件項目</h3>
+                <div class="form-group">
+                    <label for="create-wo-product-select">選擇零件:</label>
+                    <select id="create-wo-product-select" style="width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #616161; background-color: #333; color: #e0e0e0;"></select>
+                </div>
+                <div class="form-group">
+                    <label for="create-wo-quantity">數量:</label>
+                    <input type="number" id="create-wo-quantity" value="1" min="1" style="width: calc(50% - 22px);">
+                </div>
+                <button type="button" id="add-wo-item-btn">新增零件</button>
+                
+                <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">目前工單項目:</h4>
+                <div id="current-wo-items-list" style="padding: 0.5rem; border: 1px dashed #616161; min-height: 50px; border-radius: 4px;"></div>
+            </div>
+
+            <hr style="border-color: #424242; margin: 1.5rem 0;">
+
+            <div class="form-group">
+                <label for="create-wo-notes">備註 (一般文字):</label>
+                <input type="text" id="create-wo-notes" placeholder="例如：換機油、檢查煞車異音">
+            </div>
+            <button type="submit">建立工單</button>
+        </form>
+    </fieldset>
+
+    <fieldset>
+        <legend>讀取工單列表 (GET /work-orders/)</legend>
+        <div class="form-group">
+            <button onclick="getWorkOrders()">取得所有工單</button>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>讀取單一工單 (GET /work-orders/{id})</legend>
+        <div class="form-group">
+            <label for="get-wo-id">工單 ID:</label>
+            <input type="number" id="get-wo-id" placeholder="請輸入要查詢的工單 ID">
+        </div>
+        <button onclick="getWorkOrderById()">依 ID 查詢工單</button>
+    </fieldset>
+
+     <fieldset>
+        <legend>更新工單資訊 (PUT /work-orders/{id})</legend>
+        <form id="update-work-order-form">
+            <div class="form-group">
+                <label for="update-wo-id">要更新的工單 ID:</label>
+                <input type="number" id="update-wo-id" required>
+            </div>
+            <div class="form-group">
+                <label for="update-wo-body">要更新的內容 - JSON 格式:</label>
+                <textarea id="update-wo-body" rows="4" placeholder='{"status": "處理中", "notes": "已到貨"}' required style="width: calc(100% - 22px); padding: 10px; border-radius: 4px; border: 1px solid #616161; background-color: #333; color: #e0e0e0; font-family: monospace;"></textarea>
+            </div>
+            <button type="submit">更新工單</button>
+        </form>
+    </fieldset>
+    
+    <h2>API 回應</h2>
+    <pre id="response-area">這裡會顯示 API 的回應結果...</pre>
+
+    <script>
+        const API_BASE_URL = '/api/v1';
+        const responseArea = document.getElementById('response-area');
+
+        // Helper function to display results
+        function displayResult(data) {
+            if (data) {
+                responseArea.textContent = JSON.stringify(data, null, 2);
+            } else {
+                responseArea.textContent = "操作成功 (回應為空)";
+            }
+        }
+        
+        async function handleApiResponse(response) {
+            if (response.status === 204) {
+                displayResult(null); // No content
+                return;
+            }
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(`伺服器錯誤 ${response.status}: ${JSON.stringify(data)}`);
+            }
+            displayResult(data);
+        }
+
+        // ===================================
+        // =========== 使用者 Scripts ==========
+        // ===================================
+
+        document.getElementById('create-test-user-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const userPayload = {
+                name: document.getElementById('create-user-name').value,
+                email: document.getElementById('create-user-email').value,
+                phone: document.getElementById('create-user-phone').value || null,
+                motors: []
+            };
+            const licensePlate = document.getElementById('create-user-motor-plate').value;
+            if (licensePlate) {
+                userPayload.motors.push({
+                    license_plate: licensePlate,
+                    brand: document.getElementById('create-user-motor-brand').value || null,
+                    model_name: document.getElementById('create-user-motor-model').value || null
+                });
+            }
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(userPayload)
+                });
+                await handleApiResponse(response);
+            } catch (error) {
+                displayResult({ error: error.message });
+            }
+        });
+
+        async function getUsers() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/`);
+                await handleApiResponse(response);
+            } catch (error) {
+                displayResult({ error: error.message });
+            }
+        }
+
+        async function getUserById() {
+            const id = document.getElementById('get-user-id').value;
+            if (!id) return displayResult({ error: "請輸入客戶 Google ID" });
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/${id}`);
+                await handleApiResponse(response);
+            } catch (error) {
+                displayResult({ error: error.message });
+            }
+        }
+
+        document.getElementById('update-user-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const id = document.getElementById('update-user-id').value;
+            if (!id) return displayResult({ error: "請輸入要更新的客戶 Google ID" });
+            
+            const userUpdate = { motors: [] };
+            const name = document.getElementById('update-user-name').value;
+            const phone = document.getElementById('update-user-phone').value;
+            const membership = document.getElementById('update-user-membership').value;
+
+            if (name) userUpdate.name = name;
+            if (phone) userUpdate.phone = phone;
+            if (membership) userUpdate.membership_level = membership;
+            
+            const licensePlate = document.getElementById('update-user-motor-plate').value;
+            if (licensePlate) {
+                userUpdate.motors.push({
+                    license_plate: licensePlate,
+                    brand: document.getElementById('update-user-motor-brand').value || null,
+                    model_name: document.getElementById('update-user-motor-model').value || null
+                });
+            }
+
+            if (Object.keys(userUpdate).length === 1 && userUpdate.motors.length === 0) {
+                return displayResult({ error: "請至少填寫一個要更新的欄位 (基本資料或新增車籍)" });
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(userUpdate)
+                });
+                await handleApiResponse(response);
+            } catch (error) {
+                displayResult({ error: error.message });
+            }
+        });
+
+        async function deleteUserById() {
+            const id = document.getElementById('delete-user-id').value;
+            if (!id) return displayResult({ error: "請輸入要刪除的客戶 Google ID" });
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/${id}`, { method: 'DELETE' });
+                await handleApiResponse(response);
+            } catch (error) {
+                displayResult({ error: error.message });
+            }
+        }
+
+        // ===================================
+        // =========== 車籍 Scripts ==========
+        // ===================================
+        document.getElementById('update-motor-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const id = document.getElementById('update-motor-id').value;
+            if (!id) return displayResult({ error: "請輸入要更新的車籍 ID" });
+
+            const motorUpdate = {};
+            const plate = document.getElementById('update-motor-plate').value;
+            const brand = document.getElementById('update-motor-brand').value;
+            const model = document.getElementById('update-motor-model').value;
+            const mileage = document.getElementById('update-motor-mileage').value;
+
+            if(plate) motorUpdate.license_plate = plate;
+            if(brand) motorUpdate.brand = brand;
+            if(model) motorUpdate.model_name = model;
+            if(mileage) motorUpdate.mileage = parseInt(mileage);
+
+            if (Object.keys(motorUpdate).length === 0) {
+                return displayResult({ error: "請至少填寫一個要更新的車籍欄位" });
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/motors/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(motorUpdate)
+                });
+                await handleApiResponse(response);
+            } catch (error) {
+                displayResult({ error: error.message });
+            }
+        });
+
+        document.getElementById('delete-motor-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const id = document.getElementById('delete-motor-id').value;
+            if (!id) return displayResult({ error: "請輸入要刪除的車籍 ID" });
+             try {
+                const response = await fetch(`${API_BASE_URL}/motors/${id}`, { method: 'DELETE' });
+                await handleApiResponse(response);
+            } catch (error) {
+                displayResult({ error: error.message });
+            }
+        });
+
+
+        // ===================================
+        // =========== 商品 Scripts ==========
+        // ===================================
+
+        async function getProducts() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/products/`);
+                await handleApiResponse(response);
+            } catch (error) {
+                displayResult({ error: error.message });
+            }
+        }
+
+        async function getProductById() {
+            const id = document.getElementById('get-product-id').value;
+            if (!id) return displayResult({ error: "請輸入商品 ID" });
+            try {
+                const response = await fetch(`${API_BASE_URL}/products/${id}`);
+                await handleApiResponse(response);
+            } catch (error) {
+                displayResult({ error: error.message });
+            }
+        }
+
+        document.getElementById('create-product-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const product = {
+                name: document.getElementById('create-name').value,
+                price: parseInt(document.getElementById('create-price').value),
+                stock: parseInt(document.getElementById('create-stock').value),
+                description: document.getElementById('create-description').value || null,
+                category: document.getElementById('create-category').value || null,
+            };
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/products/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(product)
+                });
+                await handleApiResponse(response);
+            } catch (error) {
+                displayResult({ error: error.message });
+            }
+        });
+
+        document.getElementById('update-product-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const id = document.getElementById('update-product-id').value;
+            if (!id) return displayResult({ error: "請輸入要更新的商品 ID" });
+            
+            const productUpdate = {};
+            const name = document.getElementById('update-name').value;
+            const price = document.getElementById('update-price').value;
+            const stock = document.getElementById('update-stock').value;
+            const description = document.getElementById('update-description').value;
+            const category = document.getElementById('update-category').value;
+
+            if (name) productUpdate.name = name;
+            if (price) productUpdate.price = parseInt(price);
+            if (stock) productUpdate.stock = parseInt(stock);
+            if (description) productUpdate.description = description;
+            if (category) productUpdate.category = category;
+
+            if (Object.keys(productUpdate).length === 0) {
+                return displayResult({ error: "請至少填寫一個要更新的欄位" });
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/products/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(productUpdate)
+                });
+                await handleApiResponse(response);
+            } catch (error) {
+                displayResult({ error: error.message });
+            }
+        });
+
+        async function deleteProductById() {
+            const id = document.getElementById('delete-product-id').value;
+            if (!id) return displayResult({ error: "請輸入要刪除的商品 ID" });
+            try {
+                const response = await fetch(`${API_BASE_URL}/products/${id}`, { method: 'DELETE' });
+                await handleApiResponse(response);
+            } catch (error) {
+                displayResult({ error: error.message });
+            }
+        }
+        
+        // ===================================
+        // =========== 預約 Scripts ==========
+        // ===================================
+
+        async function searchUserByName() {
+            const name = document.getElementById('search-b-user-name').value;
+            if (!name) return displayResult({ error: "請輸入要查詢的客戶姓名" });
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/search?name=${encodeURIComponent(name)}`);
+                const data = await response.json();
+                
+                let formattedString = "--- 查詢結果 ---\n\n";
+                if (data.length === 0) {
+                    formattedString = "找不到符合條件的客戶。";
+                } else {
+                    data.forEach(user => {
+                        formattedString += `客戶: ${user.name}\n`;
+                        formattedString += `  - Google ID: ${user.google_id}\n`;
+                        if (user.motors.length > 0) {
+                            user.motors.forEach(motor => {
+                                formattedString += `  - 車輛: ${motor.model_name || 'N/A'} (車牌: ${motor.license_plate})\n`;
+                                formattedString += `    車籍 ID: ${motor.id}\n`;
+                            });
+                        } else {
+                            formattedString += "  - (這位客戶名下無登記車輛)\n";
+                        }
+                        formattedString += "-------------------\n\n";
+                    });
+                }
+                responseArea.textContent = formattedString;
+
+            } catch (error) {
+                displayResult({ error: error.message });
+            }
+        }
+
+        document.getElementById('create-booking-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const booking = {
+                google_id: document.getElementById('create-b-google-id').value,
+                motor_id: parseInt(document.getElementById('create-b-motor-id').value),
+                booking_time: document.getElementById('create-b-booking-time').value,
+                category: document.getElementById('create-b-category').value,
+                notes: document.getElementById('create-b-notes').value || null,
+            };
+            try {
+                const response = await fetch(`${API_BASE_URL}/bookings/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(booking)
+                });
+                await handleApiResponse(response);
+            } catch (error) {
+                displayResult({ error: error.message });
+            }
+        });
+
+        async function getBookings() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/bookings/`);
+                await handleApiResponse(response);
+            } catch (error) {
+                displayResult({ error: error.message });
+            }
+        }
+
+        async function getBookingById() {
+            const id = document.getElementById('get-b-id').value;
+            if (!id) return displayResult({ error: "請輸入預約單 ID" });
+            try {
+                const response = await fetch(`${API_BASE_URL}/bookings/${id}`);
+                await handleApiResponse(response);
+            } catch (error) {
+                displayResult({ error: error.message });
+            }
+        }
+
+        document.getElementById('update-booking-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const id = document.getElementById('update-b-id').value;
+            if (!id) return displayResult({ error: "請輸入要更新的預約單 ID" });
+            
+            let body;
+            try {
+                body = JSON.parse(document.getElementById('update-b-body').value);
+            } catch (e) {
+                return displayResult({ error: "要更新的內容 JSON 格式不正確", details: e.message });
+            }
+
+            if (Object.keys(body).length === 0) return displayResult({ error: "請填寫要更新的內容" });
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/bookings/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                await handleApiResponse(response);
+            } catch (error) {
+                displayResult({ error: error.message });
+            }
+        });
+
+        // ===================================
+        // =========== 工單 Scripts ==========
+        // ===================================
+
+                let currentWorkOrderItems = [];
+        let productsCache = [];
+
+        const workOrderItemsListDiv = document.getElementById('current-wo-items-list');
+        const productSelect = document.getElementById('create-wo-product-select');
+
+        // Render the list of items added to the work order
+        function renderWorkOrderItems() {
+            workOrderItemsListDiv.innerHTML = '';
+            if (currentWorkOrderItems.length === 0) {
+                workOrderItemsListDiv.textContent = '尚未新增任何零件';
+                return;
+            }
+            const ul = document.createElement('ul');
+            ul.style.cssText = 'list-style-type: none; padding: 0; margin: 0;';
+            currentWorkOrderItems.forEach((item, index) => {
+                const li = document.createElement('li');
+                li.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #424242;';
+                li.innerHTML = `<span>${item.productName} x ${item.quantity}</span>`;
+                const removeBtn = document.createElement('button');
+                removeBtn.textContent = '移除';
+                removeBtn.type = 'button';
+                removeBtn.style.cssText = 'padding: 2px 8px; font-size: 0.8rem; background-color: #616161;';
+                removeBtn.onclick = () => {
+                    currentWorkOrderItems.splice(index, 1);
+                    renderWorkOrderItems();
+                };
+                li.appendChild(removeBtn);
+                ul.appendChild(li);
+            });
+            workOrderItemsListDiv.appendChild(ul);
+        }
+
+        // Fetch products from API and populate the dropdown
+        async function populateProductsDropdown() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/products/`);
+                productsCache = await response.json();
+                productSelect.innerHTML = '<option value="">-- 請選擇一個零件 --</option>';
+                productsCache.forEach(product => {
+                    const option = document.createElement('option');
+                    option.value = product.id;
+                    option.textContent = `${product.name} (庫存: ${product.stock}, 價格: ${product.price})`;
+                    productSelect.appendChild(option);
+                });
+            } catch (error) {
+                productSelect.innerHTML = '<option value="">無法載入商品列表</option>';
+                console.error("Error fetching products:", error);
+            }
+        }
+
+        // Event listener for the "Add Part" button
+        document.getElementById('add-wo-item-btn').addEventListener('click', function() {
+            const productId = parseInt(productSelect.value);
+            const quantity = parseInt(document.getElementById('create-wo-quantity').value);
+
+            if (!productId) {
+                alert('請選擇一個零件');
+                return;
+            }
+            if (isNaN(quantity) || quantity < 1) {
+                alert('請輸入有效的數量 (至少為 1)');
+                return;
+            }
+
+            const product = productsCache.find(p => p.id === productId);
+            if (!product) {
+                alert('找不到該商品');
+                return;
+            }
+
+            // Check if item already exists, if so, update quantity
+            const existingItem = currentWorkOrderItems.find(item => item.productId === productId);
+            if (existingItem) {
+                existingItem.quantity += quantity;
+            } else {
+                currentWorkOrderItems.push({
+                    productId: productId,
+                    productName: product.name,
+                    quantity: quantity
+                });
+            }
+            renderWorkOrderItems();
+        });
+        
+        // New event listener for submitting the work order
+        document.getElementById('create-work-order-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            
+            const bookingId = parseInt(document.getElementById('create-wo-booking-id').value);
+            if (isNaN(bookingId)) {
+                return displayResult({ error: "請輸入有效的來源預約單號" });
+            }
+
+            if (currentWorkOrderItems.length === 0) {
+                 if (!confirm("您沒有新增任何扣庫存的零件項目。您確定要建立一張只有備註的工單嗎？")) {
+                    return;
+                 }
+            }
+
+            const workOrderPayload = {
+                booking_id: bookingId,
+                notes: document.getElementById('create-wo-notes').value || null,
+                items: currentWorkOrderItems.map(item => ({
+                    product_id: item.productId,
+                    quantity: item.quantity
+                }))
+            };
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/work-orders/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(workOrderPayload)
+                });
+                
+                // Regardless of success or failure, we need to check the response
+                const result = await response.json();
+                if (!response.ok) {
+                    // If server responds with an error, display it
+                    throw new Error(`伺服器錯誤 ${response.status}: ${JSON.stringify(result)}`);
+                }
+
+                // Handle success
+                displayResult(result);
+                alert('工單建立成功！');
+
+                // Reset form on success
+                currentWorkOrderItems = [];
+                renderWorkOrderItems();
+                document.getElementById('create-work-order-form').reset();
+                document.getElementById('create-wo-quantity').value = 1;
+
+            } catch (error) {
+                displayResult({ error: error.message });
+            }
+        });
+
+        async function getWorkOrders() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/work-orders/`);
+                await handleApiResponse(response);
+            } catch (error) {
+                displayResult({ error: error.message });
+            }
+        }
+
+        async function getWorkOrderById() {
+            const id = document.getElementById('get-wo-id').value;
+            if (!id) return displayResult({ error: "請輸入工單 ID" });
+            try {
+                const response = await fetch(`${API_BASE_URL}/work-orders/${id}`);
+                await handleApiResponse(response);
+            } catch (error) {
+                displayResult({ error: error.message });
+            }
+        }
+
+        document.getElementById('update-work-order-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const id = document.getElementById('update-wo-id').value;
+            if (!id) return displayResult({ error: "請輸入要更新的工單 ID" });
+            
+            let body;
+            try {
+                body = JSON.parse(document.getElementById('update-wo-body').value);
+            } catch (e) {
+                return displayResult({ error: "要更新的內容 JSON 格式不正確", details: e.message });
+            }
+
+            if (Object.keys(body).length === 0) return displayResult({ error: "請填寫要更新的內容" });
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/work-orders/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                await handleApiResponse(response);
+            } catch (error) {
+                displayResult({ error: error.message });
+            }
+        });
+
+        // Initial Page Setup
+        renderWorkOrderItems();
+        populateProductsDropdown();
+    </script>
+
+</body>
+</html>

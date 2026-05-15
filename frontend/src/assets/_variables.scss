@@ -1,0 +1,31 @@
+// 符咒學.md 中定義的顏色主題
+// 深灰色與熱血紅
+
+// 主色調
+$primary-color: #e53935; // 熱血紅
+$primary-dark: #c62828;
+$primary-light: #ef5350;
+$primary-glow: rgba(229, 57, 53, 0.4);
+
+// 輔助色/背景色
+$dark-grey: #212121;
+$medium-grey: #424242;
+$light-grey: #616161;
+$background-color: #121212; // 更深邃的黑
+
+// Glassmorphism 背景
+$glass-bg: rgba(33, 33, 33, 0.7);
+$glass-border: rgba(255, 255, 255, 0.08);
+
+// 文字顏色
+$text-primary: #ffffff;
+$text-secondary: #eeeeee;
+$text-disabled: #bdbdbd;
+
+// 字體
+$font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+$font-family-heading: 'Montserrat', sans-serif;
+
+// 其他
+$border-radius: 8px; // 稍微加大圓角更現代化
+$transition-base: all 0.3s ease;

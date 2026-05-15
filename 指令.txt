@@ -1,0 +1,3 @@
+uvicorn main:app --reload 啟動後端伺服器
+cd frontend
+npm run dev  啟動前端伺服器
