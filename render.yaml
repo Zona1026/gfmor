@@ -28,7 +28,7 @@ services:
     staticPublishPath: "./frontend/dist"
     envVars:
       - key: VITE_API_URL
-        value: "https://gfmotor-api.onrender.com"
+        value: "https://gfmotor-api.onrender.com/api"
     routes:
       - type: rewrite
         source: /*
