@@ -25,6 +25,13 @@ apiClient.interceptors.request.use(
       config.headers.Authorization = `Bearer ${userToken}`;
     }
     
+    // Axios 遇到開頭為 / 的路徑會忽略 baseURL 裡面的路徑 (例如 /api)
+    // 這裡攔截並強制把它跟 baseURL 接起來
+    if (config.url && config.url.startsWith('/')) {
+      config.url = import.meta.env.VITE_API_URL + config.url;
+      config.baseURL = ''; 
+    }
+    
     return config;
   },
   (error) => {

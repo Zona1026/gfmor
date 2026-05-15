@@ -29,6 +29,10 @@ services:
     envVars:
       - key: VITE_API_URL
         value: "https://gfmotor-api.onrender.com/api"
+    headers:
+      - path: /*
+        name: Cross-Origin-Opener-Policy
+        value: same-origin-allow-popups
     routes:
       - type: rewrite
         source: /*
