@@ -13,6 +13,12 @@ services:
         generateValue: true
       - key: FRONTEND_URL
         value: "https://gfmotor-frontend.onrender.com"
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
 
   # 前端靜態網站 (Vue 3)
   - type: web
