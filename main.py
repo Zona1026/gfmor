@@ -41,51 +41,6 @@ def read_root():
 def health_check():
     return {"status": "ok"}
 
-@app.get("/debug/test-login")
-def debug_test_login():
-    """臨時除錯用端點，測試登入相關模組是否正常"""
-    results = {}
-    try:
-        from core.security import verify_password, get_password_hash
-        results["passlib_import"] = "OK"
-    except Exception as e:
-        results["passlib_import"] = f"FAIL: {e}"
-    
-    try:
-        from core.security import get_password_hash
-        hashed = get_password_hash("test")
-        results["hash_test"] = f"OK: {hashed[:20]}..."
-    except Exception as e:
-        results["hash_test"] = f"FAIL: {e}"
-    
-    try:
-        from core.security import verify_password, get_password_hash
-        hashed = get_password_hash("12345")
-        result = verify_password("12345", hashed)
-        results["verify_test"] = f"OK: {result}"
-    except Exception as e:
-        results["verify_test"] = f"FAIL: {e}"
-    
-    try:
-        from db.database import SessionLocal
-        from db import models
-        db = SessionLocal()
-        admin = db.query(models.Admin).filter(models.Admin.username == "12345").first()
-        if admin:
-            results["db_admin_exists"] = f"OK: username={admin.username}, has_password={bool(admin.hashed_password)}"
-            try:
-                result = verify_password("12345", admin.hashed_password)
-                results["db_verify"] = f"OK: {result}"
-            except Exception as e:
-                results["db_verify"] = f"FAIL: {e}"
-        else:
-            results["db_admin_exists"] = "NOT FOUND"
-        db.close()
-    except Exception as e:
-        results["db_query"] = f"FAIL: {e}"
-    
-    return results
-
 # 引入由 api/router.py 定義的路由
 from api.router import api_router
 
