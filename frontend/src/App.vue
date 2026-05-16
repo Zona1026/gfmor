@@ -8,6 +8,7 @@
         </transition>
       </router-view>
     </main>
+    <PWABadge />
   </div>
 </template>
 
@@ -15,6 +16,7 @@
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import Navbar from './components/layout/Navbar.vue';
+import PWABadge from './components/PWABadge.vue';
 
 const route = useRoute();
 
