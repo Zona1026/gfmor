@@ -2,7 +2,7 @@
   <footer class="site-footer">
     <div class="footer-container">
       <div class="footer-info">
-        <h3>GFmotor {{ settings.store_name }}</h3>
+        <h3><span class="notranslate">GFmotor</span> {{ settings.store_name }}</h3>
         <p>{{ settings.footer_description }}</p>
         <div class="social-links">
           <!-- 預留社交媒體連結 -->
@@ -34,7 +34,7 @@
     </div>
     
     <div class="footer-bottom">
-      <p>&copy; 2024 GFmotor {{ settings.store_name }}. All rights reserved.</p>
+      <p>&copy; 2024 <span class="notranslate">GFmotor</span> {{ settings.store_name }}. All rights reserved.</p>
     </div>
   </footer>
 </template>

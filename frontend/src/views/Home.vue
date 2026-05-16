@@ -1,7 +1,7 @@
 <template>
   <div class="home-page">
     <h1>歡迎來到 {{ settings.store_name }}</h1>
-    <p>您的機車改裝與維修專家 (GFmotor)</p>
+    <p>您的機車改裝與維修專家 (<span class="notranslate">GFmotor</span>)</p>
 
     <!-- 公告輪播 (Carousel) -->
     <div class="announcements-section">
