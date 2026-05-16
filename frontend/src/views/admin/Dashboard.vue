@@ -1,16 +1,29 @@
 <template>
-  <div class="admin-dashboard">
+  <div class="admin-dashboard" :class="{ 'sidebar-open': isSidebarOpen }">
+    <!-- Mobile header bar -->
+    <div class="mobile-topbar">
+      <button class="hamburger-btn" @click="isSidebarOpen = !isSidebarOpen">
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
+      </button>
+      <span class="mobile-title">GFmoter 後台</span>
+    </div>
+
+    <!-- Sidebar overlay (mobile) -->
+    <div class="sidebar-overlay" @click="isSidebarOpen = false"></div>
+
     <aside class="sidebar">
       <h2>GFmoter 後台</h2>
       <nav>
-        <router-link to="/admin" exact-active-class="active">儀表板首頁</router-link>
-        <router-link to="/admin/announcements" active-class="active">公告管理</router-link>
-        <router-link to="/admin/bookings" active-class="active">預約管理</router-link>
-        <router-link to="/admin/orders" active-class="active">訂單管理</router-link>
-        <router-link to="/admin/members" active-class="active">會員管理</router-link>
-        <router-link to="/admin/products" active-class="active">商城管理</router-link>
-        <router-link to="/admin/portfolio" active-class="active">作品集管理</router-link>
-        <router-link to="/admin/admins" active-class="active">系統與權限</router-link>
+        <router-link to="/admin" exact-active-class="active" @click="closeSidebar">儀表板首頁</router-link>
+        <router-link to="/admin/announcements" active-class="active" @click="closeSidebar">公告管理</router-link>
+        <router-link to="/admin/bookings" active-class="active" @click="closeSidebar">預約管理</router-link>
+        <router-link to="/admin/orders" active-class="active" @click="closeSidebar">訂單管理</router-link>
+        <router-link to="/admin/members" active-class="active" @click="closeSidebar">會員管理</router-link>
+        <router-link to="/admin/products" active-class="active" @click="closeSidebar">商城管理</router-link>
+        <router-link to="/admin/portfolio" active-class="active" @click="closeSidebar">作品集管理</router-link>
+        <router-link to="/admin/admins" active-class="active" @click="closeSidebar">系統與權限</router-link>
       </nav>
       <button @click="handleLogout" class="btn-logout">登出</button>
     </aside>
@@ -143,6 +156,9 @@ const authStore = useAuthStore();
 const router = useRouter();
 const { adminUser } = storeToRefs(authStore);
 
+const isSidebarOpen = ref(false);
+const closeSidebar = () => { isSidebarOpen.value = false; };
+
 const allBookings = ref([]);
 const allOrders = ref([]);
 const loading = ref(false);
@@ -253,12 +269,62 @@ onMounted(fetchDashboardData);
   background-color: $dark-grey;
   color: $text-primary;
 
+  // ===== Mobile Top Bar =====
+  .mobile-topbar {
+    display: none; // hidden on desktop
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 56px;
+    background-color: $background-color;
+    border-bottom: 1px solid $medium-grey;
+    align-items: center;
+    padding: 0 1rem;
+    gap: 1rem;
+    z-index: 200;
+
+    .hamburger-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+
+      .bar {
+        display: block;
+        width: 24px;
+        height: 2px;
+        background-color: $text-primary;
+        border-radius: 2px;
+        transition: 0.3s;
+      }
+    }
+
+    .mobile-title {
+      color: $primary-light;
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+  }
+
+  // ===== Sidebar Overlay (mobile) =====
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 299;
+  }
+
+  // ===== Sidebar =====
   .sidebar {
     width: 250px;
     background-color: $background-color;
     border-right: 1px solid $medium-grey;
     display: flex;
     flex-direction: column;
+    flex-shrink: 0;
 
     h2 {
       padding: 1.5rem;
@@ -303,10 +369,12 @@ onMounted(fetchDashboardData);
     }
   }
 
+  // ===== Main Content =====
   .content {
     flex: 1;
     display: flex;
     flex-direction: column;
+    min-width: 0; // prevent overflow
 
     header {
       padding: 1.5rem 2.5rem;
@@ -391,7 +459,6 @@ onMounted(fetchDashboardData);
           }
           
           th { color: $text-disabled; font-weight: normal; font-size: 0.8rem; }
-          
           .time { color: $primary-light; font-weight: bold; }
           .amount { color: $primary-color; font-weight: bold; }
           
@@ -420,6 +487,65 @@ onMounted(fetchDashboardData);
           height: 150px;
           color: $text-disabled;
           font-size: 0.9rem;
+        }
+      }
+    }
+  }
+
+  // ===== Mobile Responsive =====
+  @media (max-width: 768px) {
+    flex-direction: column;
+
+    .mobile-topbar {
+      display: flex;
+    }
+
+    .sidebar {
+      position: fixed;
+      top: 0; left: 0;
+      height: 100vh;
+      width: 260px;
+      z-index: 300;
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+
+      h2 { padding-top: 1.2rem; }
+    }
+
+    &.sidebar-open {
+      .sidebar {
+        transform: translateX(0);
+      }
+      .sidebar-overlay {
+        display: block;
+      }
+    }
+
+    .content {
+      padding-top: 56px; // space for fixed topbar
+
+      header {
+        padding: 1rem;
+        h1 { font-size: 1.2rem; }
+      }
+
+      .dashboard-content {
+        padding: 1rem;
+
+        .overview-widgets {
+          grid-template-columns: 1fr;
+          gap: 1rem;
+        }
+
+        .charts-row .chart-card .chart-container {
+          height: 220px;
+        }
+
+        .widget-section .summary-table {
+          th, td {
+            padding: 0.5rem 0.4rem;
+            font-size: 0.78rem;
+          }
         }
       }
     }
