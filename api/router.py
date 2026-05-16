@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from .endpoints import products, work_orders, bookings, users, motors, auth, orders, admin, announcements, portfolio, admins
+from .endpoints import products, work_orders, bookings, users, motors, auth, orders, admin, announcements, portfolio, admins, settings
 
 # 建立一個給 API v1 用的主 router
 api_router = APIRouter()
@@ -17,3 +17,4 @@ api_router.include_router(admin.router, prefix="/admin", tags=["管理者 (Admin
 api_router.include_router(admins.router, prefix="/admins", tags=["管理者帳號管理 (Admin Accounts)"])
 api_router.include_router(announcements.router, prefix="/announcements", tags=["公告 (Announcements)"])
 api_router.include_router(portfolio.router, prefix="/portfolio", tags=["作品集 (Portfolio)"])
+api_router.include_router(settings.router, prefix="/settings", tags=["系統設定 (Settings)"])

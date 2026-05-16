@@ -1,7 +1,7 @@
 <template>
   <div class="home-page">
-    <h1>歡迎來到 GFmotor</h1>
-    <p>您的機車改裝與維修專家</p>
+    <h1>歡迎來到 {{ settings.store_name }}</h1>
+    <p>您的機車改裝與維修專家 (GFmotor)</p>
 
     <!-- 公告輪播 (Carousel) -->
     <div class="announcements-section">
@@ -46,11 +46,9 @@
     <div class="content-row">
       <div class="business-hours">
         <h3>營業時間</h3>
-        <ul>
-          <li v-for="item in businessHours" :key="item.day">
-            <strong>{{ item.day }}:</strong> <span>{{ item.time }}</span>
-          </li>
-        </ul>
+        <p class="hours-text" style="color: #eee; font-size: 1.1rem; line-height: 1.6; text-align: center; margin-top: 1rem;">
+          {{ settings.business_hours }}
+        </p>
       </div>
 
       <div class="social-links">
@@ -71,11 +69,16 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import api from '../api/index';
+import { useSiteStore } from '../store/site';
+import { storeToRefs } from 'pinia';
 // 匯入圖示
 import facebookIcon from '../assets/icons/facebook.svg';
 import instagramIcon from '../assets/icons/instagram.svg';
 import threadsIcon from '../assets/icons/threads.svg';
 import lineIcon from '../assets/icons/line.svg';
+
+const siteStore = useSiteStore();
+const { settings } = storeToRefs(siteStore);
 
 // 公告資料
 const announcements = ref([]);
@@ -120,7 +123,10 @@ const fetchAnnouncements = async () => {
   }
 };
 
-onMounted(fetchAnnouncements);
+onMounted(() => {
+  fetchAnnouncements();
+  siteStore.fetchSettings();
+});
 onUnmounted(() => { if (autoplayTimer) clearInterval(autoplayTimer); });
 
 // 作品集分類

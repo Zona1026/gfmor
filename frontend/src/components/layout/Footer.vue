@@ -2,8 +2,8 @@
   <footer class="site-footer">
     <div class="footer-container">
       <div class="footer-info">
-        <h3>GFmotor 廣發汽修</h3>
-        <p>專業二輪維修、保養與精品改裝。提供最值得信賴的技術與服務。</p>
+        <h3>GFmotor {{ settings.store_name }}</h3>
+        <p>{{ settings.footer_description }}</p>
         <div class="social-links">
           <!-- 預留社交媒體連結 -->
         </div>
@@ -28,17 +28,30 @@
 
       <div class="footer-contact">
         <h4>聯繫我們</h4>
-        <p>📍 高雄市某某區某某路123號</p>
-        <p>📞 07-1234567</p>
-        <p>⏰ 週一至週六 13:00 - 22:00</p>
+        <p>📍 {{ settings.store_address }}</p>
+        <p>📞 {{ settings.store_phone }}</p>
+        <p>⏰ {{ settings.business_hours }}</p>
       </div>
     </div>
     
     <div class="footer-bottom">
-      <p>&copy; 2024 GFmotor 廣發汽修. All rights reserved.</p>
+      <p>&copy; 2024 GFmotor {{ settings.store_name }}. All rights reserved.</p>
     </div>
   </footer>
 </template>
+
+<script setup>
+import { onMounted } from 'vue';
+import { useSiteStore } from '../../store/site';
+import { storeToRefs } from 'pinia';
+
+const siteStore = useSiteStore();
+const { settings } = storeToRefs(siteStore);
+
+onMounted(() => {
+  siteStore.fetchSettings();
+});
+</script>
 
 <style lang="scss" scoped>
 @import '../../assets/_variables.scss';

@@ -258,3 +258,15 @@ class PortfolioItem(Base):
     image_url = Column(String(500), nullable=False, comment="Cloudinary 圖片網址")
     cloudinary_public_id = Column(String(255), nullable=True, comment="Cloudinary 圖片 ID")
     created_at = Column(DateTime, server_default=func.now())
+
+class SystemSetting(Base):
+    """
+    系統設定資料表 (對應 system_settings)
+    用於儲存店名、地址、電話、營業時間等全域資訊
+    """
+    __tablename__ = "system_settings"
+
+    key = Column(String(50), primary_key=True, index=True)
+    value = Column(Text, nullable=True)
+    description = Column(String(255), nullable=True)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

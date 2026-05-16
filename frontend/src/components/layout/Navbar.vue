@@ -1,7 +1,7 @@
 <template>
   <nav class="navbar" :class="{ 'scrolled': isScrolled }">
     <div class="navbar-brand">
-      <router-link to="/">GFmotor</router-link>
+      <router-link to="/">{{ settings.store_name }}</router-link>
     </div>
     
     <!-- Hamburger Menu Toggle -->
@@ -36,11 +36,14 @@ import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../../store/auth';
 import { useCartStore } from '../../store/cart';
+import { useSiteStore } from '../../store/site';
 
 const router = useRouter();
 const authStore = useAuthStore();
 const cartStore = useCartStore();
+const siteStore = useSiteStore();
 const { user } = storeToRefs(authStore);
+const { settings } = storeToRefs(siteStore);
 const cartCount = computed(() => cartStore.totalItems);
 
 const isMenuOpen = ref(false);
@@ -66,6 +69,7 @@ const handleScroll = () => {
 
 onMounted(() => {
   window.addEventListener('scroll', handleScroll);
+  siteStore.fetchSettings();
 });
 
 onUnmounted(() => {

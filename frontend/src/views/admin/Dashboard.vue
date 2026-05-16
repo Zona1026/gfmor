@@ -7,14 +7,14 @@
         <span class="bar"></span>
         <span class="bar"></span>
       </button>
-      <span class="mobile-title">GFmoter 後台</span>
+      <span class="mobile-title">{{ settings.store_name }} 後台</span>
     </div>
 
     <!-- Sidebar overlay (mobile) -->
     <div class="sidebar-overlay" @click="isSidebarOpen = false"></div>
 
     <aside class="sidebar">
-      <h2>GFmoter 後台</h2>
+      <h2>{{ settings.store_name }}</h2>
       <nav>
         <router-link to="/admin" exact-active-class="active" @click="closeSidebar">儀表板首頁</router-link>
         <router-link to="/admin/announcements" active-class="active" @click="closeSidebar">公告管理</router-link>
@@ -24,6 +24,7 @@
         <router-link to="/admin/products" active-class="active" @click="closeSidebar">商城管理</router-link>
         <router-link to="/admin/portfolio" active-class="active" @click="closeSidebar">作品集管理</router-link>
         <router-link to="/admin/admins" active-class="active" @click="closeSidebar">系統與權限</router-link>
+        <router-link to="/admin/settings" active-class="active" @click="closeSidebar">全域系統設定</router-link>
       </nav>
       <button @click="handleLogout" class="btn-logout">登出</button>
     </aside>
@@ -128,6 +129,7 @@ import { useAuthStore } from '../../store/auth';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { getAdminBookings, getAllOrders } from '../../api/admin';
+import { useSiteStore } from '../../store/site';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -155,6 +157,9 @@ ChartJS.register(
 const authStore = useAuthStore();
 const router = useRouter();
 const { adminUser } = storeToRefs(authStore);
+
+const siteStore = useSiteStore();
+const { settings } = storeToRefs(siteStore);
 
 const isSidebarOpen = ref(false);
 const closeSidebar = () => { isSidebarOpen.value = false; };
@@ -257,7 +262,10 @@ const handleLogout = () => {
   router.push('/login');
 };
 
-onMounted(fetchDashboardData);
+onMounted(() => {
+  fetchDashboardData();
+  siteStore.fetchSettings();
+});
 </script>
 
 <style lang="scss" scoped>
