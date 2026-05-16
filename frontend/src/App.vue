@@ -8,6 +8,7 @@
         </transition>
       </router-view>
     </main>
+    <Footer v-if="!isAdminRoute" />
     <PWABadge />
   </div>
 </template>
@@ -16,6 +17,7 @@
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import Navbar from './components/layout/Navbar.vue';
+import Footer from './components/layout/Footer.vue';
 import PWABadge from './components/PWABadge.vue';
 
 const route = useRoute();

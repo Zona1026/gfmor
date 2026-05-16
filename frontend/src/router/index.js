@@ -9,6 +9,8 @@ import Checkout from '../views/Checkout.vue'
 import PortfolioCategory from '../views/PortfolioCategory.vue'
 import ProjectDetail from '../views/ProjectDetail.vue'
 import Booking from '../views/Booking.vue'
+import PrivacyPolicy from '../views/PrivacyPolicy.vue'
+import TermsOfService from '../views/TermsOfService.vue'
 import AdminDashboard from '../views/admin/Dashboard.vue'
 import AdminBookings from '../views/admin/Bookings.vue'
 import AdminMembers from '../views/admin/Members.vue'
@@ -118,6 +120,16 @@ const routes = [
     name: 'ProjectDetail',
     component: ProjectDetail,
     props: true
+  },
+  {
+    path: '/privacy',
+    name: 'PrivacyPolicy',
+    component: PrivacyPolicy
+  },
+  {
+    path: '/terms',
+    name: 'TermsOfService',
+    component: TermsOfService
   }
 ]
 
