@@ -306,6 +306,25 @@ onMounted(() => { fetchOrders(); fetchMembers(); });
   .section-header {
     display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;
     h2 { color: $primary-light; margin: 0; }
+
+    @media (max-width: 768px) {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+
+      h2 {
+        background-color: rgba($primary-color, 0.1);
+        padding: 0.8rem;
+        border-radius: $border-radius;
+        text-align: center;
+        border-left: 4px solid $primary-color;
+      }
+
+      .btn {
+        width: 100%;
+      }
+    }
   }
 
   .filter-bar {
@@ -329,6 +348,22 @@ onMounted(() => { fetchOrders(); fetchMembers(); });
         color: $text-secondary; border-radius: 20px; cursor: pointer; font-size: 0.85rem; transition: $transition-base;
         &.active { background: $primary-color; border-color: $primary-color; color: #fff; box-shadow: 0 4px 10px rgba($primary-color, 0.3); }
         &:hover:not(.active) { background: rgba(255, 255, 255, 0.1); color: #fff; }
+      }
+    }
+
+    @media (max-width: 768px) {
+      flex-direction: column;
+      align-items: stretch;
+      
+      .search-wrap {
+        width: 100%;
+        .search-input {
+          width: 100%;
+        }
+      }
+
+      .filter-buttons {
+        justify-content: center;
       }
     }
   }

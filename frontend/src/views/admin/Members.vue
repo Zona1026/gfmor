@@ -289,6 +289,26 @@ onMounted(fetchMembers);
         border-color: $primary-color;
       }
     }
+
+    @media (max-width: 768px) {
+      flex-direction: column;
+      align-items: stretch;
+      
+      h2 {
+        background-color: rgba($primary-color, 0.1);
+        padding: 0.8rem;
+        border-radius: $border-radius;
+        text-align: center;
+        border-left: 4px solid $primary-color;
+      }
+
+      .search-bar {
+        width: 100%;
+        input {
+          width: 100%;
+        }
+      }
+    }
   }
 
   .loading {

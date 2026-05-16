@@ -182,6 +182,24 @@ onMounted(fetchAnnouncements);
     margin-bottom: 1.5rem;
 
     h2 { color: $primary-light; margin: 0; }
+
+    @media (max-width: 768px) {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 1rem;
+
+      h2 {
+        background-color: rgba($primary-color, 0.1);
+        padding: 0.8rem;
+        border-radius: $border-radius;
+        text-align: center;
+        border-left: 4px solid $primary-color;
+      }
+
+      .btn {
+        width: 100%;
+      }
+    }
   }
 
   .loading, .empty {
