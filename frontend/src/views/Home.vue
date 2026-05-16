@@ -46,9 +46,11 @@
     <div class="content-row">
       <div class="business-hours">
         <h3>營業時間</h3>
-        <p class="hours-text" style="color: #eee; font-size: 1.1rem; line-height: 1.6; text-align: center; margin-top: 1rem;">
-          {{ settings.business_hours }}
-        </p>
+        <ul>
+          <li v-for="item in businessHours" :key="item.day">
+            <strong>{{ item.day }}:</strong> <span>{{ item.time }}</span>
+          </li>
+        </ul>
       </div>
 
       <div class="social-links">

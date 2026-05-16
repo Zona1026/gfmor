@@ -40,11 +40,6 @@
           <h3>營運資訊</h3>
         </div>
         <div class="form-group">
-          <label>營業時間</label>
-          <input v-model="editData.business_hours" type="text" placeholder="例如：週一至週六 13:00 - 22:00" />
-          <p class="help-text">顯示於首頁及頁尾的聯絡資訊區。</p>
-        </div>
-        <div class="form-group">
           <label>頁尾描述</label>
           <textarea v-model="editData.footer_description" rows="4" placeholder="顯示在頁尾簡介區塊的文字"></textarea>
           <p class="help-text">簡短介紹您的店面服務特點。</p>

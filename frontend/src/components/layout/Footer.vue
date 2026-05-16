@@ -30,7 +30,6 @@
         <h4>聯繫我們</h4>
         <p>📍 {{ settings.store_address }}</p>
         <p>📞 {{ settings.store_phone }}</p>
-        <p>⏰ {{ settings.business_hours }}</p>
       </div>
     </div>
     
