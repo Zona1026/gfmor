@@ -351,6 +351,34 @@ onMounted(() => {
         border-radius: $border-radius;
       }
     }
+
+    @media (max-width: 768px) {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 1.2rem;
+      margin-bottom: 2rem;
+
+      h2 {
+        background-color: rgba($primary-color, 0.1);
+        padding: 0.8rem;
+        border-radius: $border-radius;
+        text-align: center;
+        border-left: 4px solid $primary-color;
+      }
+
+      .actions {
+        flex-direction: column;
+        align-items: stretch;
+        
+        .date-picker {
+          width: 100%;
+        }
+
+        .btn {
+          width: 100%;
+        }
+      }
+    }
   }
 
   .btn {
