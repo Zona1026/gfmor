@@ -74,7 +74,7 @@ const handleAdminSubmit = async () => {
     try {
       const res = await loginAdmin(adminForm.value);
       authStore.setAdminToken(res.access_token);
-      authStore.setAdminUser({ username: res.username });
+      authStore.setAdminUser({ username: res.username, full_name: res.full_name });
       alert('管理員登入成功！');
       router.push('/admin');
     } catch (error) {

@@ -16,7 +16,7 @@
     <aside class="sidebar">
       <h2>{{ settings.store_name }}</h2>
       <nav>
-        <router-link to="/admin" exact-active-class="active" @click="closeSidebar">儀表板首頁</router-link>
+        <router-link to="/admin" exact-active-class="active" @click="closeSidebar">儀表板</router-link>
         <router-link to="/admin/announcements" active-class="active" @click="closeSidebar">公告管理</router-link>
         <router-link to="/admin/bookings" active-class="active" @click="closeSidebar">預約管理</router-link>
         <router-link to="/admin/orders" active-class="active" @click="closeSidebar">訂單管理</router-link>
@@ -30,7 +30,7 @@
     </aside>
     <main class="content">
       <header>
-        <h1>儀表板首頁</h1>
+        <h1>儀表板</h1>
         <p>歡迎登入，管理員 {{ adminUser?.full_name || adminUser?.username }}!</p>
       </header>
       <div class="dashboard-content">
