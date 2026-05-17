@@ -50,7 +50,7 @@
             <input type="text" v-model="createForm.full_name" placeholder="例如：小王" />
           </div>
           <div class="form-group">
-            <label>帳號名稱</label>
+            <label>管理員帳號</label>
             <input type="text" v-model="createForm.username" required placeholder="例如：staff_01" />
           </div>
           <div class="form-group">
