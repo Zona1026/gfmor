@@ -23,7 +23,14 @@
         <input type="text" id="model_name" v-model="motorData.model_name" required placeholder="例如：JETS" />
       </div>
 
-      <button type="submit" class="submit-btn" :disabled="isSubmitting">完成設定</button>
+      <div class="form-checkbox-group">
+        <label class="checkbox-label">
+          <input type="checkbox" v-model="agreed" required />
+          <span>我已閱讀並同意 <router-link to="/terms" target="_blank" class="legal-link">服務條款</router-link> 與 <router-link to="/privacy" target="_blank" class="legal-link">隱私權政策</router-link></span>
+        </label>
+      </div>
+
+      <button type="submit" class="submit-btn" :disabled="isSubmitting || !agreed">完成設定</button>
     </form>
   </div>
 </template>
@@ -38,6 +45,7 @@ const router = useRouter();
 const authStore = useAuthStore();
 
 const isSubmitting = ref(false);
+const agreed = ref(false);
 
 const formData = reactive({
   phone: authStore.user?.phone || ''
@@ -134,6 +142,35 @@ const handleSubmit = async () => {
         &:focus {
           outline: none;
           border-color: $primary-color;
+        }
+      }
+    }
+    .form-checkbox-group {
+      display: flex;
+      align-items: center;
+      margin-top: 0.5rem;
+      
+      .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        color: $text-secondary;
+        font-size: 0.95rem;
+        
+        input {
+          width: 18px;
+          height: 18px;
+          cursor: pointer;
+          accent-color: $primary-color;
+        }
+
+        .legal-link {
+          color: $primary-color;
+          text-decoration: underline;
+          &:hover {
+            color: $primary-light;
+          }
         }
       }
     }
