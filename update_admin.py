@@ -15,7 +15,7 @@ def update_admin():
         new_admin = db.query(Admin).filter(Admin.username == "12345").first()
         if not new_admin:
             hashed_pw = get_password_hash("12345")
-            db.add(Admin(username="12345", hashed_password=hashed_pw))
+            db.add(Admin(username="12345", hashed_password=hashed_pw, role="最高級"))
             print("已建立 12345/12345 帳號。")
         else:
             print("12345 帳號已經存在。")

@@ -2,7 +2,18 @@
   <div class="admin-management">
     <div class="section-header">
       <h2>系統與權限</h2>
-      <button class="btn btn-primary" @click="showCreateModal = true">＋ 新增管理員</button>
+      <button 
+        class="btn btn-primary" 
+        @click="showCreateModal = true"
+        :disabled="adminUser?.role !== '最高級'"
+        :title="adminUser?.role !== '最高級' ? '僅最高級管理員可新增管理員' : ''"
+      >
+        ＋ 新增管理員
+      </button>
+    </div>
+
+    <div v-if="adminUser?.role !== '最高級'" class="permission-alert">
+      🔒 您的登入角色為「{{ adminUser?.role || '一般' }}」，僅限檢視列表。如需新增、修改或刪除，請聯絡最高級系統管理員。
     </div>
 
     <div v-if="loading" class="loading">載入中...</div>
@@ -14,6 +25,7 @@
             <th>ID</th>
             <th>管理員姓名</th>
             <th>管理員帳號</th>
+            <th>權限等級</th>
             <th>建立時間</th>
             <th>操作</th>
           </tr>
@@ -23,13 +35,26 @@
             <td>#{{ admin.id }}</td>
             <td class="username">{{ admin.full_name || '未設定' }}</td>
             <td class="username">{{ admin.username }}</td>
+            <td>
+              <span class="role-tag" :class="getRoleClass(admin.role)">
+                {{ admin.role || '一般' }}
+              </span>
+            </td>
             <td class="time">{{ formatDate(admin.created_at) }}</td>
             <td class="actions">
-              <button class="btn-edit" @click="openEditModal(admin)">編輯</button>
+              <button 
+                class="btn-edit" 
+                @click="openEditModal(admin)"
+                :disabled="adminUser?.role !== '最高級'"
+                :title="adminUser?.role !== '最高級' ? '僅最高級管理員可編輯' : ''"
+              >
+                編輯
+              </button>
               <button
                 class="btn-delete"
                 @click="deleteAdminHandler(admin)"
-                :disabled="(admins?.length || 0) <= 1"
+                :disabled="(admins?.length || 0) <= 1 || adminUser?.role !== '最高級'"
+                :title="adminUser?.role !== '最高級' ? '僅最高級管理員可刪除' : ''"
               >
                 刪除
               </button>
@@ -52,6 +77,14 @@
           <div class="form-group">
             <label>管理員帳號</label>
             <input type="text" v-model="createForm.username" required placeholder="例如：staff_01" />
+          </div>
+          <div class="form-group">
+            <label>權限等級</label>
+            <select v-model="createForm.role" class="form-select" required>
+              <option value="一般">一般 (一般帳號)</option>
+              <option value="管理層">管理層 (主管職等)</option>
+              <option value="最高級">最高級 (超級管理員)</option>
+            </select>
           </div>
           <div class="form-group">
             <label>密碼</label>
@@ -81,6 +114,14 @@
             <input v-model="editForm.username" required />
           </div>
           <div class="form-group">
+            <label>權限等級</label>
+            <select v-model="editForm.role" class="form-select" required>
+              <option value="一般">一般 (一般帳號)</option>
+              <option value="管理層">管理層 (主管職等)</option>
+              <option value="最高級">最高級 (超級管理員)</option>
+            </select>
+          </div>
+          <div class="form-group">
             <label>變更密碼 (不變更則留空)</label>
             <input v-model="editForm.password" type="password" />
           </div>
@@ -99,7 +140,12 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { storeToRefs } from 'pinia';
+import { useAuthStore } from '../../store/auth';
 import { getAdmins, createAdmin, deleteAdmin, updateAdmin } from '../../api/admin';
+
+const authStore = useAuthStore();
+const { adminUser } = storeToRefs(authStore);
 
 const admins = ref([]);
 const loading = ref(false);
@@ -110,14 +156,16 @@ const showEditModal = ref(false);
 const createForm = ref({
   username: '',
   password: '',
-  full_name: ''
+  full_name: '',
+  role: '一般'
 });
 
 const editForm = ref({
   id: null,
   username: '',
   full_name: '',
-  password: ''
+  password: '',
+  role: '一般'
 });
 
 const fetchAdmins = async () => {
@@ -138,7 +186,7 @@ const handleCreate = async () => {
     await createAdmin(createForm.value);
     alert('管理員帳號已建立');
     showCreateModal.value = false;
-    createForm.value = { username: '', password: '', full_name: '' };
+    createForm.value = { username: '', password: '', full_name: '', role: '一般' };
     fetchAdmins();
   } catch (e) {
     console.error(e);
@@ -153,7 +201,8 @@ const openEditModal = (admin) => {
     id: admin.id,
     username: admin.username,
     full_name: admin.full_name || '',
-    password: ''
+    password: '',
+    role: admin.role || '一般'
   };
   showEditModal.value = true;
 };
@@ -186,6 +235,12 @@ const deleteAdminHandler = async (admin) => { // Renamed from handleDelete
     console.error(e);
     alert('刪除失敗：' + (e.response?.data?.detail || '服務錯誤'));
   }
+};
+
+const getRoleClass = (role) => {
+  if (role === '最高級') return 'role-super';
+  if (role === '管理層') return 'role-manager';
+  return 'role-staff';
 };
 
 const formatDate = (iso) => {
@@ -299,13 +354,61 @@ onMounted(fetchAdmins);
     .form-group {
       margin-bottom: 1.2rem;
       label { display: block; margin-bottom: 0.5rem; color: $text-secondary; font-size: 0.9rem; }
-      input {
+      input, .form-select {
         width: 100%; padding: 0.8rem; background: $background-color; border: 1px solid $medium-grey;
         border-radius: $border-radius; color: $text-primary;
         &:focus { border-color: $primary-color; outline: none; }
       }
+      .form-select {
+        cursor: pointer;
+        option { background: $dark-grey; color: $text-primary; }
+      }
     }
     .form-actions { display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 2rem; }
+  }
+
+  /* Roles & Permission styles */
+  .permission-alert {
+    background: rgba(#ff4d4f, 0.08);
+    border: 1px dashed rgba(#ff4d4f, 0.3);
+    color: #ff7875;
+    padding: 0.8rem 1.2rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+  }
+
+  .role-tag {
+    padding: 0.25rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    display: inline-block;
+    text-align: center;
+
+    &.role-super {
+      background: linear-gradient(135deg, rgba(#ff4d4f, 0.25) 0%, rgba(#fa8c16, 0.25) 100%);
+      color: #ffa940;
+      border: 1px solid rgba(#fa8c16, 0.45);
+    }
+    &.role-manager {
+      background: linear-gradient(135deg, rgba(#722ed1, 0.25) 0%, rgba(#13c2c2, 0.25) 100%);
+      color: #d3adf7;
+      border: 1px solid rgba(#d3adf7, 0.45);
+    }
+    &.role-staff {
+      background: linear-gradient(135deg, rgba(#1890ff, 0.2) 0%, rgba(#52c41a, 0.2) 100%);
+      color: #40a9ff;
+      border: 1px solid rgba(#40a9ff, 0.4);
+    }
+  }
+
+  .btn:disabled, .btn-edit:disabled, .btn-delete:disabled {
+    opacity: 0.4 !important;
+    cursor: not-allowed !important;
+    background-color: #434343 !important;
+    color: #a6a6a6 !important;
+    border-color: #303030 !important;
   }
 }
 </style>

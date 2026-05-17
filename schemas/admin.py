@@ -9,12 +9,14 @@ class AdminLogin(BaseModel):
 class AdminResponse(BaseModel):
     username: str
     full_name: Optional[str] = None
+    role: Optional[str] = None
     access_token: str
     token_type: str = "bearer"
 
 class AdminBase(BaseModel):
     username: str
     full_name: Optional[str] = None
+    role: Optional[str] = "一般"
 
 class AdminCreate(AdminBase):
     password: str
@@ -23,6 +25,7 @@ class AdminUpdate(BaseModel):
     username: Optional[str] = None
     full_name: Optional[str] = None
     password: Optional[str] = None
+    role: Optional[str] = None
 
 class AdminDetail(AdminBase):
     id: int

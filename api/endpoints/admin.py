@@ -22,14 +22,15 @@ def login_admin(login_data: admin_schema.AdminLogin, db: Session = Depends(datab
 
     # 建立 Access Token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    # 我們可以在 token 的 payload 裡加上 role="admin" 以快速識別
+    # 我們可以在 token 的 payload 裡加上 role="admin" 以快速識別，並附帶具體管理員權限
     access_token = create_access_token(
-        data={"sub": admin.username, "role": "admin"}, expires_delta=access_token_expires
+        data={"sub": admin.username, "role": "admin", "admin_role": admin.role}, expires_delta=access_token_expires
     )
 
     return {
         "username": admin.username,
         "full_name": admin.full_name,
+        "role": admin.role,
         "access_token": access_token,
         "token_type": "bearer"
     }

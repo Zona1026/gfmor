@@ -28,6 +28,7 @@ def create_admin(admin_in: admin_schema.AdminCreate, db: Session = Depends(get_d
     new_admin = models.Admin(
         username=admin_in.username,
         full_name=admin_in.full_name,
+        role=admin_in.role or "一般",
         hashed_password=get_password_hash(admin_in.password)
     )
     db.add(new_admin)
@@ -53,6 +54,9 @@ def update_admin(admin_id: int, admin_in: admin_schema.AdminUpdate, db: Session 
     
     if admin_in.full_name is not None:
         db_admin.full_name = admin_in.full_name
+
+    if admin_in.role is not None:
+        db_admin.role = admin_in.role
         
     if admin_in.password:
         db_admin.hashed_password = get_password_hash(admin_in.password)

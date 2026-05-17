@@ -22,7 +22,7 @@ def init_admin():
         if not admin:
             print("Creating default admin account...")
             hashed_pw = get_password_hash("12345")
-            new_admin = Admin(username="12345", hashed_password=hashed_pw)
+            new_admin = Admin(username="12345", hashed_password=hashed_pw, role="最高級")
             db.add(new_admin)
             db.commit()
             print("Default admin created (12345/12345).")
