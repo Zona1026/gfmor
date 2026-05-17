@@ -28,13 +28,6 @@
         <tr v-for="member in filteredMembers" :key="member.google_id">
           <td>
             <div class="member-name">
-              <img 
-                v-if="member.avatar" 
-                :src="member.avatar" 
-                class="avatar" 
-                alt="avatar" 
-              />
-              <div v-else class="avatar placeholder-avatar">{{ member.name?.charAt(0) }}</div>
               {{ member.name }}
             </div>
           </td>

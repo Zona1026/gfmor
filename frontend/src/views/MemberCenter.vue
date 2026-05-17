@@ -6,13 +6,6 @@
     <div v-if="user" class="profile-container">
       <!-- 頭像與基本資料 -->
       <div class="card user-info-card">
-        <div class="avatar-section">
-          <!-- Fallback path needs to be correct, maybe an SVG or default icon -->
-          <img :src="user.avatar || 'https://via.placeholder.com/120?text=Avatar'" alt="會員頭像" class="avatar-img" />
-          <input type="file" ref="fileInput" @change="handleAvatarChange" accept="image/*" class="d-none" />
-          <button @click="$refs.fileInput.click()" class="btn-upload">更換頭像</button>
-        </div>
-
         <div class="info-details">
           <div class="header-row">
             <h3>基本資料</h3>
@@ -185,7 +178,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useAuthStore } from '../store/auth';
-import { uploadAvatar, updateUserProfile, getUser } from '../api/users';
+import { updateUserProfile, getUser } from '../api/users';
 import { getUserBookings, updateBooking } from '../api/bookings';
 import { getUserOrders } from '../api/orders';
 import { updateMotor, deleteMotor } from '../api/motors';
@@ -252,8 +245,6 @@ const newMotorForm = ref({ brand: '', model_name: '', license_plate: '' });
 const editingMotorId = ref(null);
 const editMotorForm = ref({ brand: '', model_name: '', license_plate: '' });
 
-const fileInput = ref(null);
-
 const completeMotors = computed(() => {
   if (!user.value || !user.value.motors) return [];
   // 過濾未被軟刪除的車輛 (通常後端過濾了，但保險起見也可在這裡過濾)
@@ -287,21 +278,6 @@ watch(() => user.value, (newVal) => {
   }
 });
 
-const handleAvatarChange = async (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const formData = new FormData();
-  formData.append('file', file);
-
-  try {
-    const updatedUser = await uploadAvatar(user.value.google_id, formData);
-    authStore.setUser(updatedUser);
-  } catch (error) {
-    console.error('上傳頭像失敗:', error);
-    alert('頭像上傳失敗，請檢查網路狀態或圖片大小。');
-  }
-};
 
 // =============== 基本資料 =================
 const startEdit = () => {
