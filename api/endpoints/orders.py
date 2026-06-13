@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 
 from db import crud, models
@@ -20,6 +20,13 @@ def create_order(order_data: order_schema.OrderCreate, db: Session = Depends(get
     消費者下單 API。會自動扣除商品庫存。
     不串金流，訂單建立後狀態為 PENDING，由店家處理後續。
     """
+    if not order_data.google_id:
+        raise HTTPException(status_code=400, detail="線上訂單需要會員 google_id")
+
+    user = db.query(models.User).filter(models.User.google_id == order_data.google_id).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="找不到該會員")
+
     # 驗證所有商品並計算金額
     total = 0
     order_items = []
@@ -71,24 +78,65 @@ def create_order(order_data: order_schema.OrderCreate, db: Session = Depends(get
 
 @router.get("/", response_model=List[order_schema.Order], summary="取得所有訂單")
 def get_all_orders(db: Session = Depends(get_db)):
-    return db.query(models.Order).order_by(models.Order.created_at.desc()).all()
+    return (
+        db.query(models.Order)
+        .options(joinedload(models.Order.guest_customer), joinedload(models.Order.items))
+        .order_by(models.Order.created_at.desc())
+        .all()
+    )
 
 
 @router.post("/admin", response_model=order_schema.Order, summary="管理員新增現場訂單")
 def create_instore_order(order_data: order_schema.AdminOrderCreate, db: Session = Depends(get_db)):
     """
-    管理員為現場客人建立訂單。消費金額會自動加入會員累積消費。
+    管理員為現場客人建立訂單。會員訂單會綁定 google_id；
+    散客訂單會綁定 guest_customer_id，直到手動合併前不計入會員累積消費。
     """
-    # 驗證會員是否存在
-    user = db.query(models.User).filter(models.User.google_id == order_data.google_id).first()
-    if not user:
-        raise HTTPException(status_code=400, detail="找不到該會員")
+    google_id = None
+    guest_customer_id = None
+    recipient_name = order_data.recipient_name
+    recipient_phone = order_data.recipient_phone
+
+    if order_data.customer_type == "member":
+        # 驗證會員是否存在
+        user = db.query(models.User).filter(models.User.google_id == order_data.google_id).first()
+        if not user:
+            raise HTTPException(status_code=400, detail="找不到該會員")
+        google_id = user.google_id
+        recipient_name = recipient_name or user.name
+        recipient_phone = recipient_phone or user.phone or ""
+    elif order_data.customer_type == "guest":
+        if order_data.guest_customer_id:
+            guest = db.query(models.GuestCustomer).filter(models.GuestCustomer.id == order_data.guest_customer_id).first()
+            if not guest:
+                raise HTTPException(status_code=400, detail="找不到該散客")
+        else:
+            guest = db.query(models.GuestCustomer).filter(models.GuestCustomer.phone == order_data.guest_phone).first()
+            if guest:
+                guest.name = order_data.guest_name or guest.name
+                if order_data.guest_notes is not None:
+                    guest.notes = order_data.guest_notes
+            else:
+                guest = models.GuestCustomer(
+                    name=order_data.guest_name,
+                    phone=order_data.guest_phone,
+                    notes=order_data.guest_notes,
+                )
+                db.add(guest)
+                db.flush()
+
+        guest_customer_id = guest.id
+        recipient_name = order_data.guest_name or guest.name
+        recipient_phone = order_data.guest_phone or guest.phone
+    else:
+        raise HTTPException(status_code=400, detail="customer_type 必須是 member 或 guest")
 
     order = models.Order(
-        google_id=order_data.google_id,
+        google_id=google_id,
+        guest_customer_id=guest_customer_id,
         total_amount=order_data.total_amount,
-        recipient_name=order_data.recipient_name,
-        recipient_phone=order_data.recipient_phone,
+        recipient_name=recipient_name,
+        recipient_phone=recipient_phone,
         shipping_address="現場取貨",
         notes=order_data.notes,
         status=models.OrderStatus.PENDING,

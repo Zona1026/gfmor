@@ -26,6 +26,7 @@
           <tr>
             <th>訂單編號</th>
             <th>來源</th>
+            <th>客戶類型</th>
             <th>客戶</th>
             <th>電話</th>
             <th>金額</th>
@@ -35,9 +36,10 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="order in filteredOrders" :key="order.id" :class="{ canceled: order.status === '已取消' }">
+          <tr v-for="order in filteredOrders" :key="order.id" :class="{ canceled: order.status === 'CANCELED' }">
             <td>#{{ order.id }}</td>
             <td><span class="source-tag" :class="order.source">{{ order.source === 'instore' ? '現場' : '線上' }}</span></td>
+            <td><span class="customer-tag" :class="getCustomerType(order)">{{ getCustomerType(order) === 'guest' ? '散客' : '會員' }}</span></td>
             <td>{{ order.recipient_name }}</td>
             <td>{{ order.recipient_phone }}</td>
             <td class="amount">NT$ {{ order.total_amount?.toLocaleString() }}</td>
@@ -48,8 +50,9 @@
             </td>
             <td class="time">{{ formatDate(order.created_at) }}</td>
             <td class="actions">
-              <button v-if="order.source === 'instore' && order.status !== '已取消'" class="btn-icon" @click="openEditModal(order)" title="編輯">✏️</button>
-              <button v-if="order.status !== '已取消'" class="btn-icon danger" @click="handleCancel(order.id)" title="取消訂單">🗑️</button>
+              <button v-if="order.source === 'instore' && order.status !== 'CANCELED'" class="btn-icon" @click="openEditModal(order)" title="編輯">✏️</button>
+              <button v-if="getCustomerType(order) === 'guest'" class="btn-icon merge" @click="openMergeModal(order)" title="合併到會員">⇄</button>
+              <button v-if="order.status !== 'CANCELED'" class="btn-icon danger" @click="handleCancel(order.id)" title="取消訂單">🗑️</button>
             </td>
           </tr>
         </tbody>
@@ -63,12 +66,33 @@
         <h3>新增現場訂單</h3>
         <form @submit.prevent="handleCreate">
           <div class="form-group">
+            <label>客戶類型</label>
+            <select v-model="createForm.customer_type" @change="onCustomerTypeChange">
+              <option value="member">會員</option>
+              <option value="guest">散客</option>
+            </select>
+          </div>
+          <div class="form-group" v-if="createForm.customer_type === 'member'">
             <label>選擇會員</label>
             <select v-model="createForm.google_id" required @change="onMemberSelect">
               <option value="" disabled>請選擇會員</option>
               <option v-for="m in members" :key="m.google_id" :value="m.google_id">{{ m.name }} ({{ m.phone }})</option>
             </select>
           </div>
+          <template v-else>
+            <div class="form-group">
+              <label>散客姓名</label>
+              <input type="text" v-model.trim="createForm.guest_name" required />
+            </div>
+            <div class="form-group">
+              <label>散客電話</label>
+              <input type="text" v-model.trim="createForm.guest_phone" required />
+            </div>
+            <div class="form-group">
+              <label>散客備註 (選填)</label>
+              <textarea v-model="createForm.guest_notes" rows="2" placeholder="例如車款、習慣、來源"></textarea>
+            </div>
+          </template>
           <div class="form-group">
             <label>訂單金額 (NT$)</label>
             <input type="number" v-model.number="createForm.total_amount" required min="1" />
@@ -117,12 +141,41 @@
         </form>
       </div>
     </div>
+
+    <!-- 散客合併 Modal -->
+    <div class="modal-overlay" v-if="showMergeModal" @click.self="showMergeModal = false">
+      <div class="modal">
+        <h3>合併散客紀錄</h3>
+        <form @submit.prevent="handleMerge">
+          <div class="form-group">
+            <label>散客</label>
+            <input type="text" :value="`${mergeForm.guest_name} (${mergeForm.guest_phone})`" disabled />
+          </div>
+          <div class="form-group">
+            <label>合併到會員</label>
+            <select v-model="mergeForm.google_id" required>
+              <option value="" disabled>請選擇會員</option>
+              <option v-for="m in members" :key="m.google_id" :value="m.google_id">{{ m.name }} ({{ m.phone }})</option>
+            </select>
+          </div>
+          <div class="merge-note">
+            合併後，此散客所有訂單會轉到指定會員；已結案金額會補進會員累積消費。
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-outline" @click="showMergeModal = false">取消</button>
+            <button type="submit" class="btn btn-primary" :disabled="submitting">
+              {{ submitting ? '處理中...' : '確認合併' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { getAllOrders, createInstoreOrder, updateOrderStatus, updateInstoreOrder, cancelOrder, getMembers } from '../../api/admin';
+import { getAllOrders, createInstoreOrder, updateOrderStatus, updateInstoreOrder, cancelOrder, getMembers, mergeGuestToMember } from '../../api/admin';
 import Swal from 'sweetalert2';
 
 const orders = ref([]);
@@ -133,6 +186,7 @@ const searchKeyword = ref('');
 const filterStatus = ref('');
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
+const showMergeModal = ref(false);
 
 const Toast = Swal.mixin({
   toast: true,
@@ -161,8 +215,21 @@ const statusOptions = [
   { label: '已取消', value: 'CANCELED' }
 ];
 
-const createForm = ref({ google_id: '', total_amount: 0, notes: '', recipient_name: '', recipient_phone: '' });
+const emptyCreateForm = () => ({
+  customer_type: 'member',
+  google_id: '',
+  guest_name: '',
+  guest_phone: '',
+  guest_notes: '',
+  total_amount: 0,
+  notes: '',
+  recipient_name: '',
+  recipient_phone: ''
+});
+
+const createForm = ref(emptyCreateForm());
 const editForm = ref({ id: null, total_amount: 0, recipient_name: '', recipient_phone: '', notes: '' });
+const mergeForm = ref({ guest_customer_id: null, guest_name: '', guest_phone: '', google_id: '' });
 
 const filteredOrders = computed(() => {
   let list = orders.value;
@@ -181,6 +248,8 @@ const getStatusClass = (status) => {
   return 'partial';
 };
 
+const getCustomerType = (order) => order.customer_type || (order.guest_customer_id ? 'guest' : 'member');
+
 const formatDate = (iso) => {
   if (!iso) return '';
   const d = new Date(iso);
@@ -195,8 +264,17 @@ const fetchOrders = async () => {
 };
 
 const fetchMembers = async () => {
-  try { members.value = await getMembers(); }
+  try { members.value = (await getMembers()).filter(m => m.google_id !== 'system'); }
   catch (e) { console.error(e); }
+};
+
+const onCustomerTypeChange = () => {
+  createForm.value.google_id = '';
+  createForm.value.guest_name = '';
+  createForm.value.guest_phone = '';
+  createForm.value.guest_notes = '';
+  createForm.value.recipient_name = '';
+  createForm.value.recipient_phone = '';
 };
 
 const onMemberSelect = () => {
@@ -208,14 +286,19 @@ const onMemberSelect = () => {
 };
 
 const openCreateModal = () => {
-  createForm.value = { google_id: '', total_amount: 0, notes: '', recipient_name: '', recipient_phone: '' };
+  createForm.value = emptyCreateForm();
   showCreateModal.value = true;
 };
 
 const handleCreate = async () => {
   submitting.value = true;
   try {
-    await createInstoreOrder(createForm.value);
+    const payload = { ...createForm.value };
+    if (payload.customer_type === 'guest') {
+      payload.recipient_name = payload.guest_name;
+      payload.recipient_phone = payload.guest_phone;
+    }
+    await createInstoreOrder(payload);
     Toast.fire({ icon: 'success', title: '現場訂單已建立！' });
     showCreateModal.value = false;
     fetchOrders();
@@ -246,6 +329,49 @@ const openEditModal = (order) => {
     notes: order.notes || ''
   };
   showEditModal.value = true;
+};
+
+const openMergeModal = (order) => {
+  mergeForm.value = {
+    guest_customer_id: order.guest_customer_id,
+    guest_name: order.guest_customer?.name || order.recipient_name,
+    guest_phone: order.guest_customer?.phone || order.recipient_phone,
+    google_id: ''
+  };
+  showMergeModal.value = true;
+};
+
+const handleMerge = async () => {
+  if (!mergeForm.value.guest_customer_id || !mergeForm.value.google_id) return;
+
+  const result = await Swal.fire({
+    title: '確認合併散客紀錄？',
+    text: '合併後，散客訂單會轉到指定會員，已結案金額會補進累積消費。',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#e53935',
+    cancelButtonColor: '#616161',
+    confirmButtonText: '確認合併',
+    cancelButtonText: '取消',
+    background: '#2a2a2a',
+    color: '#fff'
+  });
+
+  if (!result.isConfirmed) return;
+
+  submitting.value = true;
+  try {
+    const res = await mergeGuestToMember(mergeForm.value.guest_customer_id, mergeForm.value.google_id);
+    Toast.fire({ icon: 'success', title: `已合併 ${res.moved_orders || 0} 筆訂單` });
+    showMergeModal.value = false;
+    fetchOrders();
+    fetchMembers();
+  } catch (e) {
+    console.error(e);
+    Swal.fire('錯誤', '合併失敗：' + (e.response?.data?.detail || ''), 'error');
+  } finally {
+    submitting.value = false;
+  }
 };
 
 const handleEdit = async () => {
@@ -395,6 +521,12 @@ onMounted(() => { fetchOrders(); fetchMembers(); });
       &.instore { background: rgba(#ff9800, 0.15); color: #ff9800; border: 1px solid rgba(#ff9800, 0.3); }
     }
 
+    .customer-tag {
+      padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: bold;
+      &.member { background: rgba(#4caf50, 0.15); color: #4caf50; border: 1px solid rgba(#4caf50, 0.3); }
+      &.guest { background: rgba($primary-color, 0.15); color: $primary-light; border: 1px solid rgba($primary-color, 0.35); }
+    }
+
     .amount { color: $primary-light; font-weight: 800; }
     .time { color: $text-disabled; font-size: 0.85rem; white-space: nowrap; }
 
@@ -418,6 +550,7 @@ onMounted(() => { fetchOrders(); fetchMembers(); });
         width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
         cursor: pointer; transition: $transition-base;
         &:hover { background: rgba(255,255,255,0.15); transform: translateY(-2px); }
+        &.merge:hover { background: rgba($primary-color, 0.2); border-color: rgba($primary-color, 0.4); }
         &.danger:hover { background: rgba(#ff6b6b, 0.2); border-color: rgba(#ff6b6b, 0.4); }
       }
     }
@@ -457,8 +590,14 @@ onMounted(() => { fetchOrders(); fetchMembers(); });
         padding: 0.8rem 1rem; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1);
         border-radius: 8px; color: $text-primary; font-size: 1rem; transition: $transition-base;
         &:focus { outline: none; border-color: $primary-color; background: rgba(0,0,0,0.4); box-shadow: 0 0 10px rgba($primary-color, 0.2); }
+        &:disabled { opacity: 0.75; cursor: not-allowed; }
       }
       select { cursor: pointer; option { background: $dark-grey; color: $text-primary; } }
+    }
+    .merge-note {
+      color: $text-secondary; line-height: 1.6; font-size: 0.9rem;
+      padding: 0.8rem 1rem; border: 1px solid rgba($primary-color, 0.25);
+      border-radius: 8px; background: rgba($primary-color, 0.08);
     }
     .form-actions {
       display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;

@@ -47,6 +47,63 @@ def on_startup():
     from sqlalchemy import text, inspect
     from db.database import engine
     from db.models import Base
+
+    def migrate_guest_orders(conn, inspector):
+        if "orders" not in inspector.get_table_names():
+            return
+
+        columns = inspector.get_columns("orders")
+        column_names = [col["name"] for col in columns]
+
+        if "guest_customer_id" not in column_names:
+            conn.execute(text("ALTER TABLE orders ADD COLUMN guest_customer_id INTEGER NULL"))
+            conn.commit()
+            print("[Startup] 已新增 orders.guest_customer_id 欄位")
+
+        google_id_col = next((col for col in columns if col["name"] == "google_id"), None)
+        if not google_id_col or not google_id_col.get("nullable", True):
+            dialect = engine.dialect.name
+            if dialect in ("mysql", "mariadb"):
+                conn.execute(text("ALTER TABLE orders MODIFY google_id VARCHAR(255) NULL"))
+                conn.commit()
+                print("[Startup] 已調整 orders.google_id 為可空值")
+            elif dialect == "sqlite":
+                conn.execute(text("PRAGMA foreign_keys=OFF"))
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS orders_new (
+                        id INTEGER PRIMARY KEY,
+                        google_id VARCHAR(255) NULL,
+                        guest_customer_id INTEGER NULL,
+                        status VARCHAR(12) NOT NULL,
+                        source VARCHAR(20) NOT NULL DEFAULT 'online',
+                        total_amount INTEGER NOT NULL,
+                        recipient_name VARCHAR(50) NOT NULL,
+                        recipient_phone VARCHAR(20) NOT NULL,
+                        shipping_address VARCHAR(255) NOT NULL,
+                        notes TEXT,
+                        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY(google_id) REFERENCES users("Google ID"),
+                        FOREIGN KEY(guest_customer_id) REFERENCES guest_customers(id)
+                    )
+                """))
+                conn.execute(text("""
+                    INSERT INTO orders_new (
+                        id, google_id, guest_customer_id, status, source, total_amount,
+                        recipient_name, recipient_phone, shipping_address, notes, created_at, updated_at
+                    )
+                    SELECT
+                        id, google_id, guest_customer_id, status, source, total_amount,
+                        recipient_name, recipient_phone, shipping_address, notes, created_at, updated_at
+                    FROM orders
+                """))
+                conn.execute(text("DROP TABLE orders"))
+                conn.execute(text("ALTER TABLE orders_new RENAME TO orders"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_orders_id ON orders (id)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_orders_guest_customer_id ON orders (guest_customer_id)"))
+                conn.execute(text("PRAGMA foreign_keys=ON"))
+                conn.commit()
+                print("[Startup] 已重建 SQLite orders 表以支援散客訂單")
     
     try:
         inspector = inspect(engine)
@@ -64,6 +121,9 @@ def on_startup():
         
         # 建立所有不存在的表（包括剛刪除的 portfolio_items）
         Base.metadata.create_all(bind=engine)
+        with engine.connect() as conn:
+            inspector = inspect(engine)
+            migrate_guest_orders(conn, inspector)
         print("[Startup] 資料表檢查完成")
     except Exception as e:
         print(f"[Startup] 資料表初始化警告: {e}")

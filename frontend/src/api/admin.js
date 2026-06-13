@@ -125,6 +125,18 @@ export const cancelOrder = async (id) => {
   return await api.patch(`/orders/${id}/cancel`);
 };
 
+export const getGuestCustomers = async (q = '') => {
+  return await api.get('/guest-customers/', { params: q ? { q } : {} });
+};
+
+export const getGuestOrders = async (id) => {
+  return await api.get(`/guest-customers/${id}/orders`);
+};
+
+export const mergeGuestToMember = async (guestId, googleId) => {
+  return await api.post(`/guest-customers/${guestId}/merge`, { google_id: googleId });
+};
+
 // ======= 管理員帳號管理 =======
 export const getAdmins = async () => {
   return await api.get('/admins/');

@@ -99,6 +99,22 @@ class User(Base):
     bookings = relationship("Booking", back_populates="user")
     orders = relationship("Order", back_populates="user")
 
+class GuestCustomer(Base):
+    """
+    散客客戶資料表模型 (對應 guest_customers)
+    用於保存未註冊會員的現場消費客戶資料。
+    """
+    __tablename__ = "guest_customers"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String(50), nullable=False, comment="散客姓名")
+    phone = Column(String(20), nullable=False, index=True, comment="散客電話")
+    notes = Column(Text, nullable=True, comment="店家備註")
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+    orders = relationship("Order", back_populates="guest_customer")
+
 class Product(Base):
     """
     商品資料表模型 (對應 products)
@@ -164,7 +180,8 @@ class Order(Base):
     """
     __tablename__ = "orders"
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    google_id = Column(String(255), ForeignKey("users.Google ID"), nullable=False)
+    google_id = Column(String(255), ForeignKey("users.Google ID"), nullable=True)
+    guest_customer_id = Column(Integer, ForeignKey("guest_customers.id"), nullable=True, index=True)
     status = Column(Enum(OrderStatus), nullable=False, default=OrderStatus.PENDING)
     source = Column(String(20), nullable=False, default='online', comment='訂單來源：online=線上、instore=現場')
     total_amount = Column(Integer, nullable=False)
@@ -176,7 +193,12 @@ class Order(Base):
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="orders")
+    guest_customer = relationship("GuestCustomer", back_populates="orders")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+
+    @property
+    def customer_type(self):
+        return "guest" if self.guest_customer_id else "member"
 
 class OrderItem(Base):
     """
