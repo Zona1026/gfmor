@@ -36,6 +36,14 @@ class OrderStatus(str, enum.Enum):
     COMPLETED = 'COMPLETED'
     CANCELED = 'CANCELED'
 
+# 定義與資料庫 order_items.status 對應的 Enum
+class OrderItemStatus(str, enum.Enum):
+    NOT_ORDERED = 'NOT_ORDERED'
+    ORDERED = 'ORDERED'
+    ARRIVED_NEED_NOTIFY = 'ARRIVED_NEED_NOTIFY'
+    NOTIFIED = 'NOTIFIED'
+    COMPLETED = 'COMPLETED'
+
 # 定義與資料庫 work_orders.status 對應的 Enum
 class WorkOrderStatus(str, enum.Enum):
     PENDING = 'PENDING'
@@ -210,6 +218,7 @@ class OrderItem(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     quantity = Column(Integer, nullable=False)
     unit_price = Column(Integer, nullable=False)
+    status = Column(Enum(OrderItemStatus), nullable=False, default=OrderItemStatus.NOT_ORDERED)
 
     order = relationship("Order", back_populates="items")
     product = relationship("Product")

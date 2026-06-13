@@ -117,6 +117,10 @@ export const updateOrderStatus = async (id, status) => {
   return await api.patch(`/orders/${id}/status?status=${encodeURIComponent(status)}`);
 };
 
+export const updateOrderItemStatus = async (itemId, status) => {
+  return await api.patch(`/orders/items/${itemId}/status`, { status });
+};
+
 export const updateInstoreOrder = async (id, data) => {
   return await api.put(`/orders/${id}`, data);
 };

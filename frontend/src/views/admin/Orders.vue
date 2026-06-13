@@ -36,7 +36,13 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="order in filteredOrders" :key="order.id" :class="{ canceled: order.status === 'CANCELED' }">
+          <tr
+            v-for="order in filteredOrders"
+            :key="order.id"
+            :class="{ canceled: order.status === 'CANCELED' }"
+            class="order-row"
+            @click="openDetailModal(order)"
+          >
             <td>#{{ order.id }}</td>
             <td><span class="source-tag" :class="order.source">{{ order.source === 'instore' ? '現場' : '線上' }}</span></td>
             <td><span class="customer-tag" :class="getCustomerType(order)">{{ getCustomerType(order) === 'guest' ? '散客' : '會員' }}</span></td>
@@ -44,15 +50,15 @@
             <td>{{ order.recipient_phone }}</td>
             <td class="amount">NT$ {{ order.total_amount?.toLocaleString() }}</td>
             <td>
-              <select v-model="order.status" @change="handleStatusChange(order)" class="status-select" :class="getStatusClass(order.status)">
+              <select v-model="order.status" @click.stop @change.stop="handleStatusChange(order)" class="status-select" :class="getStatusClass(order.status)">
                 <option v-for="(label, key) in statusMap" :key="key" :value="key">{{ label }}</option>
               </select>
             </td>
             <td class="time">{{ formatDate(order.created_at) }}</td>
             <td class="actions">
-              <button v-if="order.source === 'instore' && order.status !== 'CANCELED'" class="btn-icon" @click="openEditModal(order)" title="編輯">✏️</button>
-              <button v-if="getCustomerType(order) === 'guest'" class="btn-icon merge" @click="openMergeModal(order)" title="合併到會員">⇄</button>
-              <button v-if="order.status !== 'CANCELED'" class="btn-icon danger" @click="handleCancel(order.id)" title="取消訂單">🗑️</button>
+              <button v-if="order.source === 'instore' && order.status !== 'CANCELED'" class="btn-icon" @click.stop="openEditModal(order)" title="編輯">✏️</button>
+              <button v-if="getCustomerType(order) === 'guest'" class="btn-icon merge" @click.stop="openMergeModal(order)" title="合併到會員">⇄</button>
+              <button v-if="order.status !== 'CANCELED'" class="btn-icon danger" @click.stop="handleCancel(order.id)" title="取消訂單">🗑️</button>
             </td>
           </tr>
         </tbody>
@@ -108,6 +114,90 @@
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- 訂單詳情 Modal -->
+    <div class="modal-overlay" v-if="showDetailModal" @click.self="showDetailModal = false">
+      <div class="modal order-detail-modal">
+        <div class="detail-header">
+          <div>
+            <h3>訂單詳情 #{{ selectedOrder?.id }}</h3>
+            <p>{{ selectedOrder ? formatDate(selectedOrder.created_at) : '' }}</p>
+          </div>
+          <button type="button" class="btn-close" @click="showDetailModal = false">×</button>
+        </div>
+
+        <div v-if="selectedOrder" class="detail-content">
+          <div class="detail-grid">
+            <div>
+              <span>客戶類型</span>
+              <strong>{{ getCustomerType(selectedOrder) === 'guest' ? '散客' : '會員' }}</strong>
+            </div>
+            <div>
+              <span>客戶</span>
+              <strong>{{ selectedOrder.recipient_name }}</strong>
+            </div>
+            <div>
+              <span>電話</span>
+              <strong>{{ selectedOrder.recipient_phone }}</strong>
+            </div>
+            <div>
+              <span>訂單狀態</span>
+              <strong>{{ statusMap[selectedOrder.status] || selectedOrder.status }}</strong>
+            </div>
+            <div>
+              <span>來源</span>
+              <strong>{{ selectedOrder.source === 'instore' ? '現場' : '線上' }}</strong>
+            </div>
+            <div>
+              <span>總金額</span>
+              <strong>NT$ {{ selectedOrder.total_amount?.toLocaleString() }}</strong>
+            </div>
+          </div>
+
+          <div v-if="selectedOrder.notes" class="detail-notes">
+            <span>備註</span>
+            <p>{{ selectedOrder.notes }}</p>
+          </div>
+
+          <div class="items-section">
+            <h4>商品明細</h4>
+            <div v-if="!selectedOrder.items || selectedOrder.items.length === 0" class="empty-items">
+              此訂單尚無商品明細。
+            </div>
+            <table v-else class="items-table">
+              <thead>
+                <tr>
+                  <th>商品</th>
+                  <th>數量</th>
+                  <th>單價</th>
+                  <th>小計</th>
+                  <th>商品狀態</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in selectedOrder.items" :key="item.id">
+                  <td>{{ item.product?.name || `商品 #${item.product_id}` }}</td>
+                  <td>{{ item.quantity }}</td>
+                  <td>NT$ {{ item.unit_price?.toLocaleString() }}</td>
+                  <td>NT$ {{ (item.quantity * item.unit_price)?.toLocaleString() }}</td>
+                  <td>
+                    <select
+                      v-model="item.status"
+                      class="item-status-select"
+                      :class="getItemStatusClass(item.status)"
+                      :disabled="selectedOrder.status === 'COMPLETED'"
+                      @change="handleItemStatusChange(selectedOrder, item)"
+                    >
+                      <option v-for="(label, key) in itemStatusMap" :key="key" :value="key">{{ label }}</option>
+                    </select>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -175,7 +265,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { getAllOrders, createInstoreOrder, updateOrderStatus, updateInstoreOrder, cancelOrder, getMembers, mergeGuestToMember } from '../../api/admin';
+import { getAllOrders, createInstoreOrder, updateOrderStatus, updateOrderItemStatus, updateInstoreOrder, cancelOrder, getMembers, mergeGuestToMember } from '../../api/admin';
 import Swal from 'sweetalert2';
 
 const orders = ref([]);
@@ -187,6 +277,8 @@ const filterStatus = ref('');
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
 const showMergeModal = ref(false);
+const showDetailModal = ref(false);
+const selectedOrder = ref(null);
 
 const Toast = Swal.mixin({
   toast: true,
@@ -214,6 +306,14 @@ const statusOptions = [
   { label: '已結案', value: 'COMPLETED' },
   { label: '已取消', value: 'CANCELED' }
 ];
+
+const itemStatusMap = {
+  'NOT_ORDERED': '尚未訂貨',
+  'ORDERED': '已訂貨',
+  'ARRIVED_NEED_NOTIFY': '已到貨需通知',
+  'NOTIFIED': '已通知',
+  'COMPLETED': '已結案'
+};
 
 const emptyCreateForm = () => ({
   customer_type: 'member',
@@ -248,7 +348,26 @@ const getStatusClass = (status) => {
   return 'partial';
 };
 
+const getItemStatusClass = (status) => {
+  if (status === 'COMPLETED') return 'completed';
+  if (status === 'NOTIFIED') return 'notified';
+  if (status === 'ARRIVED_NEED_NOTIFY') return 'arrived';
+  if (status === 'ORDERED') return 'ordered';
+  return 'not-ordered';
+};
+
 const getCustomerType = (order) => order.customer_type || (order.guest_customer_id ? 'guest' : 'member');
+
+const syncOrder = (updatedOrder) => {
+  if (!updatedOrder?.id) return;
+  const index = orders.value.findIndex(order => order.id === updatedOrder.id);
+  if (index >= 0) {
+    orders.value[index] = updatedOrder;
+  }
+  if (selectedOrder.value?.id === updatedOrder.id) {
+    selectedOrder.value = updatedOrder;
+  }
+};
 
 const formatDate = (iso) => {
   if (!iso) return '';
@@ -311,11 +430,39 @@ const handleCreate = async () => {
 
 const handleStatusChange = async (order) => {
   try {
-    await updateOrderStatus(order.id, order.status);
+    const updatedOrder = await updateOrderStatus(order.id, order.status);
+    syncOrder(updatedOrder);
     Toast.fire({ icon: 'success', title: '狀態已更新' });
   } catch (e) {
     console.error(e);
     Swal.fire('錯誤', '狀態更新失敗', 'error');
+    fetchOrders();
+  }
+};
+
+const openDetailModal = (order) => {
+  selectedOrder.value = order;
+  showDetailModal.value = true;
+};
+
+const handleItemStatusChange = async (order, item) => {
+  try {
+    const updatedItem = await updateOrderItemStatus(item.id, item.status);
+    const targetOrder = orders.value.find(o => o.id === order.id);
+    const targetItem = targetOrder?.items?.find(i => i.id === item.id);
+    if (targetItem) {
+      Object.assign(targetItem, updatedItem);
+    }
+    if (selectedOrder.value?.id === order.id) {
+      const selectedItem = selectedOrder.value.items?.find(i => i.id === item.id);
+      if (selectedItem) {
+        Object.assign(selectedItem, updatedItem);
+      }
+    }
+    Toast.fire({ icon: 'success', title: '商品狀態已更新' });
+  } catch (e) {
+    console.error(e);
+    Swal.fire('錯誤', e.response?.data?.detail || '商品狀態更新失敗', 'error');
     fetchOrders();
   }
 };
@@ -512,6 +659,7 @@ onMounted(() => { fetchOrders(); fetchMembers(); });
     td { font-size: 0.95rem; }
 
     tr { transition: $transition-base; }
+    .order-row { cursor: pointer; }
     tr.canceled td { opacity: 0.4; }
     tr:hover { background: rgba(255, 255, 255, 0.05); }
 
@@ -599,6 +747,68 @@ onMounted(() => { fetchOrders(); fetchMembers(); });
       padding: 0.8rem 1rem; border: 1px solid rgba($primary-color, 0.25);
       border-radius: 8px; background: rgba($primary-color, 0.08);
     }
+
+    &.order-detail-modal {
+      width: 820px;
+    }
+
+    .detail-header {
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem;
+      h3 { margin-bottom: 0.25rem; }
+      p { color: $text-disabled; margin: 0; font-size: 0.9rem; }
+      .btn-close {
+        width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.15);
+        background: rgba(255,255,255,0.05); color: $text-primary; font-size: 1.5rem; line-height: 1;
+        cursor: pointer; transition: $transition-base;
+        &:hover { background: rgba(255,255,255,0.12); }
+      }
+    }
+
+    .detail-grid {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.8rem; margin-bottom: 1rem;
+      div {
+        padding: 0.8rem; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; background: rgba(0,0,0,0.18);
+        span { display: block; color: $text-disabled; font-size: 0.8rem; margin-bottom: 0.35rem; }
+        strong { color: $text-primary; font-size: 0.95rem; overflow-wrap: anywhere; }
+      }
+    }
+
+    .detail-notes {
+      padding: 0.9rem 1rem; border: 1px solid rgba($primary-color, 0.22); border-radius: 8px;
+      background: rgba($primary-color, 0.07); margin-bottom: 1.2rem;
+      span { display: block; color: $text-disabled; font-size: 0.85rem; margin-bottom: 0.35rem; }
+      p { color: $text-secondary; margin: 0; line-height: 1.6; white-space: pre-wrap; }
+    }
+
+    .items-section {
+      h4 { color: $primary-light; margin: 1.2rem 0 0.8rem; }
+      .empty-items { color: $text-disabled; padding: 1.2rem; text-align: center; border: 1px dashed rgba(255,255,255,0.15); border-radius: 8px; }
+    }
+
+    .items-table {
+      width: 100%; border-collapse: collapse; min-width: 640px;
+      th, td { padding: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.08); text-align: left; }
+      th { color: $text-disabled; font-size: 0.82rem; background: rgba(0,0,0,0.16); }
+      td { color: $text-primary; font-size: 0.9rem; }
+    }
+
+    .item-status-select {
+      min-width: 150px; padding: 0.45rem 0.6rem; border-radius: 6px; background: rgba(0,0,0,0.24);
+      color: $text-primary; border: 1px solid rgba(255,255,255,0.12); font-weight: 700;
+      &.not-ordered { border-color: #ff9800; color: #ff9800; }
+      &.ordered { border-color: #2196f3; color: #2196f3; }
+      &.arrived { border-color: $primary-light; color: $primary-light; }
+      &.notified { border-color: #9c27b0; color: #ce93d8; }
+      &.completed { border-color: #4caf50; color: #4caf50; }
+      &:disabled { opacity: 0.7; cursor: not-allowed; }
+      option { background: $dark-grey; color: $text-primary; }
+    }
+
+    @media (max-width: 768px) {
+      .detail-grid { grid-template-columns: 1fr; }
+      .items-section { overflow-x: auto; }
+    }
+
     .form-actions {
       display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;
       .btn-outline {

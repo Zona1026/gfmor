@@ -104,6 +104,32 @@ def on_startup():
                 conn.execute(text("PRAGMA foreign_keys=ON"))
                 conn.commit()
                 print("[Startup] 已重建 SQLite orders 表以支援散客訂單")
+
+    def migrate_order_item_status(conn, inspector):
+        if "order_items" not in inspector.get_table_names():
+            return
+
+        columns = [col["name"] for col in inspector.get_columns("order_items")]
+        if "status" in columns:
+            return
+
+        dialect = engine.dialect.name
+        if dialect in ("mysql", "mariadb"):
+            conn.execute(text("""
+                ALTER TABLE order_items
+                ADD COLUMN status ENUM(
+                    'NOT_ORDERED',
+                    'ORDERED',
+                    'ARRIVED_NEED_NOTIFY',
+                    'NOTIFIED',
+                    'COMPLETED'
+                ) NOT NULL DEFAULT 'NOT_ORDERED'
+            """))
+        else:
+            conn.execute(text("ALTER TABLE order_items ADD COLUMN status VARCHAR(30) NOT NULL DEFAULT 'NOT_ORDERED'"))
+
+        conn.commit()
+        print("[Startup] 已新增 order_items.status 欄位")
     
     try:
         inspector = inspect(engine)
@@ -124,6 +150,8 @@ def on_startup():
         with engine.connect() as conn:
             inspector = inspect(engine)
             migrate_guest_orders(conn, inspector)
+            inspector = inspect(engine)
+            migrate_order_item_status(conn, inspector)
         print("[Startup] 資料表檢查完成")
     except Exception as e:
         print(f"[Startup] 資料表初始化警告: {e}")

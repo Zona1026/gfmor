@@ -1,7 +1,7 @@
 from pydantic import BaseModel, model_validator
 from typing import List, Optional
 from datetime import datetime
-from db.models import OrderStatus
+from db.models import OrderItemStatus, OrderStatus
 from .product import Product
 
 class OrderItemBase(BaseModel):
@@ -12,10 +12,14 @@ class OrderItemBase(BaseModel):
 class OrderItem(OrderItemBase):
     id: int
     order_id: int
+    status: OrderItemStatus = OrderItemStatus.NOT_ORDERED
     product: Optional[Product] = None
 
     class Config:
         from_attributes = True
+
+class OrderItemStatusUpdate(BaseModel):
+    status: OrderItemStatus
 
 class OrderBase(BaseModel):
     google_id: Optional[str] = None

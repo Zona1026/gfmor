@@ -59,7 +59,10 @@ def get_guest_orders(guest_id: int, db: Session = Depends(get_db)):
 
     return (
         db.query(models.Order)
-        .options(joinedload(models.Order.guest_customer), joinedload(models.Order.items))
+        .options(
+            joinedload(models.Order.guest_customer),
+            joinedload(models.Order.items).joinedload(models.OrderItem.product),
+        )
         .filter(models.Order.guest_customer_id == guest_id)
         .order_by(models.Order.created_at.desc())
         .all()

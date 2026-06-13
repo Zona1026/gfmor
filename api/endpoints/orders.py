@@ -10,7 +10,13 @@ router = APIRouter()
 
 @router.get("/user/{google_id}", response_model=List[order_schema.Order], summary="讀取特定使用者的訂單")
 def read_user_orders(google_id: str, db: Session = Depends(get_db)):
-    orders = db.query(models.Order).filter(models.Order.google_id == google_id).order_by(models.Order.created_at.desc()).all()
+    orders = (
+        db.query(models.Order)
+        .options(joinedload(models.Order.items).joinedload(models.OrderItem.product))
+        .filter(models.Order.google_id == google_id)
+        .order_by(models.Order.created_at.desc())
+        .all()
+    )
     return orders
 
 
@@ -80,7 +86,10 @@ def create_order(order_data: order_schema.OrderCreate, db: Session = Depends(get
 def get_all_orders(db: Session = Depends(get_db)):
     return (
         db.query(models.Order)
-        .options(joinedload(models.Order.guest_customer), joinedload(models.Order.items))
+        .options(
+            joinedload(models.Order.guest_customer),
+            joinedload(models.Order.items).joinedload(models.OrderItem.product),
+        )
         .order_by(models.Order.created_at.desc())
         .all()
     )
@@ -178,6 +187,9 @@ def update_order_status(order_id: int, status: str, db: Session = Depends(get_db
 
     old_status = order.status
     order.status = new_status
+    if new_status == models.OrderStatus.COMPLETED:
+        for item in order.items:
+            item.status = models.OrderItemStatus.COMPLETED
 
     # 如果結案 → 將消費金額加入會員累積消費
     if new_status == models.OrderStatus.COMPLETED and old_status != models.OrderStatus.COMPLETED:
@@ -219,6 +231,9 @@ def update_instore_order(order_id: int, update_data: order_schema.OrderUpdate, d
             
             if new_status != old_status:
                 order.status = new_status
+                if new_status == models.OrderStatus.COMPLETED:
+                    for item in order.items:
+                        item.status = models.OrderItemStatus.COMPLETED
                 # 處理累積消費邏輯
                 if new_status == models.OrderStatus.COMPLETED:
                     user = db.query(models.User).filter(models.User.google_id == order.google_id).first()
@@ -234,6 +249,29 @@ def update_instore_order(order_id: int, update_data: order_schema.OrderUpdate, d
     db.commit()
     db.refresh(order)
     return order
+
+
+@router.patch("/items/{item_id}/status", response_model=order_schema.OrderItem, summary="更新訂單商品狀態")
+def update_order_item_status(
+    item_id: int,
+    update_data: order_schema.OrderItemStatusUpdate,
+    db: Session = Depends(get_db),
+):
+    item = (
+        db.query(models.OrderItem)
+        .options(joinedload(models.OrderItem.product), joinedload(models.OrderItem.order))
+        .filter(models.OrderItem.id == item_id)
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="找不到該訂單商品")
+    if item.order and item.order.status == models.OrderStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail="已結案訂單的商品狀態不可手動修改")
+
+    item.status = update_data.status
+    db.commit()
+    db.refresh(item)
+    return item
 
 
 @router.patch("/{order_id}/cancel", response_model=order_schema.Order, summary="取消訂單")
