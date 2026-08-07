@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import Any
 
+from api.dependencies.admin_auth import auth_context, ensure_self_or_manager
 from db import crud
 from schemas.motor import Motor, MotorUpdate
 from db.database import SessionLocal # 遵循專案模式，從此處引入 SessionLocal
@@ -30,6 +31,7 @@ def get_db():
 def update_motor_by_id(
     motor_id: int,
     motor_in: MotorUpdate,
+    auth=Depends(auth_context),
     db: Session = Depends(get_db), # 改為使用本地定義的 get_db
 ) -> Any:
     """
@@ -42,7 +44,7 @@ def update_motor_by_id(
             detail="找不到指定的車籍資料。",
         )
     
-    # 這裡可以加入權限檢查，例如檢查操作者是否為車主本人或管理員
+    ensure_self_or_manager(db_motor.google_id, auth)
     
     updated_motor = crud.update_motor(db=db, motor_id=motor_id, motor_update=motor_in)
     return updated_motor
@@ -50,16 +52,19 @@ def update_motor_by_id(
 @router.delete("/{motor_id}", response_model=Motor, summary="軟刪除車籍資料")
 def delete_motor_by_id(
     motor_id: int,
+    auth=Depends(auth_context),
     db: Session = Depends(get_db), # 改為使用本地定義的 get_db
 ):
     """
     根據車籍 ID 軟刪除車籍資料。
     會將車輛的 status 設為 '已刪除'，並回傳更新後的車籍資料。
     """
-    deleted_motor = crud.delete_motor(db=db, motor_id=motor_id)
-    if not deleted_motor:
+    db_motor = crud.get_motor(db=db, motor_id=motor_id)
+    if not db_motor:
         raise HTTPException(
             status_code=404,
             detail="找不到指定的車籍資料。",
         )
+    ensure_self_or_manager(db_motor.google_id, auth)
+    deleted_motor = crud.delete_motor(db=db, motor_id=motor_id)
     return deleted_motor

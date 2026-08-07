@@ -1,7 +1,7 @@
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 from typing import List, Optional
 from datetime import datetime
-from db.models import OrderItemStatus, OrderStatus
+from db.models import OrderItemStatus, OrderPaymentStatus, OrderStatus
 from .product import Product
 
 class OrderItemBase(BaseModel):
@@ -9,11 +9,33 @@ class OrderItemBase(BaseModel):
     quantity: int
     unit_price: int
 
+class OrderItemNotificationCreate(BaseModel):
+    method: str = Field(min_length=1, max_length=50)
+    note: Optional[str] = None
+    notified_at: Optional[datetime] = None
+
+class OrderItemNotification(BaseModel):
+    id: int
+    order_item_id: int
+    order_id: int
+    method: str
+    recipient_name: Optional[str] = None
+    recipient_phone: Optional[str] = None
+    note: Optional[str] = None
+    actor: Optional[str] = None
+    notified_at: datetime
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
 class OrderItem(OrderItemBase):
     id: int
     order_id: int
     status: OrderItemStatus = OrderItemStatus.NOT_ORDERED
     product: Optional[Product] = None
+    notifications: List[OrderItemNotification] = Field(default_factory=list)
+    latest_notification: Optional[OrderItemNotification] = None
 
     class Config:
         from_attributes = True
@@ -35,6 +57,7 @@ class OrderCreate(OrderBase):
 
 class OrderUpdate(BaseModel):
     status: Optional[str] = None
+    payment_status: Optional[OrderPaymentStatus] = None
     total_amount: Optional[int] = None
     recipient_name: Optional[str] = None
     recipient_phone: Optional[str] = None
@@ -43,6 +66,7 @@ class OrderUpdate(BaseModel):
 class Order(OrderBase):
     id: int
     status: OrderStatus
+    payment_status: OrderPaymentStatus = OrderPaymentStatus.PENDING
     source: str = 'online'
     created_at: datetime
     updated_at: datetime

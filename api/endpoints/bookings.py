@@ -4,6 +4,14 @@ from sqlalchemy.orm import Session
 from typing import List
 
 # 引入資料庫 CRUD 函式、schemas 和資料庫 session 管理
+from api.dependencies.admin_auth import (
+    auth_context,
+    ensure_self_or_admin,
+    ensure_self_or_manager,
+    require_admin,
+    require_manager_admin,
+    require_self_or_admin,
+)
 from db import crud, models
 from schemas import booking as booking_schema
 from db.database import SessionLocal
@@ -35,7 +43,11 @@ def get_db():
     status_code=status.HTTP_201_CREATED,
     summary="建立新預約單"
 )
-def create_booking(booking: booking_schema.BookingCreate, db: Session = Depends(get_db)):
+def create_booking(
+    booking: booking_schema.BookingCreate,
+    auth=Depends(auth_context),
+    db: Session = Depends(get_db),
+):
     """
     建立一筆新的預約紀錄。
 
@@ -47,6 +59,7 @@ def create_booking(booking: booking_schema.BookingCreate, db: Session = Depends(
 
     **注意**: 後端會驗證客戶與車輛是否存在，以及兩者是否匹配。
     """
+    ensure_self_or_manager(booking.google_id, auth)
     try:
         # 呼叫 CRUD 層的函式來執行建立預約單的邏輯
         return crud.create_booking(db=db, booking=booking)
@@ -56,7 +69,13 @@ def create_booking(booking: booking_schema.BookingCreate, db: Session = Depends(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 @router.get("/", response_model=List[booking_schema.Booking], summary="讀取預約單列表")
-def read_bookings(skip: int = 0, limit: int = 100, date_str: str = None, db: Session = Depends(get_db)):
+def read_bookings(
+    skip: int = 0,
+    limit: int = 100,
+    date_str: str = None,
+    admin=Depends(require_admin),
+    db: Session = Depends(get_db),
+):
     """
     讀取資料庫中的預約單列表，預設按預約時間由新到舊排序。
     可使用 `skip` 和 `limit` 參數來進行分頁，也可加上 date_str 篩選。
@@ -77,7 +96,11 @@ def read_bookings_by_date(date_str: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/user/{google_id}", response_model=List[booking_schema.Booking], summary="讀取特定使用者的預約單")
-def read_user_bookings(google_id: str, db: Session = Depends(get_db)):
+def read_user_bookings(
+    google_id: str,
+    auth=Depends(require_self_or_admin),
+    db: Session = Depends(get_db),
+):
     """
     讀取特定使用者的所有預約單紀錄。
     """
@@ -85,19 +108,25 @@ def read_user_bookings(google_id: str, db: Session = Depends(get_db)):
     return bookings
 
 @router.get("/{booking_id}", response_model=booking_schema.Booking, summary="讀取單一預約單")
-def read_booking(booking_id: int, db: Session = Depends(get_db)):
+def read_booking(
+    booking_id: int,
+    auth=Depends(auth_context),
+    db: Session = Depends(get_db),
+):
     """
     根據預約單 `booking_id` 讀取單一預約單的詳細資料。
     """
     db_booking = crud.get_booking(db, booking_id=booking_id)
     if db_booking is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="找不到該預約單")
+    ensure_self_or_admin(db_booking.google_id, auth)
     return db_booking
 
 @router.put("/{booking_id}", response_model=booking_schema.Booking, summary="更新預約單狀態或備註")
 def update_booking(
     booking_id: int,
     booking: booking_schema.BookingUpdate,
+    admin=Depends(require_manager_admin),
     db: Session = Depends(get_db)
 ):
     """

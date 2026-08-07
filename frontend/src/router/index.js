@@ -18,6 +18,10 @@ import AdminAnnouncements from '../views/admin/Announcements.vue'
 import AdminPortfolio from '../views/admin/Portfolio.vue'
 import AdminProducts from '../views/admin/Products.vue'
 import AdminOrders from '../views/admin/Orders.vue'
+import AdminWorkOrders from '../views/admin/WorkOrders.vue'
+import AdminApprovals from '../views/admin/Approvals.vue'
+import AdminPurchases from '../views/admin/Purchases.vue'
+import AdminAccounting from '../views/admin/Accounting.vue'
 import AdminAdmins from '../views/admin/Admins.vue'
 import { useAuthStore } from '../store/auth'
 
@@ -73,9 +77,20 @@ const routes = [
         component: AdminBookings
       },
       {
+        path: 'work-orders',
+        name: 'AdminWorkOrders',
+        component: AdminWorkOrders
+      },
+      {
+        path: 'approvals',
+        name: 'AdminApprovals',
+        component: AdminApprovals
+      },
+      {
         path: 'members',
         name: 'AdminMembers',
-        component: AdminMembers
+        component: AdminMembers,
+        meta: { title: '客戶 / 會員管理' }
       },
       {
         path: 'announcements',
@@ -90,12 +105,29 @@ const routes = [
       {
         path: 'products',
         name: 'AdminProducts',
-        component: AdminProducts
+        component: AdminProducts,
+        meta: { title: '商城管理' }
+      },
+      {
+        path: 'inventory',
+        name: 'AdminInventory',
+        component: () => import('../views/admin/Inventory.vue'),
+        meta: { title: '庫存管理' }
       },
       {
         path: 'orders',
         name: 'AdminOrders',
         component: AdminOrders
+      },
+      {
+        path: 'purchases',
+        name: 'AdminPurchases',
+        component: AdminPurchases
+      },
+      {
+        path: 'accounting',
+        name: 'AdminAccounting',
+        component: AdminAccounting
       },
       {
         path: 'admins',

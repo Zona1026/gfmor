@@ -9,6 +9,7 @@ import cloudinary.uploader
 from db.database import get_db
 from db import models
 from schemas import announcement as ann_schema
+from api.dependencies.admin_auth import require_admin, require_manager_admin
 
 cloudinary.config(
     cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
@@ -29,7 +30,7 @@ def get_active_announcements(db: Session = Depends(get_db)):
 
 
 @router.get("/all", response_model=List[ann_schema.Announcement], summary="取得所有公告（含停用）")
-def get_all_announcements(db: Session = Depends(get_db)):
+def get_all_announcements(admin=Depends(require_admin), db: Session = Depends(get_db)):
     """管理員用，取得全部公告。"""
     return db.query(models.Announcement).order_by(asc(models.Announcement.sort_order)).all()
 
@@ -42,6 +43,7 @@ def create_announcement(
     description: Optional[str] = Form(None),
     sort_order: int = Form(0),
     file: UploadFile = File(...),
+    admin=Depends(require_manager_admin),
     db: Session = Depends(get_db)
 ):
     try:
@@ -71,6 +73,7 @@ def update_announcement(
     description: Optional[str] = Form(None),
     sort_order: Optional[int] = Form(None),
     file: Optional[UploadFile] = File(None),
+    admin=Depends(require_manager_admin),
     db: Session = Depends(get_db)
 ):
     ann = db.query(models.Announcement).get(announcement_id)
@@ -101,7 +104,11 @@ def update_announcement(
 
 
 @router.delete("/{announcement_id}", summary="刪除公告")
-def delete_announcement(announcement_id: int, db: Session = Depends(get_db)):
+def delete_announcement(
+    announcement_id: int,
+    admin=Depends(require_manager_admin),
+    db: Session = Depends(get_db),
+):
     ann = db.query(models.Announcement).get(announcement_id)
     if not ann:
         raise HTTPException(status_code=404, detail="找不到該公告")

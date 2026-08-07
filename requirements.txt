@@ -6,6 +6,7 @@ uvicorn[standard]
 
 # Database ORM & Driver
 sqlalchemy
+alembic
 mysql-connector-python
 pymysql
 

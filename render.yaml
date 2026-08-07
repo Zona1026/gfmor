@@ -5,10 +5,10 @@ services:
     env: python
     plan: free
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    startCommand: "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: DATABASE_URL
-        value: "mysql+pymysql://avnadmin:AVNS_wpMgWFawTeSbnCOGuxo@gfmotor-gfmotor001.j.aivencloud.com:12676/gfmotor?ssl_disabled=False"
+        sync: false
       - key: SECRET_KEY
         generateValue: true
       - key: FRONTEND_URL

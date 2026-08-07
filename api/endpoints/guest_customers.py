@@ -3,6 +3,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 
+from api.dependencies.admin_auth import require_manager_admin
 from db import models
 from db.database import get_db
 from schemas import guest_customer as guest_schema
@@ -12,7 +13,11 @@ router = APIRouter()
 
 
 @router.get("/", response_model=List[guest_schema.GuestCustomer], summary="取得散客列表")
-def get_guest_customers(q: Optional[str] = None, db: Session = Depends(get_db)):
+def get_guest_customers(
+    q: Optional[str] = None,
+    admin=Depends(require_manager_admin),
+    db: Session = Depends(get_db),
+):
     query = db.query(models.GuestCustomer)
     if q:
         keyword = f"%{q}%"
@@ -26,7 +31,11 @@ def get_guest_customers(q: Optional[str] = None, db: Session = Depends(get_db)):
 
 
 @router.post("/", response_model=guest_schema.GuestCustomer, summary="建立散客資料")
-def create_guest_customer(guest: guest_schema.GuestCustomerCreate, db: Session = Depends(get_db)):
+def create_guest_customer(
+    guest: guest_schema.GuestCustomerCreate,
+    admin=Depends(require_manager_admin),
+    db: Session = Depends(get_db),
+):
     existing = db.query(models.GuestCustomer).filter(models.GuestCustomer.phone == guest.phone).first()
     if existing:
         existing.name = guest.name
@@ -44,7 +53,11 @@ def create_guest_customer(guest: guest_schema.GuestCustomerCreate, db: Session =
 
 
 @router.get("/{guest_id}", response_model=guest_schema.GuestCustomer, summary="取得單一散客")
-def get_guest_customer(guest_id: int, db: Session = Depends(get_db)):
+def get_guest_customer(
+    guest_id: int,
+    admin=Depends(require_manager_admin),
+    db: Session = Depends(get_db),
+):
     guest = db.query(models.GuestCustomer).filter(models.GuestCustomer.id == guest_id).first()
     if not guest:
         raise HTTPException(status_code=404, detail="找不到該散客")
@@ -52,7 +65,11 @@ def get_guest_customer(guest_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{guest_id}/orders", response_model=List[order_schema.Order], summary="取得散客訂單")
-def get_guest_orders(guest_id: int, db: Session = Depends(get_db)):
+def get_guest_orders(
+    guest_id: int,
+    admin=Depends(require_manager_admin),
+    db: Session = Depends(get_db),
+):
     guest = db.query(models.GuestCustomer).filter(models.GuestCustomer.id == guest_id).first()
     if not guest:
         raise HTTPException(status_code=404, detail="找不到該散客")
@@ -73,6 +90,7 @@ def get_guest_orders(guest_id: int, db: Session = Depends(get_db)):
 def update_guest_customer(
     guest_id: int,
     update_data: guest_schema.GuestCustomerUpdate,
+    admin=Depends(require_manager_admin),
     db: Session = Depends(get_db),
 ):
     guest = db.query(models.GuestCustomer).filter(models.GuestCustomer.id == guest_id).first()
@@ -91,6 +109,7 @@ def update_guest_customer(
 def merge_guest_to_member(
     guest_id: int,
     merge_data: guest_schema.GuestCustomerMerge,
+    admin=Depends(require_manager_admin),
     db: Session = Depends(get_db),
 ):
     guest = db.query(models.GuestCustomer).filter(models.GuestCustomer.id == guest_id).first()
@@ -102,8 +121,17 @@ def merge_guest_to_member(
         raise HTTPException(status_code=404, detail="找不到目標會員")
 
     guest_orders = db.query(models.Order).filter(models.Order.guest_customer_id == guest_id).all()
+    guest_work_orders = db.query(models.WorkOrder).filter(models.WorkOrder.guest_customer_id == guest_id).all()
+    guest_motors = (
+        db.query(models.GuestMotor)
+        .filter(models.GuestMotor.guest_customer_id == guest_id, models.GuestMotor.status.is_(None))
+        .all()
+    )
     completed_total = 0
     moved_count = 0
+    moved_work_orders = 0
+    moved_motors = 0
+    guest_motor_to_member_motor = {}
 
     for order in guest_orders:
         if order.status == models.OrderStatus.COMPLETED:
@@ -111,6 +139,50 @@ def merge_guest_to_member(
         order.google_id = user.google_id
         order.guest_customer_id = None
         moved_count += 1
+
+    for guest_motor in guest_motors:
+        member_motor = (
+            db.query(models.Motor)
+            .filter(
+                models.Motor.google_id == user.google_id,
+                models.Motor.license_plate == guest_motor.license_plate,
+                models.Motor.status.is_(None),
+            )
+            .first()
+        )
+        if not member_motor:
+            plate_owner = (
+                db.query(models.Motor)
+                .filter(models.Motor.license_plate == guest_motor.license_plate, models.Motor.status.is_(None))
+                .first()
+            )
+            if not plate_owner:
+                vin = guest_motor.vin
+                if vin and db.query(models.Motor).filter(models.Motor.vin == vin).first():
+                    vin = None
+                member_motor = models.Motor(
+                    google_id=user.google_id,
+                    license_plate=guest_motor.license_plate,
+                    brand=guest_motor.brand,
+                    model_name=guest_motor.model_name,
+                    vin=vin,
+                    mileage=guest_motor.mileage,
+                )
+                db.add(member_motor)
+                db.flush()
+                moved_motors += 1
+
+        if member_motor:
+            guest_motor_to_member_motor[guest_motor.id] = member_motor.id
+        guest_motor.status = "已合併"
+
+    for work_order in guest_work_orders:
+        work_order.google_id = user.google_id
+        work_order.guest_customer_id = None
+        if work_order.guest_motor_id in guest_motor_to_member_motor:
+            work_order.motor_id = guest_motor_to_member_motor[work_order.guest_motor_id]
+        work_order.guest_motor_id = None
+        moved_work_orders += 1
 
     if completed_total:
         user.cumulative_consumption = (user.cumulative_consumption or 0) + completed_total
@@ -120,5 +192,7 @@ def merge_guest_to_member(
     return {
         "message": "散客已合併到會員",
         "moved_orders": moved_count,
+        "moved_work_orders": moved_work_orders,
+        "moved_motors": moved_motors,
         "added_consumption": completed_total,
     }

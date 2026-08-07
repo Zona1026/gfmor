@@ -45,6 +45,49 @@
           <p class="help-text">簡短介紹您的店面服務特點。</p>
         </div>
       </div>
+
+      <div class="settings-card">
+        <div class="card-header">
+          <span class="icon">PT</span>
+          <h3>會員點數</h3>
+        </div>
+        <div class="form-group checkbox-group">
+          <label class="checkbox-label">
+            <input v-model="editData.points_enabled" type="checkbox" true-value="true" false-value="false" />
+            啟用點數累積
+          </label>
+        </div>
+        <div class="form-group">
+          <label>消費滿額門檻</label>
+          <input v-model="editData.earn_amount_unit" type="number" min="1" />
+          <p class="help-text">預設 1000，代表商品消費每滿 1000 元計算一次贈點。</p>
+        </div>
+        <div class="form-group">
+          <label>每次滿額贈點</label>
+          <input v-model="editData.earn_points" type="number" min="0" />
+        </div>
+        <div class="form-group">
+          <label>點數效期（月）</label>
+          <input v-model="editData.validity_months" type="number" min="1" />
+          <p class="help-text">預設 6，系統會用發放日加上指定月數。</p>
+        </div>
+        <div class="form-group">
+          <label>快到期提醒天數</label>
+          <input v-model="editData.expiring_soon_days" type="number" min="0" />
+          <p class="help-text">預設 60，前台只顯示快到期點數，不顯示日期。</p>
+        </div>
+        <div class="form-group checkbox-group">
+          <label class="checkbox-label">
+            <input v-model="editData.redeem_enabled" type="checkbox" true-value="true" false-value="false" />
+            啟用點數折抵
+          </label>
+        </div>
+        <div class="form-group">
+          <label>每 1 點折抵金額</label>
+          <input v-model="editData.point_value_amount" type="number" min="0" />
+          <p class="help-text">折抵功能可先關閉，等規則確定後再啟用。</p>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -62,7 +105,14 @@ const editData = reactive({
   store_address: '',
   store_phone: '',
   business_hours: '',
-  footer_description: ''
+  footer_description: '',
+  points_enabled: 'true',
+  earn_amount_unit: '1000',
+  earn_points: '1',
+  validity_months: '6',
+  expiring_soon_days: '60',
+  redeem_enabled: 'false',
+  point_value_amount: '0'
 });
 
 const saving = ref(false);
@@ -183,6 +233,21 @@ onMounted(loadData);
     font-size: 0.8rem;
     color: $text-disabled;
     margin-top: 0.4rem;
+  }
+}
+
+.checkbox-group {
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: $text-primary;
+    cursor: pointer;
+  }
+
+  input[type="checkbox"] {
+    width: auto;
+    cursor: pointer;
   }
 }
 

@@ -17,12 +17,15 @@ apiClient.interceptors.request.use(
     const adminToken = localStorage.getItem('adminToken');
     const userToken = localStorage.getItem('token');
     
-    // 依據請求路徑決定帶哪種 Token
-    const isRequestAdmin = config.url && config.url.includes('/admin/');
-    if (isRequestAdmin && adminToken) {
-      config.headers.Authorization = `Bearer ${adminToken}`;
-    } else if (userToken) {
-      config.headers.Authorization = `Bearer ${userToken}`;
+    // 管理後台有些 API 不在 /admin 路徑下，例如 /orders、/products、/users。
+    // 管理員登入後優先帶 adminToken；一般會員則帶自己的 user token。
+    const hasAuthHeader = config.headers?.Authorization || config.headers?.authorization;
+    if (!hasAuthHeader) {
+      if (adminToken) {
+        config.headers.Authorization = `Bearer ${adminToken}`;
+      } else if (userToken) {
+        config.headers.Authorization = `Bearer ${userToken}`;
+      }
     }
     
     // Axios 遇到開頭為 / 的路徑會忽略 baseURL 裡面的路徑 (例如 /api)

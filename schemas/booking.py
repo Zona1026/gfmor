@@ -4,7 +4,7 @@ from typing import Optional
 from datetime import datetime
 
 # 引入資料庫模型中定義的 Enum，以便在 Pydantic 模型中使用
-from db.models import BookingCategory, BookingStatus
+from db.models import BookingCategory, BookingStatus, WorkOrderStatus
 
 # --- 內部使用的輕量級 Schema ---
 # 為了在 Booking 中顯示關聯的使用者與車輛資訊，避免循環依賴。
@@ -27,6 +27,17 @@ class Motor(BaseModel):
     id: int = Field(..., description="車籍資料的唯一 ID")
     license_plate: str = Field(..., description="車牌號碼")
     model_name: Optional[str] = Field(None, description="車種")
+
+    class Config:
+        from_attributes = True
+
+class WorkOrderSummary(BaseModel):
+    """
+    預約列表中顯示用的簡短工單資訊。
+    """
+    id: int
+    status: WorkOrderStatus
+    created_at: datetime
 
     class Config:
         from_attributes = True
@@ -78,6 +89,7 @@ class Booking(BookingBase):
     # 巢狀顯示這筆預約關聯的客戶與車輛資訊
     user: User
     motor: Motor
+    work_order: Optional[WorkOrderSummary] = None
 
     # orm_mode = True 的新寫法
     # 讓 Pydantic 模型可以從 ORM 物件 (如 SQLAlchemy 的模型實例) 的屬性來讀取資料

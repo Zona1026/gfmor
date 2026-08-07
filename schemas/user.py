@@ -58,6 +58,9 @@ class User(UserBase):
     avatar: Optional[str] = None
     admin_notes: Optional[str] = None
     cumulative_consumption: Optional[int] = 0
+    current_points: int = 0
+    expiring_soon_points: int = 0
+    balance_points: int = 0
     motors: List[Motor] = [] # 在回傳使用者資料時，一併回傳車籍
 
     class Config:

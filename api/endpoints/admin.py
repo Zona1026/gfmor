@@ -5,6 +5,7 @@ from datetime import timedelta
 from db import database, models, crud
 from schemas import admin as admin_schema
 from schemas import booking as booking_schema
+from api.dependencies.admin_auth import require_manager_admin
 from core.config import settings
 from core.security import verify_password, create_access_token
 
@@ -36,14 +37,22 @@ def login_admin(login_data: admin_schema.AdminLogin, db: Session = Depends(datab
     }
 
 @router.post("/bookings", response_model=booking_schema.Booking, summary="管理員手動新增預約單")
-def create_admin_booking(booking: booking_schema.AdminBookingCreate, db: Session = Depends(database.get_db)):
+def create_admin_booking(
+    booking: booking_schema.AdminBookingCreate,
+    admin=Depends(require_manager_admin),
+    db: Session = Depends(database.get_db),
+):
     try:
         return crud.create_booking(db=db, booking=booking, force=booking.force)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 @router.post("/bookings/close", response_model=booking_schema.Booking, summary="關閉特定時段")
-def close_timeslot(close_data: booking_schema.AdminCloseTimeslot, db: Session = Depends(database.get_db)):
+def close_timeslot(
+    close_data: booking_schema.AdminCloseTimeslot,
+    admin=Depends(require_manager_admin),
+    db: Session = Depends(database.get_db),
+):
     try:
         sys_motor = db.query(models.Motor).filter(models.Motor.google_id == "system").first()
         if not sys_motor:

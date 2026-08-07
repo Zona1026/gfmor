@@ -174,6 +174,7 @@
                   <th>單價</th>
                   <th>小計</th>
                   <th>商品狀態</th>
+                  <th>通知紀錄</th>
                 </tr>
               </thead>
               <tbody>
@@ -190,8 +191,33 @@
                       :disabled="selectedOrder.status === 'COMPLETED'"
                       @change="handleItemStatusChange(selectedOrder, item)"
                     >
-                      <option v-for="(label, key) in itemStatusMap" :key="key" :value="key">{{ label }}</option>
+                      <option
+                        v-for="(label, key) in itemStatusMap"
+                        :key="key"
+                        :value="key"
+                        :disabled="key === 'NOTIFIED' && item.status !== 'NOTIFIED'"
+                      >
+                        {{ label }}
+                      </option>
                     </select>
+                  </td>
+                  <td class="notification-cell">
+                    <button
+                      v-if="item.status === 'ARRIVED_NEED_NOTIFY'"
+                      type="button"
+                      class="btn btn-sm notify-btn"
+                      :disabled="submitting"
+                      @click="openNotificationModal(selectedOrder, item)"
+                    >
+                      記錄已通知
+                    </button>
+                    <div v-if="item.latest_notification" class="notification-meta">
+                      <strong>{{ item.latest_notification.method }}</strong>
+                      <span>{{ formatDate(item.latest_notification.notified_at) }}</span>
+                      <span v-if="item.latest_notification.actor">操作者：{{ item.latest_notification.actor }}</span>
+                      <span v-if="item.latest_notification.note">備註：{{ item.latest_notification.note }}</span>
+                    </div>
+                    <span v-else-if="item.status !== 'ARRIVED_NEED_NOTIFY'" class="notification-empty">尚無紀錄</span>
                   </td>
                 </tr>
               </tbody>
@@ -265,15 +291,18 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { getAllOrders, createInstoreOrder, updateOrderStatus, updateOrderItemStatus, updateInstoreOrder, cancelOrder, getMembers, mergeGuestToMember } from '../../api/admin';
+import { useRoute } from 'vue-router';
+import { getAllOrders, createInstoreOrder, updateOrderStatus, updateOrderItemStatus, recordOrderItemNotification, updateInstoreOrder, cancelOrder, getMembers, mergeGuestToMember } from '../../api/admin';
 import Swal from 'sweetalert2';
 
+const route = useRoute();
 const orders = ref([]);
 const members = ref([]);
 const loading = ref(false);
 const submitting = ref(false);
 const searchKeyword = ref('');
-const filterStatus = ref('');
+const filterStatus = ref(typeof route.query.status === 'string' ? route.query.status : '');
+const itemStatusFilter = ref(typeof route.query.item_status === 'string' ? route.query.item_status : '');
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
 const showMergeModal = ref(false);
@@ -300,6 +329,7 @@ const statusMap = {
 
 const statusOptions = [
   { label: '全部', value: '' },
+  { label: '待收款', value: 'receivable' },
   { label: '未付款', value: 'PENDING' },
   { label: '已付訂金', value: 'DEPOSIT_PAID' },
   { label: '已付全款', value: 'FULL_PAID' },
@@ -337,7 +367,14 @@ const filteredOrders = computed(() => {
     const kw = searchKeyword.value.toLowerCase();
     list = list.filter(o => (o.recipient_name || '').toLowerCase().includes(kw) || (o.recipient_phone || '').includes(kw));
   }
-  if (filterStatus.value) list = list.filter(o => o.status === filterStatus.value);
+  if (filterStatus.value === 'receivable') {
+    list = list.filter(o => ['PENDING', 'DEPOSIT_PAID'].includes(o.status));
+  } else if (filterStatus.value) {
+    list = list.filter(o => o.status === filterStatus.value);
+  }
+  if (itemStatusFilter.value) {
+    list = list.filter(o => (o.items || []).some(item => item.status === itemStatusFilter.value));
+  }
   return list;
 });
 
@@ -445,25 +482,77 @@ const openDetailModal = (order) => {
   showDetailModal.value = true;
 };
 
+const applyUpdatedOrderItem = (orderId, itemId, updatedItem) => {
+  const targetOrder = orders.value.find(o => o.id === orderId);
+  const targetItem = targetOrder?.items?.find(i => i.id === itemId);
+  if (targetItem) {
+    Object.assign(targetItem, updatedItem);
+  }
+  if (selectedOrder.value?.id === orderId) {
+    const selectedItem = selectedOrder.value.items?.find(i => i.id === itemId);
+    if (selectedItem) {
+      Object.assign(selectedItem, updatedItem);
+    }
+  }
+};
+
 const handleItemStatusChange = async (order, item) => {
   try {
     const updatedItem = await updateOrderItemStatus(item.id, item.status);
-    const targetOrder = orders.value.find(o => o.id === order.id);
-    const targetItem = targetOrder?.items?.find(i => i.id === item.id);
-    if (targetItem) {
-      Object.assign(targetItem, updatedItem);
-    }
-    if (selectedOrder.value?.id === order.id) {
-      const selectedItem = selectedOrder.value.items?.find(i => i.id === item.id);
-      if (selectedItem) {
-        Object.assign(selectedItem, updatedItem);
-      }
-    }
+    applyUpdatedOrderItem(order.id, item.id, updatedItem);
     Toast.fire({ icon: 'success', title: '商品狀態已更新' });
   } catch (e) {
     console.error(e);
     Swal.fire('錯誤', e.response?.data?.detail || '商品狀態更新失敗', 'error');
     fetchOrders();
+  }
+};
+
+const openNotificationModal = async (order, item) => {
+  const result = await Swal.fire({
+    title: '記錄已通知',
+    html: `
+      <div class="notification-form">
+        <label for="notification-method">通知方式</label>
+        <select id="notification-method">
+          <option value="電話">電話</option>
+          <option value="簡訊">簡訊</option>
+          <option value="LINE">LINE</option>
+          <option value="Email">Email</option>
+          <option value="其他">其他</option>
+        </select>
+        <label for="notification-note">備註</label>
+        <textarea id="notification-note" rows="3" placeholder="例如：已告知可取貨、客人下週來取"></textarea>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: '記錄已通知',
+    cancelButtonText: '取消',
+    focusConfirm: false,
+    preConfirm: () => {
+      const method = document.getElementById('notification-method')?.value;
+      const note = document.getElementById('notification-note')?.value?.trim();
+      if (!method) {
+        Swal.showValidationMessage('請選擇通知方式');
+        return false;
+      }
+      return { method, note: note || null };
+    }
+  });
+
+  if (!result.isConfirmed) return;
+
+  submitting.value = true;
+  try {
+    const updatedItem = await recordOrderItemNotification(item.id, result.value);
+    applyUpdatedOrderItem(order.id, item.id, updatedItem);
+    Toast.fire({ icon: 'success', title: '已記錄通知' });
+  } catch (e) {
+    console.error(e);
+    Swal.fire('錯誤', e.response?.data?.detail || '通知紀錄建立失敗', 'error');
+    fetchOrders();
+  } finally {
+    submitting.value = false;
   }
 };
 
@@ -493,7 +582,7 @@ const handleMerge = async () => {
 
   const result = await Swal.fire({
     title: '確認合併散客紀錄？',
-    text: '合併後，散客訂單會轉到指定會員，已結案金額會補進累積消費。',
+    text: '合併後，散客訂單、工單與車輛會轉到指定會員，已結案訂單金額會補進累積消費。',
     icon: 'warning',
     showCancelButton: true,
     confirmButtonColor: '#e53935',
@@ -509,7 +598,10 @@ const handleMerge = async () => {
   submitting.value = true;
   try {
     const res = await mergeGuestToMember(mergeForm.value.guest_customer_id, mergeForm.value.google_id);
-    Toast.fire({ icon: 'success', title: `已合併 ${res.moved_orders || 0} 筆訂單` });
+    Toast.fire({
+      icon: 'success',
+      title: `已合併 ${res.moved_orders || 0} 筆訂單、${res.moved_work_orders || 0} 張工單、${res.moved_motors || 0} 台車`
+    });
     showMergeModal.value = false;
     fetchOrders();
     fetchMembers();
@@ -804,6 +896,40 @@ onMounted(() => { fetchOrders(); fetchMembers(); });
       option { background: $dark-grey; color: $text-primary; }
     }
 
+    .notification-cell {
+      min-width: 180px;
+      white-space: normal;
+    }
+
+    .notify-btn {
+      margin-bottom: 0.45rem;
+      border-color: $primary-light;
+      color: $primary-light;
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+    }
+
+    .notification-meta {
+      display: grid;
+      gap: 0.2rem;
+      color: $text-secondary;
+      font-size: 0.78rem;
+      line-height: 1.4;
+
+      strong {
+        color: $primary-light;
+        font-size: 0.82rem;
+      }
+    }
+
+    .notification-empty {
+      color: $text-disabled;
+      font-size: 0.82rem;
+    }
+
     @media (max-width: 768px) {
       .detail-grid { grid-template-columns: 1fr; }
       .items-section { overflow-x: auto; }
@@ -824,6 +950,34 @@ onMounted(() => { fetchOrders(); fetchMembers(); });
         &:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
       }
     }
+  }
+}
+
+:global(.notification-form) {
+  display: grid;
+  gap: 0.6rem;
+  text-align: left;
+
+  label {
+    color: #d5d5d5;
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+
+  select,
+  textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    background: #1f1f1f;
+    color: #f5f5f5;
+    font-size: 0.95rem;
+  }
+
+  textarea {
+    resize: vertical;
   }
 }
 </style>

@@ -8,7 +8,14 @@ export const useSiteStore = defineStore('site', {
       store_address: '載入中...',
       store_phone: '載入中...',
       business_hours: '載入中...',
-      footer_description: '專業二輪維修、保養與精品改裝。提供最值得信賴的技術與服務。'
+      footer_description: '專業二輪維修、保養與精品改裝。提供最值得信賴的技術與服務。',
+      points_enabled: 'true',
+      earn_amount_unit: '1000',
+      earn_points: '1',
+      validity_months: '6',
+      expiring_soon_days: '60',
+      redeem_enabled: 'false',
+      point_value_amount: '0'
     },
     loading: false
   }),

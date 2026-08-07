@@ -9,6 +9,14 @@ export const getUser = async (googleId) => {
 };
 
 /**
+ * 取得會員點數摘要
+ * @param {string} googleId - 使用者的 Google ID
+ */
+export const getUserPoints = async (googleId) => {
+  return await api.get(`/points/user/${googleId}/summary`);
+};
+
+/**
  * 更新使用者資訊 (含建立新車籍資料)
  * @param {string} googleId - 使用者的 Google ID 
  * @param {Object} profileData - 要更新的資料 (包含 phone, motors 等)

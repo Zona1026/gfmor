@@ -3,20 +3,25 @@ from sqlalchemy.orm import Session
 from typing import List
 from db import models
 from schemas import admin as admin_schema
+from api.dependencies.admin_auth import require_super_admin
 from db.database import get_db
 from core.security import get_password_hash # Reuse the hashing function
 
 router = APIRouter()
 
 @router.get("/", response_model=List[admin_schema.AdminDetail])
-def get_admins(db: Session = Depends(get_db)):
+def get_admins(admin=Depends(require_super_admin), db: Session = Depends(get_db)):
     """
     列出所有管理員帳號
     """
     return db.query(models.Admin).all()
 
 @router.post("/", response_model=admin_schema.AdminDetail, summary="新增管理員")
-def create_admin(admin_in: admin_schema.AdminCreate, db: Session = Depends(get_db)):
+def create_admin(
+    admin_in: admin_schema.AdminCreate,
+    admin=Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
     """
     建立新的後台管理員
     """
@@ -37,7 +42,12 @@ def create_admin(admin_in: admin_schema.AdminCreate, db: Session = Depends(get_d
     return new_admin
 
 @router.put("/{admin_id}", response_model=admin_schema.AdminDetail, summary="更新管理員資料")
-def update_admin(admin_id: int, admin_in: admin_schema.AdminUpdate, db: Session = Depends(get_db)):
+def update_admin(
+    admin_id: int,
+    admin_in: admin_schema.AdminUpdate,
+    admin=Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
     """
     更新管理員帳號、姓名或密碼
     """
@@ -66,7 +76,7 @@ def update_admin(admin_id: int, admin_in: admin_schema.AdminUpdate, db: Session 
     return db_admin
 
 @router.delete("/{admin_id}")
-def delete_admin(admin_id: int, db: Session = Depends(get_db)):
+def delete_admin(admin_id: int, admin=Depends(require_super_admin), db: Session = Depends(get_db)):
     """
     刪除管理員帳號
     """

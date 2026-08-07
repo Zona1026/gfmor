@@ -48,6 +48,14 @@
               <span class="label">累積消費：</span>
               <span class="value">${{ user.cumulative_consumption || 0 }}</span>
             </div>
+            <div class="info-group">
+              <span class="label">目前點數：</span>
+              <span class="value">{{ pointSummary.current_points }}</span>
+            </div>
+            <div class="info-group">
+              <span class="label">快到期點數：</span>
+              <span class="value">{{ pointSummary.expiring_soon_points }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -178,7 +186,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useAuthStore } from '../store/auth';
-import { updateUserProfile, getUser } from '../api/users';
+import { updateUserProfile, getUser, getUserPoints } from '../api/users';
 import { getUserBookings, updateBooking } from '../api/bookings';
 import { getUserOrders } from '../api/orders';
 import { updateMotor, deleteMotor } from '../api/motors';
@@ -190,6 +198,10 @@ const { user } = storeToRefs(authStore);
 const activeTab = ref('bookings');
 const bookings = ref([]);
 const orders = ref([]);
+const pointSummary = ref({
+  current_points: 0,
+  expiring_soon_points: 0
+});
 
 const bookingStatusMap = {
   'PENDING': '預約中',
@@ -254,13 +266,15 @@ const completeMotors = computed(() => {
 const fetchHistory = async () => {
   if (!user.value) return;
   try {
-    const [bRes, oRes, uRes] = await Promise.all([
+    const [bRes, oRes, uRes, pRes] = await Promise.all([
       getUserBookings(user.value.google_id),
       getUserOrders(user.value.google_id),
-      getUser(user.value.google_id)
+      getUser(user.value.google_id),
+      getUserPoints(user.value.google_id)
     ]);
     bookings.value = bRes;
     orders.value = oRes;
+    pointSummary.value = pRes;
     // 同步最新的會員資料（如累積消費）
     authStore.setUser(uRes);
   } catch (error) {

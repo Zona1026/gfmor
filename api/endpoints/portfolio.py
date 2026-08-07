@@ -9,6 +9,7 @@ import cloudinary.uploader
 from db.database import get_db
 from db import models
 from schemas import portfolio as port_schema
+from api.dependencies.admin_auth import require_manager_admin
 
 cloudinary.config(
     cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
@@ -48,6 +49,7 @@ def create_portfolio_item(
     category: str = Form(...),
     description: Optional[str] = Form(None),
     file: UploadFile = File(...),
+    admin=Depends(require_manager_admin),
     db: Session = Depends(get_db)
 ):
     try:
@@ -77,6 +79,7 @@ def update_portfolio_item(
     category: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
+    admin=Depends(require_manager_admin),
     db: Session = Depends(get_db)
 ):
     item = db.query(models.PortfolioItem).get(item_id)
@@ -107,7 +110,11 @@ def update_portfolio_item(
 
 
 @router.delete("/{item_id}", summary="刪除作品")
-def delete_portfolio_item(item_id: int, db: Session = Depends(get_db)):
+def delete_portfolio_item(
+    item_id: int,
+    admin=Depends(require_manager_admin),
+    db: Session = Depends(get_db),
+):
     item = db.query(models.PortfolioItem).get(item_id)
     if not item:
         raise HTTPException(status_code=404, detail="找不到該作品")

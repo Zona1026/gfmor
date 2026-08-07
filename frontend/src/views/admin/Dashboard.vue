@@ -1,6 +1,5 @@
 <template>
   <div class="admin-dashboard" :class="{ 'sidebar-open': isSidebarOpen }">
-    <!-- Mobile header bar -->
     <div class="mobile-topbar">
       <button class="hamburger-btn" @click="isSidebarOpen = !isSidebarOpen">
         <span class="bar"></span>
@@ -10,112 +9,206 @@
       <span class="mobile-title">{{ settings.store_name }} 後台</span>
     </div>
 
-    <!-- Sidebar overlay (mobile) -->
     <div class="sidebar-overlay" @click="isSidebarOpen = false"></div>
 
     <aside class="sidebar">
       <h2>{{ settings.store_name }}</h2>
       <nav>
         <router-link to="/admin" exact-active-class="active" @click="closeSidebar">儀表板</router-link>
-        <router-link to="/admin/announcements" active-class="active" @click="closeSidebar">公告管理</router-link>
         <router-link to="/admin/bookings" active-class="active" @click="closeSidebar">預約管理</router-link>
-        <router-link to="/admin/orders" active-class="active" @click="closeSidebar">訂單管理</router-link>
-        <router-link to="/admin/members" active-class="active" @click="closeSidebar">會員管理</router-link>
+        <router-link to="/admin/work-orders" active-class="active" @click="closeSidebar">工單管理</router-link>
+        <router-link to="/admin/members" active-class="active" @click="closeSidebar">客戶 / 會員管理</router-link>
         <router-link to="/admin/products" active-class="active" @click="closeSidebar">商城管理</router-link>
+        <router-link to="/admin/inventory" active-class="active" @click="closeSidebar">庫存管理</router-link>
+        <router-link to="/admin/purchases" active-class="active" @click="closeSidebar">採購 / 叫貨管理</router-link>
+        <router-link to="/admin/accounting" active-class="active" @click="closeSidebar">帳務管理</router-link>
+        <router-link to="/admin/announcements" active-class="active" @click="closeSidebar">公告管理</router-link>
         <router-link to="/admin/portfolio" active-class="active" @click="closeSidebar">作品集管理</router-link>
         <router-link to="/admin/admins" active-class="active" @click="closeSidebar">系統與權限</router-link>
         <router-link to="/admin/settings" active-class="active" @click="closeSidebar">全域系統設定</router-link>
       </nav>
       <button @click="handleLogout" class="btn-logout">登出</button>
     </aside>
+
     <main class="content">
       <header>
-        <h1>儀表板</h1>
-        <p>歡迎登入，管理員 {{ adminUser?.full_name || adminUser?.username }}!</p>
+        <h1>{{ $route.path === '/admin' ? '儀表板' : routeTitle }}</h1>
+        <p v-if="$route.path === '/admin'">每日待辦提醒，管理員 {{ adminUser?.full_name || adminUser?.username }}。</p>
       </header>
+
       <div class="dashboard-content">
-        <!-- Dashboard 子路由將渲染在這裡 -->
         <router-view v-slot="{ Component }" v-if="$route.path !== '/admin'">
           <transition name="page-fade" mode="out-in">
             <component :is="Component" />
           </transition>
         </router-view>
-        
-        <!-- 儀表板總覽首頁 -->
-        <div v-else class="overview-widgets">
+
+        <div v-else class="overview">
           <div v-if="loading" class="loading-state">
             <div class="loader-spinner"></div>
             <p>載入儀表板資料...</p>
           </div>
-          
+
           <template v-else>
-            <!-- Charts Section -->
-            <div class="charts-row">
-              <div class="widget-card chart-card">
-                <h3>📈 近期訂單趨勢</h3>
-                <div class="chart-container">
-                  <Line v-if="chartData.labels.length" :data="chartData" :options="chartOptions" />
-                  <div v-else class="empty-chart">無足夠資料產生圖表</div>
+            <section class="reminder-card">
+              <div class="card-header">
+                <div>
+                  <h3>今日預約</h3>
+                  <span>顯示今天仍在預約中的項目</span>
+                </div>
+                <div class="header-actions">
+                  <strong>{{ todayBookings.length }}</strong>
+                  <router-link :to="{ path: '/admin/bookings', query: { date: todayStr } }">查看全部</router-link>
                 </div>
               </div>
-            </div>
-            <div class="widget-section">
-              <div class="section-title">
-                <h3>📅 當日預約</h3>
-                <span class="count-badge">{{ todayBookings.length }}</span>
-              </div>
-              <div class="widget-card">
-                <table v-if="todayBookings.length > 0" class="summary-table">
-                  <thead>
-                    <tr>
-                      <th>時間</th>
-                      <th>客戶</th>
-                      <th>車種</th>
-                      <th>類別</th>
-                      <th>狀態</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="b in todayBookings" :key="b.id">
-                      <td class="time">{{ formatTime(b.booking_time) }}</td>
-                      <td>{{ b.user?.name || '未知' }}</td>
-                      <td class="brand">{{ b.motor?.model_name || '—' }}</td>
-                      <td>{{ b.category }}</td>
-                      <td><span class="status-tag" :class="b.status">{{ b.status }}</span></td>
-                    </tr>
-                  </tbody>
-                </table>
-                <div v-else class="empty-state">今天目前沒有預約。</div>
-              </div>
-            </div>
+              <table v-if="todayBookingPreview.length" class="summary-table">
+                <thead>
+                  <tr>
+                    <th>時間</th>
+                    <th>客戶</th>
+                    <th>車輛</th>
+                    <th>項目</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="booking in todayBookingPreview" :key="booking.id">
+                    <td class="time">{{ formatTime(booking.booking_time) }}</td>
+                    <td>{{ booking.user?.name || '—' }}</td>
+                    <td>{{ booking.motor?.license_plate || '—' }}</td>
+                    <td>{{ bookingCategoryMap[booking.category] || booking.category }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div v-else class="empty-state">今天沒有待處理預約。</div>
+            </section>
 
-            <div class="widget-section">
-              <div class="section-title">
-                <h3>📦 未處理訂單</h3>
-                <span class="count-badge danger">{{ unpaidOrders.length }}</span>
+            <section class="reminder-card">
+              <div class="card-header">
+                <div>
+                  <h3>進行中工單</h3>
+                  <span>尚未結案、尚未進入收款的工單</span>
+                </div>
+                <div class="header-actions">
+                  <strong>{{ activeWorkOrders.length }}</strong>
+                  <router-link :to="{ path: '/admin/work-orders', query: { status: 'active' } }">查看全部</router-link>
+                </div>
               </div>
-              <div class="widget-card">
-                <table v-if="unpaidOrders.length > 0" class="summary-table">
-                  <thead>
-                    <tr>
-                      <th>下單時間</th>
-                      <th>客戶</th>
-                      <th>金額</th>
-                      <th>來源</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="o in unpaidOrders" :key="o.id">
-                      <td class="time">{{ formatDate(o.created_at) }}</td>
-                      <td>{{ o.recipient_name }}</td>
-                      <td class="amount">NT$ {{ o.total_amount?.toLocaleString() }}</td>
-                      <td><span class="source-tag" :class="o.source">{{ o.source === 'online' ? '線上' : '現場' }}</span></td>
-                    </tr>
-                  </tbody>
-                </table>
-                <div v-else class="empty-state">目前沒有未處理訂單。</div>
+              <table v-if="activeWorkOrderPreview.length" class="summary-table">
+                <thead>
+                  <tr>
+                    <th>工單</th>
+                    <th>預約單</th>
+                    <th>狀態</th>
+                    <th>金額</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="workOrder in activeWorkOrderPreview" :key="workOrder.id">
+                    <td>#{{ workOrder.id }}</td>
+                    <td>{{ workOrder.booking_id ? `#${workOrder.booking_id}` : '現場工單' }}</td>
+                    <td><span class="status-tag" :class="workOrder.status">{{ workOrderStatusMap[workOrder.status] || workOrder.status }}</span></td>
+                    <td class="amount">NT$ {{ workOrder.total_amount?.toLocaleString() || 0 }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div v-else class="empty-state">目前沒有進行中工單。</div>
+            </section>
+
+            <section class="reminder-card">
+              <div class="card-header">
+                <div>
+                  <h3>待主管確認</h3>
+                  <span>退款、折扣、異常報價、工單結案與追加項目</span>
+                </div>
+                <div class="header-actions">
+                  <strong>{{ approvalItems.length }}</strong>
+                  <router-link to="/admin/approvals">查看全部</router-link>
+                </div>
               </div>
-            </div>
+              <table v-if="approvalPreview.length" class="summary-table">
+                <thead>
+                  <tr>
+                    <th>類型</th>
+                    <th>內容</th>
+                    <th>來源</th>
+                    <th>建立時間</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="item in approvalPreview" :key="item.id">
+                    <td>{{ item.type }}</td>
+                    <td>{{ item.title }}</td>
+                    <td>{{ item.source }}</td>
+                    <td>{{ formatDate(item.created_at) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div v-else class="empty-state">目前沒有待主管確認項目。</div>
+            </section>
+
+            <section class="reminder-card">
+              <div class="card-header">
+                <div>
+                  <h3>待到貨項目</h3>
+                  <span>以已訂貨但尚未到貨的訂單商品為準</span>
+                </div>
+                <div class="header-actions">
+                  <strong>{{ awaitingArrivalItems.length }}</strong>
+                  <router-link :to="{ path: '/admin/purchases', query: { status: 'awaiting-arrival' } }">查看全部</router-link>
+                </div>
+              </div>
+              <table v-if="awaitingArrivalPreview.length" class="summary-table">
+                <thead>
+                  <tr>
+                    <th>項目名稱</th>
+                    <th>數量</th>
+                    <th>客戶 / 工單</th>
+                    <th>預計到貨日</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="item in awaitingArrivalPreview" :key="item.id">
+                    <td>{{ item.name }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>{{ item.customerRef }}</td>
+                    <td>{{ item.expectedArrivalDate || '未設定' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div v-else class="empty-state">目前沒有待到貨項目。</div>
+            </section>
+
+            <section class="reminder-card">
+              <div class="card-header">
+                <div>
+                  <h3>待付款 / 待收款</h3>
+                  <span>未付款訂單、訂金尾款與工單待收款</span>
+                </div>
+                <div class="header-actions">
+                  <strong>{{ receivableItems.length }}</strong>
+                  <router-link :to="{ path: '/admin/accounting', query: { status: 'receivable' } }">查看全部</router-link>
+                </div>
+              </div>
+              <table v-if="receivablePreview.length" class="summary-table">
+                <thead>
+                  <tr>
+                    <th>來源</th>
+                    <th>客戶 / 單號</th>
+                    <th>狀態</th>
+                    <th>金額</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="item in receivablePreview" :key="item.id">
+                    <td>{{ item.source }}</td>
+                    <td>{{ item.customerRef }}</td>
+                    <td><span class="status-tag" :class="item.status">{{ item.statusLabel }}</span></td>
+                    <td class="amount">NT$ {{ item.amount?.toLocaleString() || 0 }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div v-else class="empty-state">目前沒有待付款或待收款項目。</div>
+            </section>
           </template>
         </div>
       </div>
@@ -124,137 +217,217 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
-import { useAuthStore } from '../../store/auth';
-import { useRouter } from 'vue-router';
+import { computed, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
-import { getAdminBookings, getAllOrders } from '../../api/admin';
+import { useAuthStore } from '../../store/auth';
 import { useSiteStore } from '../../store/site';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-} from 'chart.js';
-import { Line } from 'vue-chartjs';
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-);
+import { getAdminBookings, getAllOrders, getPurchaseRequests, getWorkOrderApprovals, getWorkOrders } from '../../api/admin';
 
 const authStore = useAuthStore();
-const router = useRouter();
-const { adminUser } = storeToRefs(authStore);
-
 const siteStore = useSiteStore();
+const router = useRouter();
+const route = useRoute();
+const { adminUser } = storeToRefs(authStore);
 const { settings } = storeToRefs(siteStore);
 
 const isSidebarOpen = ref(false);
-const closeSidebar = () => { isSidebarOpen.value = false; };
-
 const allBookings = ref([]);
 const allOrders = ref([]);
+const allWorkOrders = ref([]);
+const purchaseRequests = ref([]);
 const loading = ref(false);
 
-const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
+const todayStr = new Date().toLocaleDateString('en-CA');
+const previewLimit = 5;
+const approvalItems = ref([]);
+const activeBookingStatuses = ['PENDING', 'CONFIRMED', 'ARRIVED'];
+
+const closeSidebar = () => {
+  isSidebarOpen.value = false;
+};
+
+const routeTitle = computed(() => route.meta?.title || '後台管理');
+
+const bookingCategoryMap = {
+  REPAIR: '維修',
+  MAINTENANCE: '保養',
+  CONSULTATION: '諮詢'
+};
+
+const orderStatusMap = {
+  PENDING: '未付款',
+  DEPOSIT_PAID: '已付訂金',
+  FULL_PAID: '已付全款',
+  COMPLETED: '已結案',
+  CANCELED: '已取消'
+};
+
+const orderPaymentStatusMap = {
+  PENDING: '待付款',
+  VERIFYING: '付款確認中',
+  PAID: '已付款',
+  FAILED: '付款失敗',
+  PARTIALLY_REFUNDED: '部分退款',
+  REFUNDED: '已退款',
+  CANCELED: '已取消'
+};
+
+const approvalTypeMap = {
+  DISCOUNT: '折扣',
+  HIGH_QUOTE: '高額報價',
+  STATUS_CHANGE: '狀態變更',
+  INVENTORY_RESERVATION: '確認預留',
+  INVENTORY_CONSUMPTION: '確認扣庫存'
+};
+
+const workOrderStatusMap = {
+  PENDING: '待檢查',
+  INSPECTION_PENDING: '待檢查',
+  QUOTE_PENDING: '待報價',
+  CUSTOMER_CONFIRMATION_PENDING: '等待客戶確認',
+  SUPERVISOR_APPROVAL_PENDING: '待主管確認',
+  IN_PROGRESS: '進行中',
+  AWAITING_PAYMENT: '待收款',
+  COMPLETED: '已完工',
+  CANCELED: '已取消'
+};
 
 const todayBookings = computed(() => {
-  if (!Array.isArray(allBookings.value)) return [];
   return allBookings.value
-    .filter(b => b && b.booking_time && b.booking_time.startsWith(todayStr) && b.status === 'PENDING')
+    .filter(booking => booking?.booking_time?.startsWith(todayStr) && activeBookingStatuses.includes(booking.status))
     .sort((a, b) => new Date(a.booking_time) - new Date(b.booking_time));
 });
 
-const unpaidOrders = computed(() => {
-  if (!Array.isArray(allOrders.value)) return [];
-  return allOrders.value
-    .filter(o => o && o.status !== 'COMPLETED' && o.status !== 'CANCELED')
+const activeWorkOrders = computed(() => {
+  return allWorkOrders.value
+    .filter(workOrder => [
+      'PENDING',
+      'INSPECTION_PENDING',
+      'QUOTE_PENDING',
+      'CUSTOMER_CONFIRMATION_PENDING',
+      'SUPERVISOR_APPROVAL_PENDING',
+      'IN_PROGRESS'
+    ].includes(workOrder.status))
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 });
 
-const fetchDashboardData = async () => {
-  console.log('Fetching dashboard data...');
-  loading.value = true;
-  try {
-    const [bRes, oRes] = await Promise.all([
-      getAdminBookings({}),
-      getAllOrders()
-    ]);
-    console.log('Bookings received:', bRes?.length);
-    console.log('Orders received:', oRes?.length);
-    allBookings.value = Array.isArray(bRes) ? bRes : [];
-    allOrders.value = Array.isArray(oRes) ? oRes : [];
-    generateChartData();
-  } catch (e) {
-    console.error('Failed to fetch dashboard data:', e);
-  } finally {
-    loading.value = false;
-  }
-};
+const awaitingArrivalItems = computed(() => {
+  return purchaseRequests.value.map(request => ({
+    id: `purchase-${request.id}`,
+    name: request.item_name || request.product?.name || `#${request.product_id}`,
+    quantity: Math.max(0, (request.requested_quantity || 0) - (request.arrived_quantity || 0)),
+    customerRef: `${request.customer_name || '未填客戶'} / 工單 #${request.work_order_id || '-'}`,
+    expectedArrivalDate: request.expected_arrival_date || null
+  })).sort((a, b) => {
+    if (!a.expectedArrivalDate && !b.expectedArrivalDate) return 0;
+    if (!a.expectedArrivalDate) return 1;
+    if (!b.expectedArrivalDate) return -1;
+    return new Date(a.expectedArrivalDate) - new Date(b.expectedArrivalDate);
+  });
 
-const chartData = ref({ labels: [], datasets: [] });
-const chartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: { display: false },
-    tooltip: { mode: 'index', intersect: false }
-  },
-  scales: {
-    y: { beginAtZero: true, grid: { color: 'rgba(255, 255, 255, 0.1)' } },
-    x: { grid: { display: false } }
+  const items = [];
+  for (const order of allOrders.value) {
+    for (const item of order.items || []) {
+      if (item.status !== 'ORDERED') continue;
+      items.push({
+        id: `order-${order.id}-item-${item.id}`,
+        name: item.product?.name || `商品 #${item.product_id}`,
+        quantity: item.quantity,
+        customerRef: `${order.recipient_name || '—'} / 訂單 #${order.id}`,
+        expectedArrivalDate: item.expected_arrival_date || null
+      });
+    }
   }
-};
 
-const generateChartData = () => {
-  // Simple mock data based on recent 7 days to simulate trend
-  const dates = [];
-  const amounts = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    dates.push(`${d.getMonth()+1}/${d.getDate()}`);
-    // mock random data if real data is hard to parse by day
-    amounts.push(Math.floor(Math.random() * 50000) + 10000); 
-  }
-  
-  chartData.value = {
-    labels: dates,
-    datasets: [
-      {
-        label: '訂單金額',
-        backgroundColor: 'rgba(229, 57, 53, 0.2)',
-        borderColor: '#e53935',
-        data: amounts,
-        fill: true,
-        tension: 0.4
-      }
-    ]
-  };
-};
+  return items.sort((a, b) => {
+    if (!a.expectedArrivalDate && !b.expectedArrivalDate) return 0;
+    if (!a.expectedArrivalDate) return 1;
+    if (!b.expectedArrivalDate) return -1;
+    return new Date(a.expectedArrivalDate) - new Date(b.expectedArrivalDate);
+  });
+});
+
+const receivableItems = computed(() => {
+  const orderItems = allOrders.value
+    .filter(order => order.source === 'online' && ['PENDING', 'VERIFYING', 'FAILED'].includes(order.payment_status))
+    .map(order => ({
+      id: `order-${order.id}`,
+      source: order.source === 'instore' ? '現場訂單' : '線上訂單',
+      customerRef: `${order.recipient_name || '—'} / #${order.id}`,
+      status: order.payment_status,
+      statusLabel: orderPaymentStatusMap[order.payment_status] || order.payment_status,
+      amount: order.total_amount || 0,
+      dueDate: null
+    }));
+
+  const workOrderItems = allWorkOrders.value
+    .filter(workOrder => workOrder.status === 'AWAITING_PAYMENT' && ['UNPAID', 'PARTIALLY_PAID'].includes(workOrder.payment_status))
+    .map(workOrder => ({
+      id: `work-order-${workOrder.id}`,
+      source: '工單',
+      customerRef: `${workOrder.customer_name || '—'} / 工單 #${workOrder.id}`,
+      status: workOrder.status,
+      statusLabel: workOrderStatusMap[workOrder.status] || workOrder.status,
+      amount: workOrder.balance_amount ?? workOrder.total_amount ?? 0,
+      dueDate: null
+    }));
+
+  return [...orderItems, ...workOrderItems].sort((a, b) => {
+    if (a.dueDate && b.dueDate) return new Date(a.dueDate) - new Date(b.dueDate);
+    if (a.dueDate) return -1;
+    if (b.dueDate) return 1;
+    return b.amount - a.amount;
+  });
+});
+
+const todayBookingPreview = computed(() => todayBookings.value.slice(0, previewLimit));
+const activeWorkOrderPreview = computed(() => activeWorkOrders.value.slice(0, previewLimit));
+const approvalPreview = computed(() => approvalItems.value.slice(0, previewLimit));
+const awaitingArrivalPreview = computed(() => awaitingArrivalItems.value.slice(0, previewLimit));
+const receivablePreview = computed(() => receivableItems.value.slice(0, previewLimit));
 
 const formatTime = (iso) => {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  if (!iso) return '—';
+  const date = new Date(iso);
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 };
 
 const formatDate = (iso) => {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  if (!iso) return '—';
+  const date = new Date(iso);
+  return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
+};
+
+const fetchDashboardData = async () => {
+  loading.value = true;
+  try {
+    const [bookings, orders, workOrders, approvals, purchases] = await Promise.all([
+      getAdminBookings({ skip: 0, limit: 200, date_str: todayStr }),
+      getAllOrders(),
+      getWorkOrders({ skip: 0, limit: 200 }),
+      getWorkOrderApprovals({ status: 'PENDING' }),
+      getPurchaseRequests({ status: 'awaiting-arrival', limit: 200 })
+    ]);
+
+    allBookings.value = Array.isArray(bookings) ? bookings : [];
+    allOrders.value = Array.isArray(orders) ? orders : [];
+    allWorkOrders.value = Array.isArray(workOrders) ? workOrders : [];
+    purchaseRequests.value = Array.isArray(purchases) ? purchases : [];
+    approvalItems.value = Array.isArray(approvals)
+      ? approvals.map(item => ({
+          id: item.id,
+          type: approvalTypeMap[item.type] || item.type,
+          title: item.title,
+          source: `工單 #${item.work_order_id}`,
+          created_at: item.requested_at
+        }))
+      : [];
+  } catch (error) {
+    console.error('載入儀表板資料失敗:', error);
+  } finally {
+    loading.value = false;
+  }
 };
 
 const handleLogout = () => {
@@ -277,11 +450,12 @@ onMounted(() => {
   background-color: $dark-grey;
   color: $text-primary;
 
-  // ===== Mobile Top Bar =====
   .mobile-topbar {
-    display: none; // hidden on desktop
+    display: none;
     position: fixed;
-    top: 0; left: 0; right: 0;
+    top: 0;
+    left: 0;
+    right: 0;
     height: 56px;
     background-color: $background-color;
     border-bottom: 1px solid $medium-grey;
@@ -305,7 +479,6 @@ onMounted(() => {
         height: 2px;
         background-color: $text-primary;
         border-radius: 2px;
-        transition: 0.3s;
       }
     }
 
@@ -316,16 +489,14 @@ onMounted(() => {
     }
   }
 
-  // ===== Sidebar Overlay (mobile) =====
   .sidebar-overlay {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.5);
+    background: rgba(0, 0, 0, 0.5);
     z-index: 299;
   }
 
-  // ===== Sidebar =====
   .sidebar {
     width: 250px;
     background-color: $background-color;
@@ -353,7 +524,8 @@ onMounted(() => {
         text-decoration: none;
         transition: 0.3s;
 
-        &:hover, &.active {
+        &:hover,
+        &.active {
           background-color: rgba($primary-color, 0.1);
           color: $primary-color;
           border-right: 3px solid $primary-color;
@@ -369,27 +541,25 @@ onMounted(() => {
       border-top: 1px solid $medium-grey;
       cursor: pointer;
       font-weight: bold;
-      transition: 0.3s;
-      
+
       &:hover {
         background-color: rgba(#ff6b6b, 0.1);
       }
     }
   }
 
-  // ===== Main Content =====
   .content {
     flex: 1;
     display: flex;
     flex-direction: column;
-    min-width: 0; // prevent overflow
+    min-width: 0;
 
     header {
       padding: 1.5rem 2.5rem;
       border-bottom: 1px solid $medium-grey;
 
       h1 {
-        margin: 0 0 0.5rem 0;
+        margin: 0 0 0.5rem;
         color: $primary-color;
       }
 
@@ -398,109 +568,152 @@ onMounted(() => {
         color: $light-grey;
       }
     }
+  }
 
-    .dashboard-content {
-      padding: 2rem;
+  .dashboard-content {
+    padding: 2rem;
+  }
 
-      .charts-row {
-        margin-bottom: 2rem;
-        
-        .chart-card {
-          padding: 1.5rem;
-          h3 { margin-top: 0; color: $primary-light; }
-          .chart-container {
-            height: 300px; width: 100%; position: relative;
-            .empty-chart { display: flex; align-items: center; justify-content: center; height: 100%; color: $text-disabled; }
-          }
-        }
+  .overview {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
+
+  .loading-state {
+    grid-column: 1 / -1;
+    min-height: 260px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: $text-disabled;
+  }
+
+  .loader-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(255, 255, 255, 0.1);
+    border-top-color: $primary-color;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+  }
+
+  .reminder-card {
+    background-color: $dark-grey;
+    border: 1px solid $medium-grey;
+    border-radius: $border-radius;
+    min-height: 245px;
+    padding: 1.25rem;
+    overflow: hidden;
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+
+      h3 {
+        margin: 0 0 0.25rem;
+        color: $primary-light;
+        font-size: 1.05rem;
       }
 
-      .overview-widgets {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 2rem;
-
-        @media (max-width: 1024px) {
-          grid-template-columns: 1fr;
-        }
+      span {
+        color: $text-secondary;
+        font-size: 0.84rem;
       }
 
-      .widget-section {
-        .section-title {
-          display: flex;
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        white-space: nowrap;
+
+        strong {
+          color: #fff;
+          background-color: $primary-color;
+          min-width: 30px;
+          height: 26px;
+          padding: 0 0.45rem;
+          display: inline-flex;
           align-items: center;
-          gap: 0.8rem;
-          margin-bottom: 1rem;
-          
-          h3 { margin: 0; color: $primary-light; font-size: 1.2rem; }
-          .count-badge {
-            background: $primary-color;
-            color: #fff;
-            padding: 0.1rem 0.6rem;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            font-weight: bold;
-            &.danger { background: #ff4444; }
-          }
-        }
-
-        .widget-card {
-          background: linear-gradient(145deg, #2a2a2a, #1f1f1f);
-          border: 1px solid rgba(255, 255, 255, 0.05);
-          border-radius: 12px;
-          min-height: 200px;
-          padding: 1.5rem;
-          box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-          transition: transform 0.3s;
-          &:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.3); }
-        }
-
-        .summary-table {
-          width: 100%;
-          border-collapse: collapse;
-          
-          th, td {
-            padding: 0.8rem;
-            text-align: left;
-            border-bottom: 1px solid rgba($medium-grey, 0.5);
-            font-size: 0.9rem;
-          }
-          
-          th { color: $text-disabled; font-weight: normal; font-size: 0.8rem; }
-          .time { color: $primary-light; font-weight: bold; }
-          .amount { color: $primary-color; font-weight: bold; }
-          
-          .status-tag {
-            font-size: 0.75rem;
-            padding: 0.2rem 0.6rem;
-            border-radius: 20px;
-            background: rgba($medium-grey, 0.3);
-            font-weight: bold;
-            &.TIMEOUT { color: #ff6b6b; background: rgba(#ff6b6b, 0.15); }
-            &.PENDING { color: #ffc107; background: rgba(#ffc107, 0.15); }
-            &.COMPLETED { color: #4caf50; background: rgba(#4caf50, 0.15); }
-          }
-
-          .source-tag {
-            font-size: 0.75rem;
-            &.online { color: #2196f3; }
-            &.instore { color: #ff9800; }
-          }
-        }
-
-        .empty-state {
-          display: flex;
           justify-content: center;
-          align-items: center;
-          height: 150px;
-          color: $text-disabled;
-          font-size: 0.9rem;
+          border-radius: 999px;
+          font-size: 0.85rem;
+        }
+
+        a {
+          color: $primary-light;
+          text-decoration: none;
+          font-size: 0.85rem;
+          font-weight: 600;
+
+          &:hover {
+            text-decoration: underline;
+          }
         }
       }
     }
   }
 
-  // ===== Mobile Responsive =====
+  .summary-table {
+    width: 100%;
+    border-collapse: collapse;
+
+    th,
+    td {
+      padding: 0.62rem 0.45rem;
+      text-align: left;
+      border-bottom: 1px solid rgba($medium-grey, 0.55);
+      font-size: 0.86rem;
+      vertical-align: middle;
+    }
+
+    th {
+      color: $text-disabled;
+      font-weight: 600;
+      font-size: 0.76rem;
+    }
+
+    .time,
+    .amount {
+      color: $primary-light;
+      font-weight: 700;
+    }
+  }
+
+  .status-tag {
+    display: inline-flex;
+    padding: 0.18rem 0.52rem;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    background-color: rgba($medium-grey, 0.35);
+
+    &.PENDING { color: #ffc107; background-color: rgba(#ffc107, 0.14); }
+    &.DEPOSIT_PAID,
+    &.AWAITING_PAYMENT { color: #ff9800; background-color: rgba(#ff9800, 0.14); }
+    &.IN_PROGRESS { color: #64b5f6; background-color: rgba(#64b5f6, 0.14); }
+  }
+
+  .empty-state {
+    min-height: 145px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: $text-disabled;
+    font-size: 0.9rem;
+    text-align: center;
+  }
+
+  @media (max-width: 1024px) {
+    .overview {
+      grid-template-columns: 1fr;
+    }
+  }
+
   @media (max-width: 768px) {
     flex-direction: column;
 
@@ -510,53 +723,58 @@ onMounted(() => {
 
     .sidebar {
       position: fixed;
-      top: 0; left: 0;
+      top: 0;
+      left: 0;
       height: 100vh;
       width: 260px;
       z-index: 300;
       transform: translateX(-100%);
       transition: transform 0.3s ease;
-
-      h2 { padding-top: 1.2rem; }
     }
 
     &.sidebar-open {
       .sidebar {
         transform: translateX(0);
       }
+
       .sidebar-overlay {
         display: block;
       }
     }
 
     .content {
-      padding-top: 56px; // space for fixed topbar
+      padding-top: 56px;
 
       header {
         padding: 1rem;
-        h1 { font-size: 1.2rem; }
-      }
 
-      .dashboard-content {
-        padding: 1rem;
-
-        .overview-widgets {
-          grid-template-columns: 1fr;
-          gap: 1rem;
-        }
-
-        .charts-row .chart-card .chart-container {
-          height: 220px;
-        }
-
-        .widget-section .summary-table {
-          th, td {
-            padding: 0.5rem 0.4rem;
-            font-size: 0.78rem;
-          }
+        h1 {
+          font-size: 1.25rem;
         }
       }
     }
+
+    .dashboard-content {
+      padding: 1rem;
+    }
+
+    .reminder-card {
+      padding: 1rem;
+      min-height: 220px;
+    }
+
+    .summary-table {
+      th,
+      td {
+        padding: 0.5rem 0.35rem;
+        font-size: 0.78rem;
+      }
+    }
   }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 </style>
