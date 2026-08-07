@@ -432,7 +432,7 @@ const fetchDashboardData = async () => {
 
 const handleLogout = () => {
   authStore.adminLogout();
-  router.push('/login');
+  router.push('/admin-login');
 };
 
 onMounted(() => {

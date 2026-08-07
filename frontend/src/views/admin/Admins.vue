@@ -13,7 +13,7 @@
     </div>
 
     <div v-if="adminUser?.role !== '最高級'" class="permission-alert">
-      🔒 您的登入角色為「{{ adminUser?.role || '一般' }}」，僅限檢視列表。如需新增、修改或刪除，請聯絡最高級系統管理員。
+      🔒 您的登入角色為「{{ adminUser?.role || '一般' }}」，僅限檢視列表。如需新增、修改、重設密碼或刪除，請聯絡最高級系統管理員。
     </div>
 
     <div v-if="loading" class="loading">載入中...</div>
@@ -49,6 +49,14 @@
                 :title="adminUser?.role !== '最高級' ? '僅最高級管理員可編輯' : ''"
               >
                 編輯
+              </button>
+              <button
+                class="btn-reset"
+                @click="openResetPasswordModal(admin)"
+                :disabled="adminUser?.role !== '最高級'"
+                :title="adminUser?.role !== '最高級' ? '僅最高級管理員可重設密碼' : ''"
+              >
+                重設密碼
               </button>
               <button
                 class="btn-delete"
@@ -135,6 +143,46 @@
       </div>
     </div>
 
+    <!-- 重設密碼 Modal -->
+    <div v-if="showResetPasswordModal" class="modal-overlay" @click.self="closeResetPasswordModal">
+      <div class="modal">
+        <h3>重設管理員密碼</h3>
+        <p class="modal-note">
+          將為 <strong>{{ resetTargetAdmin?.username }}</strong> 設定新密碼。
+        </p>
+        <form @submit.prevent="handleResetPassword">
+          <div class="form-group">
+            <label>新密碼</label>
+            <input
+              v-model="resetPasswordForm.password"
+              type="password"
+              required
+              minlength="8"
+              autocomplete="new-password"
+              placeholder="至少 8 個字元"
+            />
+          </div>
+          <div class="form-group">
+            <label>確認新密碼</label>
+            <input
+              v-model="resetPasswordForm.confirmPassword"
+              type="password"
+              required
+              minlength="8"
+              autocomplete="new-password"
+              placeholder="再次輸入新密碼"
+            />
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-outline" @click="closeResetPasswordModal">取消</button>
+            <button type="submit" class="btn btn-primary" :disabled="isSubmitting">
+              {{ isSubmitting ? '重設中...' : '確認重設' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -152,6 +200,8 @@ const loading = ref(false);
 const isSubmitting = ref(false); // Renamed from 'submitting' for consistency
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
+const showResetPasswordModal = ref(false);
+const resetTargetAdmin = ref(null);
 
 const createForm = ref({
   username: '',
@@ -166,6 +216,11 @@ const editForm = ref({
   full_name: '',
   password: '',
   role: '一般'
+});
+
+const resetPasswordForm = ref({
+  password: '',
+  confirmPassword: ''
 });
 
 const fetchAdmins = async () => {
@@ -219,6 +274,52 @@ const handleUpdate = async () => {
   } catch (e) {
     console.error(e);
     alert('更新失敗：' + (e.response?.data?.detail || '服務錯誤'));
+  } finally {
+    isSubmitting.value = false;
+  }
+};
+
+const openResetPasswordModal = (admin) => {
+  resetTargetAdmin.value = admin;
+  resetPasswordForm.value = {
+    password: '',
+    confirmPassword: ''
+  };
+  showResetPasswordModal.value = true;
+};
+
+const closeResetPasswordModal = () => {
+  showResetPasswordModal.value = false;
+  resetTargetAdmin.value = null;
+  resetPasswordForm.value = {
+    password: '',
+    confirmPassword: ''
+  };
+};
+
+const handleResetPassword = async () => {
+  if (!resetTargetAdmin.value) return;
+
+  const { password, confirmPassword } = resetPasswordForm.value;
+  if (password.length < 8) {
+    alert('新密碼至少需要 8 個字元');
+    return;
+  }
+  if (password !== confirmPassword) {
+    alert('兩次輸入的新密碼不一致');
+    return;
+  }
+
+  isSubmitting.value = true;
+  const targetUsername = resetTargetAdmin.value.username;
+  try {
+    await updateAdmin(resetTargetAdmin.value.id, { password });
+    alert(`已重設管理員 [${targetUsername}] 的密碼`);
+    closeResetPasswordModal();
+    fetchAdmins();
+  } catch (e) {
+    console.error(e);
+    alert('重設密碼失敗：' + (e.response?.data?.detail || '服務錯誤'));
   } finally {
     isSubmitting.value = false;
   }
@@ -296,25 +397,32 @@ onMounted(fetchAdmins);
       .actions {
         display: flex;
         gap: 0.5rem;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .btn-edit,
+      .btn-reset,
+      .btn-delete {
+        border: none;
+        padding: 0.3rem 0.6rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        white-space: nowrap;
       }
       .btn-edit {
         background-color: $primary-color;
         color: $background-color;
-        border: none;
-        padding: 0.3rem 0.6rem;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.85rem;
         &:hover { background-color: $primary-dark; }
+      }
+      .btn-reset {
+        background-color: #faad14;
+        color: #1f1f1f;
+        &:hover { background-color: #ffc53d; }
       }
       .btn-delete {
         background-color: #ff4d4f;
         color: white;
-        border: none;
-        padding: 0.3rem 0.6rem;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.85rem;
         &:hover { background-color: #ff7875; }
         &:disabled { opacity: 0.3; cursor: not-allowed; }
       }
@@ -351,6 +459,12 @@ onMounted(fetchAdmins);
     background: $dark-grey; border: 1px solid $medium-grey; border-radius: 12px;
     padding: 2rem; width: 400px; max-width: 90%;
     h3 { margin-top: 0; color: $primary-light; margin-bottom: 1.5rem; }
+    .modal-note {
+      margin: -0.5rem 0 1.5rem;
+      color: $text-secondary;
+      line-height: 1.5;
+      strong { color: $primary-light; }
+    }
     .form-group {
       margin-bottom: 1.2rem;
       label { display: block; margin-bottom: 0.5rem; color: $text-secondary; font-size: 0.9rem; }
@@ -403,7 +517,7 @@ onMounted(fetchAdmins);
     }
   }
 
-  .btn:disabled, .btn-edit:disabled, .btn-delete:disabled {
+  .btn:disabled, .btn-edit:disabled, .btn-reset:disabled, .btn-delete:disabled {
     opacity: 0.4 !important;
     cursor: not-allowed !important;
     background-color: #434343 !important;

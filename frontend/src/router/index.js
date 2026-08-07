@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Home from '../views/Home.vue'
 import Login from '../views/Login.vue'
+import AdminLogin from '../views/AdminLogin.vue'
 import ProfileComplete from '../views/ProfileComplete.vue'
 import MemberCenter from '../views/MemberCenter.vue'
 import Products from '../views/Products.vue'
@@ -35,6 +36,12 @@ const routes = [
     path: '/login',
     name: 'Login',
     component: Login
+  },
+  {
+    path: '/admin-login',
+    name: 'AdminLogin',
+    component: AdminLogin,
+    meta: { adminEntry: true }
   },
   {
     path: '/profile/complete',
@@ -179,8 +186,12 @@ const router = createRouter({
 router.beforeEach((to, from) => {
   const authStore = useAuthStore()
   
+  if (to.meta.adminEntry && authStore.adminToken) {
+    return '/admin'
+  }
+
   if (to.meta.requiresAdmin && !authStore.adminToken) {
-    return '/login'
+    return '/admin-login'
   }
 
   if (to.meta.requiresAuth && !authStore.user) {
@@ -190,7 +201,7 @@ router.beforeEach((to, from) => {
   if (authStore.user) {
     const isProfileIncomplete = !authStore.user.phone || !authStore.user.motors || authStore.user.motors.length === 0;
     
-    if (isProfileIncomplete && to.path !== '/profile/complete' && to.path !== '/login') {
+    if (isProfileIncomplete && to.path !== '/profile/complete' && to.path !== '/login' && !to.path.startsWith('/admin')) {
       return '/profile/complete'
     }
   }
