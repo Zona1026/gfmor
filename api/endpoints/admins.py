@@ -29,9 +29,15 @@ def create_admin(
     db_admin = db.query(models.Admin).filter(models.Admin.username == admin_in.username).first()
     if db_admin:
         raise HTTPException(status_code=400, detail="此帳號已存在")
+
+    normalized_email = str(admin_in.email).strip().lower()
+    db_admin_email = db.query(models.Admin).filter(models.Admin.email == normalized_email).first()
+    if db_admin_email:
+        raise HTTPException(status_code=400, detail="此 Email 已被其他管理員使用")
     
     new_admin = models.Admin(
         username=admin_in.username,
+        email=normalized_email,
         full_name=admin_in.full_name,
         role=admin_in.role or "一般",
         hashed_password=get_password_hash(admin_in.password)
@@ -61,6 +67,16 @@ def update_admin(
         if conflict:
             raise HTTPException(status_code=400, detail="此帳號已存在")
         db_admin.username = admin_in.username
+
+    if admin_in.email is not None:
+        normalized_email = str(admin_in.email).strip().lower()
+        conflict = db.query(models.Admin).filter(
+            models.Admin.email == normalized_email,
+            models.Admin.id != admin_id,
+        ).first()
+        if conflict:
+            raise HTTPException(status_code=400, detail="此 Email 已被其他管理員使用")
+        db_admin.email = normalized_email
     
     if admin_in.full_name is not None:
         db_admin.full_name = admin_in.full_name

@@ -41,6 +41,11 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional full name to set when creating a missing admin.",
     )
+    parser.add_argument(
+        "--email",
+        default=None,
+        help="Optional admin email for self-service password resets.",
+    )
     return parser.parse_args()
 
 
@@ -81,6 +86,7 @@ def reset_admin_password(args: argparse.Namespace, password: str) -> str:
                 )
             admin = models.Admin(
                 username=args.username,
+                email=args.email,
                 full_name=args.full_name,
                 role=args.role,
                 hashed_password=get_password_hash(password),
@@ -89,6 +95,8 @@ def reset_admin_password(args: argparse.Namespace, password: str) -> str:
             action = "created"
         else:
             admin.hashed_password = get_password_hash(password)
+            if args.email:
+                admin.email = args.email
             action = "updated"
 
         db.commit()

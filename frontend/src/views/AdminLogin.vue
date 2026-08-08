@@ -39,38 +39,47 @@
 
     <div v-if="showForgotModal" class="modal-overlay" @click.self="closeForgotModal">
       <div class="modal">
-        <h2>忘記店家密碼</h2>
+        <h2>自助重設密碼</h2>
         <p class="modal-copy">
-          請先聯絡最高級管理員，請對方登入後台「系統與權限」重設密碼。若所有最高級管理員都無法登入，請聯絡系統維護人員進行緊急重設。
+          請輸入管理員帳號與已綁定的 Email。若資料相符，系統會寄出一次性重設連結。
         </p>
 
-        <div class="form-group">
-          <label for="reset-username">你的管理員帳號</label>
-          <input
-            id="reset-username"
-            type="text"
-            v-model.trim="resetForm.username"
-            placeholder="例如：staff_01"
-          />
-        </div>
-        <div class="form-group">
-          <label for="reset-contact">可聯絡方式</label>
-          <input
-            id="reset-contact"
-            type="text"
-            v-model.trim="resetForm.contact"
-            placeholder="電話、LINE 或 Email"
-          />
-        </div>
+        <form @submit.prevent="requestPasswordReset">
+          <div class="form-group">
+            <label for="reset-username">管理員帳號</label>
+            <input
+              id="reset-username"
+              type="text"
+              v-model.trim="resetForm.username"
+              autocomplete="username"
+              placeholder="例如：staff_01"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="reset-email">綁定 Email</label>
+            <input
+              id="reset-email"
+              type="email"
+              v-model.trim="resetForm.email"
+              autocomplete="email"
+              placeholder="name@example.com"
+              required
+            />
+          </div>
 
-        <p v-if="copyMessage" class="copy-message">{{ copyMessage }}</p>
+          <p class="modal-hint">
+            若此帳號尚未綁定 Email，請先請有權限的管理員補上 Email，或由系統維護人員做第一次重設。
+          </p>
+          <p v-if="resetMessage" class="reset-message">{{ resetMessage }}</p>
 
-        <div class="modal-actions">
-          <button type="button" class="btn-outline" @click="closeForgotModal">關閉</button>
-          <button type="button" class="btn-primary" @click="copyResetMessage">
-            複製求助訊息
-          </button>
-        </div>
+          <div class="modal-actions">
+            <button type="button" class="btn-outline" @click="closeForgotModal">關閉</button>
+            <button type="submit" class="btn-primary" :disabled="isResetSubmitting">
+              {{ isResetSubmitting ? '寄送中...' : '寄送重設連結' }}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
@@ -82,7 +91,7 @@ import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../store/auth';
 import { useSiteStore } from '../store/site';
-import { loginAdmin } from '../api/admin';
+import { loginAdmin, requestAdminPasswordReset } from '../api/admin';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -95,42 +104,14 @@ const adminForm = ref({
 });
 const resetForm = ref({
   username: '',
-  contact: ''
+  email: ''
 });
 const isSubmitting = ref(false);
+const isResetSubmitting = ref(false);
 const showForgotModal = ref(false);
-const copyMessage = ref('');
+const resetMessage = ref('');
 
 const shopName = computed(() => settings.value.store_name || '炬烽騎士精品');
-
-const resetHelpText = computed(() => {
-  const username = resetForm.value.username || '未填寫';
-  const contact = resetForm.value.contact || '未填寫';
-  return [
-    `我需要重設 ${shopName.value} 店家後台密碼。`,
-    `管理員帳號：${username}`,
-    `可聯絡方式：${contact}`,
-    '請最高級管理員協助在後台「系統與權限」重設。'
-  ].join('\n');
-});
-
-const copyWithFallback = (text) => {
-  const textArea = document.createElement('textarea');
-  textArea.value = text;
-  textArea.setAttribute('readonly', '');
-  textArea.style.position = 'fixed';
-  textArea.style.top = '-9999px';
-  textArea.style.left = '-9999px';
-  document.body.appendChild(textArea);
-  textArea.focus();
-  textArea.select();
-
-  try {
-    return document.execCommand('copy');
-  } finally {
-    document.body.removeChild(textArea);
-  }
-};
 
 const handleSubmit = async () => {
   if (!adminForm.value.username || !adminForm.value.password) return;
@@ -156,28 +137,27 @@ const handleSubmit = async () => {
 
 const openForgotModal = () => {
   resetForm.value.username = adminForm.value.username || '';
-  resetForm.value.contact = '';
-  copyMessage.value = '';
+  resetForm.value.email = '';
+  resetMessage.value = '';
   showForgotModal.value = true;
 };
 
 const closeForgotModal = () => {
   showForgotModal.value = false;
-  copyMessage.value = '';
+  resetMessage.value = '';
 };
 
-const copyResetMessage = async () => {
-  copyMessage.value = '';
+const requestPasswordReset = async () => {
+  isResetSubmitting.value = true;
+  resetMessage.value = '';
   try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(resetHelpText.value);
-    } else if (!copyWithFallback(resetHelpText.value)) {
-      throw new Error('copy command failed');
-    }
-    copyMessage.value = '求助訊息已複製。';
+    const res = await requestAdminPasswordReset(resetForm.value);
+    resetMessage.value = res.message || '若資料正確，重設密碼連結已寄出。';
   } catch (error) {
-    console.error('複製求助訊息失敗:', error);
-    copyMessage.value = '無法自動複製，請手動提供帳號與可聯絡方式。';
+    console.error('申請重設密碼失敗:', error);
+    resetMessage.value = error.response?.data?.detail || '重設密碼信件寄送失敗，請稍後再試。';
+  } finally {
+    isResetSubmitting.value = false;
   }
 };
 
@@ -344,12 +324,18 @@ h1 {
 }
 
 .modal-copy,
-.copy-message {
+.modal-hint,
+.reset-message {
   color: $text-secondary;
   line-height: 1.6;
 }
 
-.copy-message {
+.modal-hint {
+  margin: 1rem 0 0;
+  font-size: 0.85rem;
+}
+
+.reset-message {
   margin: 1rem 0 0;
   color: $primary-light;
   font-size: 0.9rem;

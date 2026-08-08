@@ -14,6 +14,14 @@ export const loginAdmin = async (credentials) => {
   return response;
 };
 
+export const requestAdminPasswordReset = async (data) => {
+  return await api.post('/admin/password-reset/request', data);
+};
+
+export const confirmAdminPasswordReset = async (data) => {
+  return await api.post('/admin/password-reset/confirm', data);
+};
+
 export const getAdminBookings = async (params) => {
   return await api.get('/bookings', { params });
 };

@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Home from '../views/Home.vue'
 import Login from '../views/Login.vue'
 import AdminLogin from '../views/AdminLogin.vue'
+import AdminResetPassword from '../views/AdminResetPassword.vue'
 import ProfileComplete from '../views/ProfileComplete.vue'
 import MemberCenter from '../views/MemberCenter.vue'
 import Products from '../views/Products.vue'
@@ -42,6 +43,11 @@ const routes = [
     name: 'AdminLogin',
     component: AdminLogin,
     meta: { adminEntry: true }
+  },
+  {
+    path: '/admin-reset-password',
+    name: 'AdminResetPassword',
+    component: AdminResetPassword
   },
   {
     path: '/profile/complete',

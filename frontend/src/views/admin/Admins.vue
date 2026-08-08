@@ -25,6 +25,7 @@
             <th>ID</th>
             <th>管理員姓名</th>
             <th>管理員帳號</th>
+            <th>Email</th>
             <th>權限等級</th>
             <th>建立時間</th>
             <th>操作</th>
@@ -35,6 +36,7 @@
             <td>#{{ admin.id }}</td>
             <td class="username">{{ admin.full_name || '未設定' }}</td>
             <td class="username">{{ admin.username }}</td>
+            <td class="email">{{ admin.email || '未設定' }}</td>
             <td>
               <span class="role-tag" :class="getRoleClass(admin.role)">
                 {{ admin.role || '一般' }}
@@ -87,6 +89,10 @@
             <input type="text" v-model="createForm.username" required placeholder="例如：staff_01" />
           </div>
           <div class="form-group">
+            <label>管理員 Email</label>
+            <input type="email" v-model="createForm.email" required placeholder="例如：staff@example.com" />
+          </div>
+          <div class="form-group">
             <label>權限等級</label>
             <select v-model="createForm.role" class="form-select" required>
               <option value="一般">一般 (一般帳號)</option>
@@ -120,6 +126,10 @@
           <div class="form-group">
             <label>管理員帳號</label>
             <input v-model="editForm.username" required />
+          </div>
+          <div class="form-group">
+            <label>管理員 Email</label>
+            <input v-model="editForm.email" type="email" required />
           </div>
           <div class="form-group">
             <label>權限等級</label>
@@ -205,6 +215,7 @@ const resetTargetAdmin = ref(null);
 
 const createForm = ref({
   username: '',
+  email: '',
   password: '',
   full_name: '',
   role: '一般'
@@ -213,6 +224,7 @@ const createForm = ref({
 const editForm = ref({
   id: null,
   username: '',
+  email: '',
   full_name: '',
   password: '',
   role: '一般'
@@ -241,7 +253,7 @@ const handleCreate = async () => {
     await createAdmin(createForm.value);
     alert('管理員帳號已建立');
     showCreateModal.value = false;
-    createForm.value = { username: '', password: '', full_name: '', role: '一般' };
+    createForm.value = { username: '', email: '', password: '', full_name: '', role: '一般' };
     fetchAdmins();
   } catch (e) {
     console.error(e);
@@ -255,6 +267,7 @@ const openEditModal = (admin) => {
   editForm.value = {
     id: admin.id,
     username: admin.username,
+    email: admin.email || '',
     full_name: admin.full_name || '',
     password: '',
     role: admin.role || '一般'
@@ -392,6 +405,11 @@ onMounted(fetchAdmins);
       }
 
       .username { font-weight: bold; color: $primary-light; }
+      .email {
+        color: $text-secondary;
+        font-size: 0.9rem;
+        overflow-wrap: anywhere;
+      }
       .time { color: $text-disabled; font-size: 0.85rem; }
 
       .actions {

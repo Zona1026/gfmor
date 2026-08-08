@@ -150,9 +150,13 @@ class Admin(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     username = Column(String(50), unique=True, nullable=False, index=True)
+    email = Column(String(255), unique=True, nullable=True, index=True)
     full_name = Column(String(50), nullable=True)
     role = Column(String(20), nullable=False, server_default="一般", comment="管理員權限：最高級, 管理層, 一般")
     hashed_password = Column(String(255), nullable=False)
+    password_reset_token_hash = Column(String(64), unique=True, nullable=True, index=True)
+    password_reset_expires_at = Column(DateTime, nullable=True)
+    password_reset_requested_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
 class Announcement(Base):
