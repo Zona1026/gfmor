@@ -155,11 +155,11 @@
               </label>
               <label>
                 車型 / 設備
-                <input v-model.trim="createForm.vehicle_model" />
+                <input v-model.trim="createForm.vehicle_model" required />
               </label>
               <label>
                 里程
-                <input v-model.number="createForm.vehicle_mileage" type="number" min="0" />
+                <input v-model.number="createForm.vehicle_mileage" type="number" min="0" required />
               </label>
               <label>
                 服務類型
@@ -169,7 +169,7 @@
               </label>
               <label>
                 負責人
-                <input v-model.trim="createForm.responsible_staff" />
+                <input v-model.trim="createForm.responsible_staff" required />
               </label>
               <label>
                 預約時間
@@ -682,7 +682,7 @@ const applySelectedMemberMotor = () => {
   createForm.value.vehicle_brand = selected.motor.brand || '';
   createForm.value.vehicle_model = selected.motor.model_name || '';
   createForm.value.vehicle_vin = selected.motor.vin || '';
-  createForm.value.vehicle_mileage = selected.motor.mileage || null;
+  createForm.value.vehicle_mileage = selected.motor.mileage ?? null;
 };
 
 const addCreateLineItem = () => {
@@ -760,11 +760,34 @@ const cleanLineItem = (item) => ({
   is_confirmed: Number(item.is_confirmed ?? 1)
 });
 
+const hasText = (value) => String(value ?? '').trim().length > 0;
+
+const hasMileageValue = (value) => {
+  if (value === null || value === undefined || value === '') return false;
+  const mileage = Number(value);
+  return Number.isFinite(mileage) && mileage >= 0;
+};
+
+const validateCreateRequiredFields = () => {
+  if (!hasText(createForm.value.vehicle_license_plate)) return '車牌為必填';
+  if (!hasText(createForm.value.vehicle_model)) return '車型為必填';
+  if (!hasMileageValue(createForm.value.vehicle_mileage)) return '里程為必填';
+  if (!hasText(createForm.value.responsible_staff)) return '負責人為必填';
+  return '';
+};
+
 const submitCreateWorkOrder = async () => {
+  const validationMessage = validateCreateRequiredFields();
+  if (validationMessage) {
+    alert(validationMessage);
+    return;
+  }
+
   saving.value = true;
   try {
     const payload = {
       ...createForm.value,
+      vehicle_mileage: Number(createForm.value.vehicle_mileage),
       scheduled_at: createForm.value.scheduled_at || null,
       line_items: createLineItems.value.filter(item => item.name || item.product_id).map(cleanLineItem)
     };

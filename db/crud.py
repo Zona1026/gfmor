@@ -650,6 +650,12 @@ def _hydrate_direct_customer(db: Session, db_work_order, work_order: WorkOrderCr
         raise ValueError("工單需有客戶姓名與電話")
     if not db_work_order.vehicle_license_plate:
         raise ValueError("工單需有車牌或設備識別資料")
+    if not str(db_work_order.vehicle_model or "").strip():
+        raise ValueError("工單需有車型或設備資料")
+    if db_work_order.vehicle_mileage is None:
+        raise ValueError("工單需有里程資料")
+    if not str(db_work_order.responsible_staff or "").strip():
+        raise ValueError("工單需有負責人")
 
 def get_work_order(db: Session, work_order_id: int):
     """
