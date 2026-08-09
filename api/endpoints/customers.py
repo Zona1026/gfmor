@@ -14,9 +14,29 @@ from schemas import guest_customer as guest_schema
 
 router = APIRouter()
 
+TEST_MEMBER_GOOGLE_ID_PREFIX = "test-user-"
+TEST_MEMBER_NAMES = {"測試", "測試會員"}
+
 
 def _enum_value(value):
     return getattr(value, "value", value)
+
+
+def _is_test_member(user):
+    google_id = str(user.google_id or "")
+    name = str(user.name or "").strip()
+    return google_id.startswith(TEST_MEMBER_GOOGLE_ID_PREFIX) or name in TEST_MEMBER_NAMES
+
+
+def _has_real_member(db: Session):
+    return (
+        db.query(models.User.google_id)
+        .filter(models.User.google_id != "system")
+        .filter(~models.User.google_id.like(f"{TEST_MEMBER_GOOGLE_ID_PREFIX}%"))
+        .filter(~models.User.name.in_(TEST_MEMBER_NAMES))
+        .first()
+        is not None
+    )
 
 
 def _service_sort_time(work_order):
@@ -235,6 +255,7 @@ def read_customers(
 
     customers = []
     keyword = f"%{q.strip()}%" if q and q.strip() else None
+    hide_test_members = customer_type in ["all", "member"] and _has_real_member(db)
 
     if customer_type in ["all", "member"]:
         member_query = (
@@ -254,6 +275,8 @@ def read_customers(
                 models.Motor.license_plate.ilike(keyword),
             ))
         for user in member_query.distinct().all():
+            if hide_test_members and _is_test_member(user):
+                continue
             customers.append(_member_summary(db, user))
 
     if customer_type in ["all", "guest"]:

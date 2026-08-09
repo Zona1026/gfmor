@@ -146,7 +146,7 @@
             <h4>基本資料</h4>
             <div class="form-grid">
               <label>
-                車牌 / 設備識別
+                車牌
                 <input v-model.trim="createForm.vehicle_license_plate" required />
               </label>
               <label>
@@ -154,7 +154,7 @@
                 <input v-model.trim="createForm.vehicle_brand" />
               </label>
               <label>
-                車型 / 設備
+                車型
                 <input v-model.trim="createForm.vehicle_model" required />
               </label>
               <label>
