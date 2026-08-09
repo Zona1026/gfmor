@@ -131,11 +131,11 @@
               </div>
               <div class="form-grid">
                 <label>
-                  散客姓名
+                  <span class="field-label">散客姓名 <span class="required-mark">*</span></span>
                   <input v-model.trim="createForm.guest_name" required />
                 </label>
                 <label>
-                  散客電話
+                  <span class="field-label">散客電話 <span class="required-mark">*</span></span>
                   <input v-model.trim="createForm.guest_phone" required />
                 </label>
               </div>
@@ -146,7 +146,7 @@
             <h4>基本資料</h4>
             <div class="form-grid">
               <label>
-                車牌
+                <span class="field-label">車牌 <span class="required-mark">*</span></span>
                 <input v-model.trim="createForm.vehicle_license_plate" required />
               </label>
               <label>
@@ -154,11 +154,11 @@
                 <input v-model.trim="createForm.vehicle_brand" />
               </label>
               <label>
-                車型
+                <span class="field-label">車型 <span class="required-mark">*</span></span>
                 <input v-model.trim="createForm.vehicle_model" required />
               </label>
               <label>
-                里程
+                <span class="field-label">里程 <span class="required-mark">*</span></span>
                 <input v-model.number="createForm.vehicle_mileage" type="number" min="0" required />
               </label>
               <label>
@@ -168,7 +168,7 @@
                 </select>
               </label>
               <label>
-                負責人
+                <span class="field-label">負責人 <span class="required-mark">*</span></span>
                 <input v-model.trim="createForm.responsible_staff" required />
               </label>
               <label>
@@ -1029,6 +1029,17 @@ watch(
     gap: 0.38rem;
     color: $text-secondary;
     font-size: 0.88rem;
+  }
+
+  .field-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.18rem;
+  }
+
+  .required-mark {
+    color: $primary-light;
+    font-weight: 800;
   }
 
   .btn,
