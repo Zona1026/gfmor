@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     SMTP_USERNAME: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
     SMTP_FROM: Optional[str] = None
+    SMTP_FROM_NAME: Optional[str] = None
     SMTP_USE_TLS: bool = True
 
     class Config:

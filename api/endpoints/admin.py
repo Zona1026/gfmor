@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import hashlib
+import logging
 import secrets
 from urllib.parse import quote
 
@@ -14,6 +15,7 @@ from core.email import send_plain_email
 from core.security import verify_password, create_access_token, get_password_hash
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 PASSWORD_RESET_REQUEST_MESSAGE = "若帳號與 Email 相符，重設密碼連結已寄出，請到信箱查看。"
@@ -100,14 +102,24 @@ def request_admin_password_reset(
 
     try:
         send_plain_email(admin.email, subject, body)
-    except RuntimeError:
+    except RuntimeError as exc:
         db.rollback()
+        logger.warning("Admin password reset email is not configured correctly: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="系統尚未設定寄信服務，無法自助重設密碼。",
         )
     except Exception:
         db.rollback()
+        logger.exception(
+            "Admin password reset email failed. admin_id=%s smtp_host=%s smtp_port=%s smtp_username_set=%s smtp_from_set=%s smtp_tls=%s",
+            admin.id,
+            settings.SMTP_HOST,
+            settings.SMTP_PORT,
+            bool(settings.SMTP_USERNAME),
+            bool(settings.SMTP_FROM),
+            settings.SMTP_USE_TLS,
+        )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="重設密碼信件寄送失敗，請稍後再試或聯絡系統維護人員。",
