@@ -1,6 +1,9 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
+export const ADMIN_IDLE_TIMEOUT_MS = 60 * 60 * 1000;
+const ADMIN_LAST_ACTIVITY_KEY = 'adminLastActivityAt';
+
 const safeParse = (key) => {
   try {
     const val = localStorage.getItem(key);
@@ -19,6 +22,17 @@ export const useAuthStore = defineStore('auth', () => {
   // 管理員
   const adminToken = ref(localStorage.getItem('adminToken') || null);
   const adminUser = ref(safeParse('adminUser'));
+
+  function setAdminActivity(timestamp = Date.now()) {
+    localStorage.setItem(ADMIN_LAST_ACTIVITY_KEY, String(timestamp));
+  }
+
+  function isAdminSessionIdle(now = Date.now()) {
+    if (!adminToken.value) return false;
+    const lastActivityAt = Number(localStorage.getItem(ADMIN_LAST_ACTIVITY_KEY));
+    if (!Number.isFinite(lastActivityAt) || lastActivityAt <= 0) return true;
+    return now - lastActivityAt > ADMIN_IDLE_TIMEOUT_MS;
+  }
 
   function setToken(newToken) {
     token.value = newToken;
@@ -40,6 +54,7 @@ export const useAuthStore = defineStore('auth', () => {
   function setAdminToken(newToken) {
     adminToken.value = newToken;
     localStorage.setItem('adminToken', newToken);
+    setAdminActivity();
   }
 
   function setAdminUser(newUser) {
@@ -52,10 +67,17 @@ export const useAuthStore = defineStore('auth', () => {
     adminUser.value = null;
     localStorage.removeItem('adminToken');
     localStorage.removeItem('adminUser');
+    localStorage.removeItem(ADMIN_LAST_ACTIVITY_KEY);
   }
 
   return { 
     token, user, setToken, setUser, logout,
-    adminToken, adminUser, setAdminToken, setAdminUser, adminLogout
+    adminToken,
+    adminUser,
+    setAdminToken,
+    setAdminUser,
+    setAdminActivity,
+    isAdminSessionIdle,
+    adminLogout
   };
 });

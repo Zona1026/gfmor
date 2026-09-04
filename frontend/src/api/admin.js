@@ -274,8 +274,8 @@ export const updateOrderPaymentStatus = async (id, data) => {
   return await api.patch(`/orders/${id}/payment-status`, data);
 };
 
-export const getAllOrders = async () => {
-  return await api.get('/orders/');
+export const getAllOrders = async (params = {}) => {
+  return await api.get('/orders/', { params });
 };
 
 export const getShopOrders = async () => {
@@ -321,6 +321,10 @@ export const mergeGuestToMember = async (guestId, googleId) => {
 // ======= 管理員帳號管理 =======
 export const getAdmins = async () => {
   return await api.get('/admins/');
+};
+
+export const getStaffAdmins = async () => {
+  return await api.get('/admins/staff');
 };
 
 export const createAdmin = async (data) => {

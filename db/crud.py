@@ -437,8 +437,6 @@ def _build_line_item(db: Session, item_in: WorkOrderLineItemCreate):
         if not item_data.get("name"):
             item_data["name"] = db_product.name
 
-    if item_type == models.WorkOrderLineItemType.PART and not item_data.get("product_id"):
-        raise ValueError("零件 / 耗材明細必須選擇商品")
     if not item_data.get("name"):
         raise ValueError("工單明細名稱為必填")
 

@@ -13,6 +13,8 @@ services:
         generateValue: true
       - key: FRONTEND_URL
         value: "https://gfmotor-frontend.onrender.com"
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "480"
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT

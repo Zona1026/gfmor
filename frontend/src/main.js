@@ -4,6 +4,7 @@ import router from './router'
 import App from './App.vue'
 import './assets/main.scss'
 import vue3GoogleLogin from 'vue3-google-login'
+import { useAuthStore } from './store/auth'
 
 const app = createApp(App)
 
@@ -27,4 +28,21 @@ app.use(router)
 app.use(vue3GoogleLogin, {
   clientId: '357528958616-1mbtrri5ii7irbqpftd8ml3qtdr7ho0u.apps.googleusercontent.com'
 })
+
+window.addEventListener('click', (event) => {
+  const authStore = useAuthStore();
+  if (!authStore.adminToken) return;
+
+  if (authStore.isAdminSessionIdle()) {
+    authStore.adminLogout();
+    event.preventDefault();
+    event.stopPropagation();
+    alert('閒置超過 1 小時，請重新登入。');
+    router.push('/admin-login');
+    return;
+  }
+
+  authStore.setAdminActivity();
+}, true);
+
 app.mount('#app')

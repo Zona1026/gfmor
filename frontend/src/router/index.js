@@ -191,6 +191,13 @@ const router = createRouter({
 // 全域導航守衛
 router.beforeEach((to, from) => {
   const authStore = useAuthStore()
+
+  if (authStore.adminToken && authStore.isAdminSessionIdle()) {
+    authStore.adminLogout()
+    if (to.path.startsWith('/admin')) {
+      return '/admin-login'
+    }
+  }
   
   if (to.meta.adminEntry && authStore.adminToken) {
     return '/admin'

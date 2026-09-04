@@ -169,7 +169,12 @@
               </label>
               <label>
                 <span class="field-label">負責人 <span class="required-mark">*</span></span>
-                <input v-model.trim="createForm.responsible_staff" required />
+                <select v-model="createForm.responsible_staff" required>
+                  <option value="" disabled>請選擇負責人</option>
+                  <option v-for="staff in responsibleStaffOptions" :key="staff" :value="staff">
+                    {{ staff }}
+                  </option>
+                </select>
               </label>
               <label>
                 預約時間
@@ -193,19 +198,38 @@
             </div>
             <div class="line-editor">
               <div v-for="(item, index) in createLineItems" :key="index" class="line-row">
-                <select v-model="item.type" @change="handleLineTypeChange(item)">
-                  <option v-for="(label, value) in lineItemTypeMap" :key="value" :value="value">{{ label }}</option>
-                </select>
-                <select v-if="item.type === 'PART'" v-model.number="item.product_id" @change="applyProductToLine(item)">
-                  <option :value="null">選擇商品</option>
-                  <option v-for="product in products" :key="product.id" :value="product.id">
-                    {{ product.name }} / NT$ {{ product.price }} / 庫存 {{ product.stock }}
-                  </option>
-                </select>
-                <input v-model.trim="item.name" placeholder="明細名稱" />
-                <input v-model.number="item.quantity" type="number" min="1" />
-                <input v-model.number="item.unit_price" type="number" min="0" />
-                <span class="line-total">NT$ {{ lineItemTotal(item).toLocaleString() }}</span>
+                <label class="line-field">
+                  <span>類型</span>
+                  <select v-model="item.type" @change="handleLineTypeChange(item)">
+                    <option v-for="(label, value) in lineItemTypeMap" :key="value" :value="value">{{ label }}</option>
+                  </select>
+                </label>
+                <label class="line-field">
+                  <span>商品</span>
+                  <select v-if="item.type === 'PART'" v-model.number="item.product_id" @change="applyProductToLine(item)">
+                    <option :value="null">不綁商品 / 不扣庫存</option>
+                    <option v-for="product in products" :key="product.id" :value="product.id">
+                      {{ product.name }} / NT$ {{ product.price }} / 庫存 {{ product.stock }}
+                    </option>
+                  </select>
+                  <input v-else value="不適用" disabled />
+                </label>
+                <label class="line-field">
+                  <span>明細名稱</span>
+                  <input v-model.trim="item.name" placeholder="明細名稱" />
+                </label>
+                <label class="line-field">
+                  <span>數量</span>
+                  <input v-model.number="item.quantity" type="number" min="1" />
+                </label>
+                <label class="line-field">
+                  <span>單價</span>
+                  <input v-model.number="item.unit_price" type="number" min="0" />
+                </label>
+                <div class="line-total">
+                  <span>小計</span>
+                  <strong>NT$ {{ lineItemTotal(item).toLocaleString() }}</strong>
+                </div>
                 <button type="button" class="icon-btn danger" @click="removeCreateLineItem(index)">×</button>
               </div>
             </div>
@@ -235,7 +259,7 @@
               v-if="canUseCriticalWorkOrder && !selectedWorkOrder.deleted_at"
               class="btn btn-danger"
               type="button"
-              @click="deleteSelectedWorkOrder"
+              @click="openDeleteModal"
             >
               刪除工單
             </button>
@@ -268,7 +292,11 @@
               </label>
               <label>
                 負責人
-                <input v-model.trim="detailForm.responsible_staff" />
+                <select v-model="detailForm.responsible_staff">
+                  <option v-for="staff in responsibleStaffOptions" :key="staff" :value="staff">
+                    {{ staff }}
+                  </option>
+                </select>
               </label>
               <label>
                 預約時間
@@ -290,9 +318,6 @@
             <div v-if="hasBlockingApproval(selectedWorkOrder)" class="warning-text">
               此工單仍有待主管審核或退回項目，不能進入施工中、待收款或已完工。
             </div>
-            <div class="form-actions">
-              <button class="btn btn-primary" @click="saveDetail" :disabled="saving || !canEditWorkOrder">儲存資料</button>
-            </div>
           </section>
 
           <section class="form-section">
@@ -305,7 +330,10 @@
             </dl>
             <div class="payment-form">
               <input v-model.number="paymentForm.amount" type="number" min="1" placeholder="付款金額" />
-              <input v-model.trim="paymentForm.method" placeholder="付款方式" />
+              <select v-model="paymentForm.method">
+                <option value="" disabled>付款方式</option>
+                <option v-for="method in paymentMethodOptions" :key="method" :value="method">{{ method }}</option>
+              </select>
               <button class="btn btn-outline" @click="submitPayment">登錄付款</button>
             </div>
             <table v-if="selectedWorkOrder.payments?.length" class="mini-table">
@@ -330,22 +358,39 @@
           </div>
           <div class="line-editor">
             <div v-for="(item, index) in detailLineItems" :key="item.id || index" class="line-row">
-              <select v-model="item.type" :disabled="isLineItemInventoryLocked(item)">
-                <option v-for="(label, value) in lineItemTypeMap" :key="value" :value="value">{{ label }}</option>
-              </select>
-              <select v-if="item.type === 'PART'" v-model.number="item.product_id" :disabled="isLineItemInventoryLocked(item)" @change="applyProductToLine(item)">
-                <option :value="null">選擇商品</option>
-                <option v-for="product in products" :key="product.id" :value="product.id">
-                  {{ product.name }} / NT$ {{ product.price }} / 庫存 {{ product.stock }}
-                </option>
-              </select>
-              <input v-model.trim="item.name" :disabled="isLineItemInventoryLocked(item)" placeholder="明細名稱" />
-              <input v-model.number="item.quantity" type="number" min="1" :disabled="isLineItemInventoryLocked(item)" />
-              <input v-model.number="item.unit_price" type="number" min="0" :disabled="isLineItemInventoryLocked(item)" />
-              <span class="line-total">
-                NT$ {{ lineItemTotal(item).toLocaleString() }}
+              <label class="line-field">
+                <span>類型</span>
+                <select v-model="item.type" :disabled="isLineItemInventoryLocked(item)">
+                  <option v-for="(label, value) in lineItemTypeMap" :key="value" :value="value">{{ label }}</option>
+                </select>
+              </label>
+              <label class="line-field">
+                <span>商品</span>
+                <select v-if="item.type === 'PART'" v-model.number="item.product_id" :disabled="isLineItemInventoryLocked(item)" @change="applyProductToLine(item)">
+                  <option :value="null">不綁商品 / 不扣庫存</option>
+                  <option v-for="product in products" :key="product.id" :value="product.id">
+                    {{ product.name }} / NT$ {{ product.price }} / 庫存 {{ product.stock }}
+                  </option>
+                </select>
+                <input v-else value="不適用" disabled />
+              </label>
+              <label class="line-field">
+                <span>明細名稱</span>
+                <input v-model.trim="item.name" :disabled="isLineItemInventoryLocked(item)" placeholder="明細名稱" />
+              </label>
+              <label class="line-field">
+                <span>數量</span>
+                <input v-model.number="item.quantity" type="number" min="1" :disabled="isLineItemInventoryLocked(item)" />
+              </label>
+              <label class="line-field">
+                <span>單價</span>
+                <input v-model.number="item.unit_price" type="number" min="0" :disabled="isLineItemInventoryLocked(item)" />
+              </label>
+              <div class="line-total">
+                <span>小計</span>
+                <strong>NT$ {{ lineItemTotal(item).toLocaleString() }}</strong>
                 <small v-if="item.type === 'PART'">{{ inventoryStatusText(item) }}</small>
-              </span>
+              </div>
               <button type="button" class="icon-btn danger" :disabled="isLineItemInventoryLocked(item)" @click="removeDetailLineItem(index)">×</button>
             </div>
           </div>
@@ -354,7 +399,7 @@
             <strong>NT$ {{ detailTotal.toLocaleString() }}</strong>
           </div>
           <div class="form-actions">
-            <button class="btn btn-primary" @click="saveLineItems" :disabled="saving || !canEditWorkOrder">儲存明細</button>
+            <button class="btn btn-primary" @click="saveWorkOrder" :disabled="saving || !canEditWorkOrder">儲存工單</button>
           </div>
         </section>
 
@@ -398,6 +443,35 @@
         </section>
       </div>
     </div>
+
+    <div v-if="showDeleteModal" class="modal-overlay confirm-overlay" @click.self="closeDeleteModal">
+      <div class="modal-content confirm-modal">
+        <div class="modal-header">
+          <div>
+            <h3>刪除工單 #{{ selectedWorkOrder?.id }}</h3>
+            <p>此動作會保留歷史紀錄，並將工單標記為已取消。</p>
+          </div>
+          <button class="icon-btn" type="button" @click="closeDeleteModal">×</button>
+        </div>
+
+        <label>
+          刪除原因
+          <textarea v-model.trim="deleteForm.reason" rows="4" placeholder="請輸入刪除原因"></textarea>
+        </label>
+
+        <div class="form-actions modal-footer-actions">
+          <button type="button" class="btn btn-outline" @click="closeDeleteModal">取消</button>
+          <button
+            type="button"
+            class="btn btn-danger"
+            :disabled="saving || !deleteForm.reason"
+            @click="confirmDeleteSelectedWorkOrder"
+          >
+            確認刪除
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -412,6 +486,7 @@ import {
   deleteWorkOrder,
   getGuestCustomers,
   getProducts,
+  getStaffAdmins,
   getWorkOrder,
   getWorkOrders,
   rejectWorkOrderApproval,
@@ -429,10 +504,13 @@ const loading = ref(false);
 const saving = ref(false);
 const workOrders = ref([]);
 const products = ref([]);
+const staffAdmins = ref([]);
 const activeFilter = ref('');
 const searchKeyword = ref('');
 const filterDate = ref('');
 const managerRoles = ['最高級', '管理層'];
+const defaultResponsibleStaff = '火腿';
+const paymentMethodOptions = ['現金', '轉帳', 'Linepay'];
 const canEditWorkOrder = computed(() => managerRoles.includes(adminUser.value?.role));
 const canUseCriticalWorkOrder = computed(() => adminUser.value?.role === '最高級');
 const canReviewApprovals = computed(() => canUseCriticalWorkOrder.value);
@@ -451,6 +529,8 @@ const selectedWorkOrder = ref(null);
 const detailForm = ref({});
 const detailLineItems = ref([]);
 const paymentForm = ref({ amount: null, method: '', note: '' });
+const showDeleteModal = ref(false);
+const deleteForm = ref({ reason: '' });
 const pendingInventoryApprovals = computed(() => {
   return (selectedWorkOrder.value?.approvals || []).filter(approval => {
     return approval.status === 'PENDING' && [
@@ -467,7 +547,6 @@ const serviceTypeMap = {
 };
 
 const statusMap = {
-  PENDING: '待檢查',
   INSPECTION_PENDING: '待檢查',
   QUOTE_PENDING: '待報價',
   CUSTOMER_CONFIRMATION_PENDING: '等待客戶確認',
@@ -536,6 +615,13 @@ const memberMotorOptions = computed(() => {
 
 const createTotal = computed(() => calculateTotal(createLineItems.value));
 const detailTotal = computed(() => calculateTotal(detailLineItems.value));
+const responsibleStaffOptions = computed(() => {
+  const names = staffAdmins.value
+    .map(admin => admin.full_name || admin.username)
+    .filter(Boolean);
+  if (!names.includes(defaultResponsibleStaff)) names.unshift(defaultResponsibleStaff);
+  return names;
+});
 
 function defaultCreateForm() {
   return {
@@ -551,7 +637,7 @@ function defaultCreateForm() {
     vehicle_mileage: null,
     service_type: 'MAINTENANCE',
     problem_description: '',
-    responsible_staff: '',
+    responsible_staff: defaultResponsibleStaff,
     scheduled_at: '',
     notes: ''
   };
@@ -643,9 +729,19 @@ const fetchProducts = async () => {
   }
 };
 
+const fetchStaffAdmins = async () => {
+  try {
+    staffAdmins.value = await getStaffAdmins();
+  } catch (error) {
+    console.error('載入負責人清單失敗:', error);
+    staffAdmins.value = [];
+  }
+};
+
 const openCreateModal = () => {
   showCreateModal.value = true;
   fetchProducts();
+  fetchStaffAdmins();
 };
 
 const closeCreateModal = () => {
@@ -811,54 +907,50 @@ const submitCreateWorkOrder = async () => {
 };
 
 const openDetail = async (id) => {
-  await fetchProducts();
-  selectedWorkOrder.value = await getWorkOrder(id);
-  detailForm.value = {
-    service_type: selectedWorkOrder.value.service_type,
-    status: selectedWorkOrder.value.status,
-    problem_description: selectedWorkOrder.value.problem_description || '',
-    inspection_result: selectedWorkOrder.value.inspection_result || '',
-    responsible_staff: selectedWorkOrder.value.responsible_staff || '',
-    scheduled_at: toDatetimeLocal(selectedWorkOrder.value.scheduled_at),
-    notes: selectedWorkOrder.value.notes || ''
-  };
-  detailLineItems.value = (selectedWorkOrder.value.line_items || []).map(item => ({ ...item }));
-  paymentForm.value = { amount: selectedWorkOrder.value.balance_amount || null, method: '', note: '' };
+  try {
+    await Promise.all([fetchProducts(), fetchStaffAdmins()]);
+    selectedWorkOrder.value = await getWorkOrder(id);
+    detailForm.value = {
+      service_type: selectedWorkOrder.value.service_type,
+      status: selectedWorkOrder.value.status,
+      problem_description: selectedWorkOrder.value.problem_description || '',
+      inspection_result: selectedWorkOrder.value.inspection_result || '',
+      responsible_staff: selectedWorkOrder.value.responsible_staff || defaultResponsibleStaff,
+      scheduled_at: toDatetimeLocal(selectedWorkOrder.value.scheduled_at),
+      notes: selectedWorkOrder.value.notes || ''
+    };
+    detailLineItems.value = (selectedWorkOrder.value.line_items || []).map(item => ({ ...item }));
+    paymentForm.value = { amount: selectedWorkOrder.value.balance_amount || null, method: '', note: '' };
+  } catch (error) {
+    if (error.response?.status === 401) {
+      authStore.adminLogout();
+      alert('管理員登入已過期，請重新登入。');
+      router.push('/admin-login');
+      return;
+    }
+    alert(`讀取工單失敗：${getErrorMessage(error)}`);
+  }
 };
 
 const closeDetail = () => {
   selectedWorkOrder.value = null;
+  closeDeleteModal();
 };
 
-const saveDetail = async () => {
+const saveWorkOrder = async () => {
   if (!selectedWorkOrder.value) return;
   saving.value = true;
   try {
     selectedWorkOrder.value = await updateWorkOrder(selectedWorkOrder.value.id, {
       ...detailForm.value,
-      scheduled_at: detailForm.value.scheduled_at || null
-    });
-    await fetchWorkOrders();
-    alert('工單資料已儲存');
-  } catch (error) {
-    alert(`儲存失敗：${getErrorMessage(error)}`);
-  } finally {
-    saving.value = false;
-  }
-};
-
-const saveLineItems = async () => {
-  if (!selectedWorkOrder.value) return;
-  saving.value = true;
-  try {
-    selectedWorkOrder.value = await updateWorkOrder(selectedWorkOrder.value.id, {
+      scheduled_at: detailForm.value.scheduled_at || null,
       line_items: detailLineItems.value.filter(item => item.name || item.product_id).map(cleanLineItem)
     });
     detailLineItems.value = (selectedWorkOrder.value.line_items || []).map(item => ({ ...item }));
     await fetchWorkOrders();
-    alert('工單明細已儲存');
+    alert('工單已儲存');
   } catch (error) {
-    alert(`明細儲存失敗：${getErrorMessage(error)}`);
+    alert(`儲存失敗：${getErrorMessage(error)}`);
   } finally {
     saving.value = false;
   }
@@ -904,20 +996,32 @@ const reviewDetailApproval = async (id, approved) => {
   }
 };
 
-const deleteSelectedWorkOrder = async () => {
+const openDeleteModal = () => {
   if (!selectedWorkOrder.value) return;
-  const reason = window.prompt(`請輸入刪除工單 #${selectedWorkOrder.value.id} 的原因`);
-  if (!reason) return;
-  if (!window.confirm('確定要刪除這張工單？此動作會保留歷史並標記為已取消。')) return;
+  deleteForm.value = { reason: '' };
+  showDeleteModal.value = true;
+};
+
+const closeDeleteModal = () => {
+  showDeleteModal.value = false;
+  deleteForm.value = { reason: '' };
+};
+
+const confirmDeleteSelectedWorkOrder = async () => {
+  if (!selectedWorkOrder.value || !deleteForm.value.reason) return;
+  saving.value = true;
   try {
     await deleteWorkOrder(selectedWorkOrder.value.id, {
-      reason,
+      reason: deleteForm.value.reason,
       actor: adminUser.value?.username || adminUser.value?.full_name || '最高級'
     });
+    closeDeleteModal();
     closeDetail();
     await fetchWorkOrders();
   } catch (error) {
     alert(`刪除工單失敗：${getErrorMessage(error)}`);
+  } finally {
+    saving.value = false;
   }
 };
 
@@ -1191,6 +1295,11 @@ watch(
     overflow: auto;
     padding: 4vh 1rem;
     z-index: 1000;
+
+    &.confirm-overlay {
+      align-items: center;
+      z-index: 1010;
+    }
   }
 
   .modal-content {
@@ -1204,6 +1313,15 @@ watch(
     &.xlarge {
       width: min(98vw, 1180px);
     }
+
+    &.confirm-modal {
+      width: min(92vw, 520px);
+    }
+  }
+
+  .modal-footer-actions {
+    justify-content: flex-end;
+    margin-top: 1rem;
   }
 
   .modal-header {
@@ -1314,12 +1432,43 @@ watch(
     display: grid;
     grid-template-columns: 130px minmax(150px, 1.2fr) minmax(160px, 1.4fr) 88px 110px 110px 36px;
     gap: 0.5rem;
-    align-items: center;
+    align-items: end;
+
+    .line-field {
+      display: grid;
+      gap: 0.28rem;
+
+      span {
+        color: $text-secondary;
+        font-size: 0.78rem;
+        font-weight: 700;
+      }
+
+      input,
+      select {
+        width: 100%;
+        min-width: 0;
+      }
+    }
 
     .line-total {
+      display: grid;
+      gap: 0.28rem;
       color: $primary-light;
       font-weight: 700;
       white-space: nowrap;
+
+      > span {
+        color: $text-secondary;
+        font-size: 0.78rem;
+        font-weight: 700;
+      }
+
+      strong {
+        min-height: 42px;
+        display: inline-flex;
+        align-items: center;
+      }
 
       small {
         display: block;

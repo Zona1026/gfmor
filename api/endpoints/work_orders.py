@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 from typing import List
 
 # 引入資料庫 CRUD 函式、schemas 和資料庫 session 管理
-from api.dependencies.admin_auth import require_admin, require_manager_admin, require_super_admin
-from db import crud
+from api.dependencies.admin_auth import require_admin, require_manager_admin, require_self_or_admin, require_super_admin
+from db import crud, models
 from schemas import work_order as work_order_schema
 from db.database import SessionLocal
 
@@ -49,12 +49,11 @@ def create_work_order(
 
     - **booking_id**: 此工單對應的預約單 ID (必填)。
     - **notes**: 關於此工單的內部備註 (選填)。
-    - **items**: 一個列表，包含此工單所有要用到的商品項目 (必填):
-        - **product_id**: 商品 ID (必填)。
+    - **items**: 一個列表，包含此工單所有要用到的商品項目 (選填):
+        - **product_id**: 商品 ID (選填；未填則只計價、不進庫存流程)。
         - **quantity**: 使用數量 (必填)。
 
-    **注意**: 後端會自動檢查庫存並計算總金額，如果任何一項商品庫存不足，
-    請求將會失敗並回傳 400 錯誤。
+    **注意**: 有綁定商品的零件 / 耗材會進入庫存流程；未綁定商品的明細只計入工單金額。
     """
     try:
         # 呼叫 CRUD 層的函式來執行建立工單的複雜邏輯
@@ -111,6 +110,22 @@ def read_work_order_approvals(
         return crud.get_work_order_approvals(db, status=approval_status, skip=skip, limit=limit)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.get("/user/{google_id}", response_model=List[work_order_schema.WorkOrder], summary="讀取會員自己的保養紀錄")
+def read_user_work_orders(
+    google_id: str,
+    auth=Depends(require_self_or_admin),
+    db: Session = Depends(get_db),
+):
+    return (
+        db.query(models.WorkOrder)
+        .options(*crud._work_order_options())
+        .filter(models.WorkOrder.google_id == google_id)
+        .filter(models.WorkOrder.deleted_at.is_(None))
+        .order_by(models.WorkOrder.scheduled_at.desc(), models.WorkOrder.created_at.desc())
+        .all()
+    )
 
 @router.post("/approvals/{approval_id}/approve", response_model=work_order_schema.WorkOrderApproval, summary="核准工單審核")
 def approve_work_order_approval(

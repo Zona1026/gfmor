@@ -126,6 +126,7 @@
       <div class="history-section">
         <div class="tabs">
           <button :class="{ active: activeTab === 'bookings' }" @click="activeTab = 'bookings'">預約紀錄</button>
+          <button :class="{ active: activeTab === 'maintenance' }" @click="activeTab = 'maintenance'">保養紀錄</button>
           <button :class="{ active: activeTab === 'orders' }" @click="activeTab = 'orders'">消費紀錄</button>
         </div>
 
@@ -155,6 +156,37 @@
             </div>
           </div>
           <p v-else class="empty-state">尚無預約紀錄</p>
+        </div>
+
+        <div v-if="activeTab === 'maintenance'" class="tab-content">
+          <div v-if="sortedMaintenanceRecords.length > 0" class="history-list">
+            <div v-for="record in sortedMaintenanceRecords" :key="record.id" class="history-item maintenance-item">
+              <div class="item-header">
+                <strong>工單 #{{ record.id }} / {{ formatDateTime(record.scheduled_at || record.created_at) }}</strong>
+                <span class="status" :class="record.status">{{ workOrderStatusMap[record.status] || record.status }}</span>
+              </div>
+              <div class="item-body">
+                <p>車輛: {{ vehicleText(record) }}</p>
+                <p>服務類型: {{ serviceTypeMap[record.service_type] || record.service_type }}</p>
+                <p>里程: {{ record.vehicle_mileage ? `${record.vehicle_mileage.toLocaleString()} km` : '未記錄' }}</p>
+                <p v-if="record.problem_description">問題描述: {{ record.problem_description }}</p>
+                <p v-if="record.inspection_result">檢查結果: {{ record.inspection_result }}</p>
+                <div v-if="record.line_items?.length" class="maintenance-lines">
+                  <div v-for="item in record.line_items" :key="item.id" class="maintenance-line">
+                    <span>{{ lineItemTypeMap[item.type] || item.type }}</span>
+                    <strong>{{ item.name }}</strong>
+                    <small>
+                      {{ item.quantity || 1 }} x NT$ {{ formatNumber(item.unit_price) }}
+                      <template v-if="item.description"> / {{ item.description }}</template>
+                    </small>
+                  </div>
+                </div>
+                <p>總金額: NT$ {{ formatNumber(record.total_amount) }}</p>
+                <p>付款狀態: {{ paymentStatusMap[record.payment_status] || record.payment_status }}</p>
+              </div>
+            </div>
+          </div>
+          <p v-else class="empty-state">尚無保養紀錄</p>
         </div>
 
         <div v-if="activeTab === 'orders'" class="tab-content">
@@ -189,6 +221,7 @@ import { useAuthStore } from '../store/auth';
 import { updateUserProfile, getUser, getUserPoints } from '../api/users';
 import { getUserBookings, updateBooking } from '../api/bookings';
 import { getUserOrders } from '../api/orders';
+import { getUserWorkOrders } from '../api/workOrders';
 import { updateMotor, deleteMotor } from '../api/motors';
 
 const router = useRouter();
@@ -198,6 +231,7 @@ const { user } = storeToRefs(authStore);
 const activeTab = ref('bookings');
 const bookings = ref([]);
 const orders = ref([]);
+const maintenanceRecords = ref([]);
 const pointSummary = ref({
   current_points: 0,
   expiring_soon_points: 0
@@ -225,6 +259,38 @@ const orderStatusMap = {
   'CANCELED': '已取消'
 };
 
+const serviceTypeMap = {
+  'REPAIR': '維修',
+  'MAINTENANCE': '保養',
+  'MODIFICATION': '改裝'
+};
+
+const workOrderStatusMap = {
+  'PENDING': '待檢查',
+  'INSPECTION_PENDING': '待檢查',
+  'QUOTE_PENDING': '待報價',
+  'CUSTOMER_CONFIRMATION_PENDING': '等待客戶確認',
+  'SUPERVISOR_APPROVAL_PENDING': '待主管確認',
+  'IN_PROGRESS': '施工中',
+  'AWAITING_PAYMENT': '待收款',
+  'COMPLETED': '已完工',
+  'CANCELED': '已取消'
+};
+
+const paymentStatusMap = {
+  'UNPAID': '未付款',
+  'PARTIALLY_PAID': '部分付款',
+  'PAID': '已付款',
+  'REFUNDED': '已退款'
+};
+
+const lineItemTypeMap = {
+  'SERVICE': '施工項目',
+  'PART': '零件 / 耗材',
+  'LABOR': '工資 / 服務費',
+  'DISCOUNT': '折扣'
+};
+
 const sortedBookings = computed(() => {
   const now = new Date();
   const upcoming = [];
@@ -247,6 +313,12 @@ const sortedBookings = computed(() => {
   return [...upcoming, ...pastOrDone];
 });
 
+const sortedMaintenanceRecords = computed(() => {
+  return [...maintenanceRecords.value].sort((a, b) => {
+    return new Date(b.scheduled_at || b.created_at) - new Date(a.scheduled_at || a.created_at);
+  });
+});
+
 // Basic profile editing
 const isEditing = ref(false);
 const editForm = ref({ name: '', phone: '' });
@@ -266,20 +338,37 @@ const completeMotors = computed(() => {
 const fetchHistory = async () => {
   if (!user.value) return;
   try {
-    const [bRes, oRes, uRes, pRes] = await Promise.all([
+    const [bRes, oRes, wRes, uRes, pRes] = await Promise.all([
       getUserBookings(user.value.google_id),
       getUserOrders(user.value.google_id),
+      getUserWorkOrders(user.value.google_id),
       getUser(user.value.google_id),
       getUserPoints(user.value.google_id)
     ]);
     bookings.value = bRes;
     orders.value = oRes;
+    maintenanceRecords.value = wRes;
     pointSummary.value = pRes;
     // 同步最新的會員資料（如累積消費）
     authStore.setUser(uRes);
   } catch (error) {
     console.error('取得紀錄失敗:', error);
   }
+};
+
+const formatNumber = (value) => Number(value || 0).toLocaleString();
+
+const formatDateTime = (value) => {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleString();
+};
+
+const vehicleText = (record) => {
+  const plate = record.vehicle_license_plate || '未記錄車牌';
+  const model = [record.vehicle_brand, record.vehicle_model].filter(Boolean).join(' ');
+  return model ? `${plate} / ${model}` : plate;
 };
 
 onMounted(() => {
@@ -731,6 +820,41 @@ const cancelBookingHandler = async (bookingId) => {
               border-bottom: 1px solid $medium-grey;
               padding-bottom: 0.5rem;
               margin-bottom: 0.5rem;
+            }
+
+            .item-body {
+              p {
+                margin: 0.35rem 0;
+              }
+            }
+
+            .maintenance-lines {
+              display: grid;
+              gap: 0.5rem;
+              margin: 0.85rem 0;
+            }
+
+            .maintenance-line {
+              display: grid;
+              grid-template-columns: 120px minmax(0, 1fr);
+              gap: 0.35rem 0.75rem;
+              padding: 0.75rem;
+              border: 1px solid $medium-grey;
+              border-radius: $border-radius;
+              background: rgba(255, 255, 255, 0.03);
+
+              span,
+              small {
+                color: $text-secondary;
+              }
+
+              strong {
+                color: $text-primary;
+              }
+
+              small {
+                grid-column: 2;
+              }
             }
           }
         }

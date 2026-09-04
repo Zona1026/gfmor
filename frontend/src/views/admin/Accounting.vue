@@ -71,7 +71,7 @@
         </label>
         <label>
           金額
-          <input v-model.number="refundForm.amount" type="number" min="1" required />
+          <input v-model.number="refundForm.amount" type="number" min="1" :max="refundLookup.maxRefundAmount || null" required />
         </label>
         <label>
           方式
@@ -81,8 +81,23 @@
           原因
           <input v-model.trim="refundForm.reason" />
         </label>
-        <button class="btn btn-primary" type="submit" :disabled="saving">新增退款</button>
+        <button
+          class="btn btn-primary"
+          type="submit"
+          :disabled="saving || refundLookup.loading || !refundLookup.record || refundLookup.maxRefundAmount <= 0"
+        >
+          新增退款
+        </button>
       </form>
+      <div v-if="canCreateRefund" class="lookup-state">
+        <span v-if="refundLookup.loading">查詢單據中...</span>
+        <span v-else-if="refundLookup.error" class="error-text">{{ refundLookup.error }}</span>
+        <span v-else-if="refundLookup.record">
+          {{ refundLookup.record.customer_name }} / 原金額 NT$ {{ formatNumber(refundLookup.record.total_amount) }} /
+          已退 NT$ {{ formatNumber(refundLookup.refundedAmount) }} /
+          可退 NT$ {{ formatNumber(refundLookup.maxRefundAmount) }}
+        </span>
+      </div>
       <div v-else class="permission-note">僅最高級管理員可新增退款。</div>
       <table v-if="refunds.length" class="accounting-table">
         <thead>
@@ -247,7 +262,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import {
   addPayablePayment,
@@ -255,8 +270,10 @@ import {
   createPayable,
   getAccountingReceipts,
   getAccountingRefunds,
+  getAllOrders,
   getPayables,
   getShopReceivables,
+  getWorkOrder,
   updateOrderPaymentStatus
 } from '../../api/admin';
 import { useAuthStore } from '../../store/auth';
@@ -311,6 +328,13 @@ const refundForm = reactive({
   method: '',
   reason: ''
 });
+const refundLookup = reactive({
+  loading: false,
+  error: '',
+  record: null,
+  refundedAmount: 0,
+  maxRefundAmount: 0
+});
 
 const payableForm = reactive({
   supplier_name: '',
@@ -364,6 +388,88 @@ const fetchAll = async () => {
   }
 };
 
+const resetRefundLookup = () => {
+  refundLookup.loading = false;
+  refundLookup.error = '';
+  refundLookup.record = null;
+  refundLookup.refundedAmount = 0;
+  refundLookup.maxRefundAmount = 0;
+};
+
+const refundedTotalFor = (sourceType, sourceId) => {
+  const targetId = Number(sourceId);
+  return refunds.value
+    .filter(record => record.source_type === sourceType && Number(record.source_id) === targetId)
+    .reduce((total, record) => total + Number(record.amount || 0), 0);
+};
+
+const latestPaymentMethodFor = (sourceType, sourceId) => {
+  const targetId = Number(sourceId);
+  const receipt = receipts.value.find(record => {
+    return record.source_type === sourceType && Number(record.source_id) === targetId && record.method;
+  });
+  return receipt?.method || '';
+};
+
+const buildRefundLookupRecord = (sourceType, record) => {
+  if (sourceType === 'WORK_ORDER') {
+    return {
+      customer_name: record.customer_name || '-',
+      total_amount: Math.max(Number(record.paid_amount || 0), Number(record.total_amount || 0)),
+      payment_status: record.payment_status
+    };
+  }
+
+  return {
+    customer_name: record.recipient_name || '-',
+    total_amount: Number(record.total_amount || 0),
+    payment_status: record.payment_status
+  };
+};
+
+const lookupRefundSource = async () => {
+  const sourceId = Number(refundForm.source_id);
+  if (!sourceId || sourceId < 1) {
+    resetRefundLookup();
+    return;
+  }
+
+  const sourceType = refundForm.source_type;
+  refundLookup.loading = true;
+  refundLookup.error = '';
+
+  try {
+    const sourceRecord = sourceType === 'WORK_ORDER'
+      ? await getWorkOrder(sourceId)
+      : (await getAllOrders({ source: 'online' })).find(order => Number(order.id) === sourceId);
+
+    if (!sourceRecord) {
+      resetRefundLookup();
+      refundLookup.error = sourceType === 'WORK_ORDER' ? '找不到此工單' : '找不到此商城訂單';
+      return;
+    }
+
+    const record = buildRefundLookupRecord(sourceType, sourceRecord);
+    const refundedAmount = refundedTotalFor(sourceType, sourceId);
+    const maxRefundAmount = Math.max(0, Number(record.total_amount || 0) - refundedAmount);
+
+    refundLookup.record = record;
+    refundLookup.refundedAmount = refundedAmount;
+    refundLookup.maxRefundAmount = maxRefundAmount;
+    refundForm.amount = maxRefundAmount > 0 ? maxRefundAmount : null;
+    refundForm.method = latestPaymentMethodFor(sourceType, sourceId);
+
+    if (maxRefundAmount <= 0) {
+      refundLookup.error = '此單已無可退款金額';
+    }
+  } catch (error) {
+    resetRefundLookup();
+    refundLookup.error = error.response?.data?.detail || '查詢單據失敗';
+  } finally {
+    refundLookup.loading = false;
+  }
+};
+
 const submitRefund = async () => {
   saving.value = true;
   try {
@@ -378,6 +484,7 @@ const submitRefund = async () => {
     refundForm.amount = null;
     refundForm.method = '';
     refundForm.reason = '';
+    resetRefundLookup();
     await fetchAll();
   } catch (error) {
     alert(error.response?.data?.detail || '新增退款失敗');
@@ -454,6 +561,15 @@ const formatDateTime = (value) => {
   if (Number.isNaN(date.getTime())) return '-';
   return `${formatDate(value)} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 };
+
+let refundLookupTimer = null;
+watch(
+  () => [refundForm.source_type, refundForm.source_id],
+  () => {
+    if (refundLookupTimer) clearTimeout(refundLookupTimer);
+    refundLookupTimer = setTimeout(lookupRefundSource, 350);
+  }
+);
 
 onMounted(fetchAll);
 </script>
@@ -549,6 +665,16 @@ onMounted(fetchAll);
 
   &.payable-form label {
     min-width: 170px;
+  }
+}
+
+.lookup-state {
+  margin: -0.25rem 0 1rem;
+  color: $text-secondary;
+  font-size: 0.9rem;
+
+  .error-text {
+    color: #fca5a5;
   }
 }
 

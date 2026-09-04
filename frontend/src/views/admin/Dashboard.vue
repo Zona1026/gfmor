@@ -85,6 +85,38 @@
             <section class="reminder-card">
               <div class="card-header">
                 <div>
+                  <h3>明日預約</h3>
+                  <span>顯示明天仍在預約中的項目</span>
+                </div>
+                <div class="header-actions">
+                  <strong>{{ tomorrowBookings.length }}</strong>
+                  <router-link :to="{ path: '/admin/bookings', query: { date: tomorrowStr } }">查看全部</router-link>
+                </div>
+              </div>
+              <table v-if="tomorrowBookingPreview.length" class="summary-table">
+                <thead>
+                  <tr>
+                    <th>時間</th>
+                    <th>客戶</th>
+                    <th>車輛</th>
+                    <th>項目</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="booking in tomorrowBookingPreview" :key="booking.id">
+                    <td class="time">{{ formatTime(booking.booking_time) }}</td>
+                    <td>{{ booking.user?.name || '—' }}</td>
+                    <td>{{ booking.motor?.license_plate || '—' }}</td>
+                    <td>{{ bookingCategoryMap[booking.category] || booking.category }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div v-else class="empty-state">明天沒有待處理預約。</div>
+            </section>
+
+            <section class="reminder-card">
+              <div class="card-header">
+                <div>
                   <h3>進行中工單</h3>
                   <span>尚未結案、尚未進入收款的工單</span>
                 </div>
@@ -238,7 +270,11 @@ const allWorkOrders = ref([]);
 const purchaseRequests = ref([]);
 const loading = ref(false);
 
-const todayStr = new Date().toLocaleDateString('en-CA');
+const today = new Date();
+const tomorrow = new Date(today);
+tomorrow.setDate(today.getDate() + 1);
+const todayStr = today.toLocaleDateString('en-CA');
+const tomorrowStr = tomorrow.toLocaleDateString('en-CA');
 const previewLimit = 5;
 const approvalItems = ref([]);
 const activeBookingStatuses = ['PENDING', 'CONFIRMED', 'ARRIVED'];
@@ -296,6 +332,12 @@ const workOrderStatusMap = {
 const todayBookings = computed(() => {
   return allBookings.value
     .filter(booking => booking?.booking_time?.startsWith(todayStr) && activeBookingStatuses.includes(booking.status))
+    .sort((a, b) => new Date(a.booking_time) - new Date(b.booking_time));
+});
+
+const tomorrowBookings = computed(() => {
+  return allBookings.value
+    .filter(booking => booking?.booking_time?.startsWith(tomorrowStr) && activeBookingStatuses.includes(booking.status))
     .sort((a, b) => new Date(a.booking_time) - new Date(b.booking_time));
 });
 
@@ -382,6 +424,7 @@ const receivableItems = computed(() => {
 });
 
 const todayBookingPreview = computed(() => todayBookings.value.slice(0, previewLimit));
+const tomorrowBookingPreview = computed(() => tomorrowBookings.value.slice(0, previewLimit));
 const activeWorkOrderPreview = computed(() => activeWorkOrders.value.slice(0, previewLimit));
 const approvalPreview = computed(() => approvalItems.value.slice(0, previewLimit));
 const awaitingArrivalPreview = computed(() => awaitingArrivalItems.value.slice(0, previewLimit));
@@ -402,15 +445,19 @@ const formatDate = (iso) => {
 const fetchDashboardData = async () => {
   loading.value = true;
   try {
-    const [bookings, orders, workOrders, approvals, purchases] = await Promise.all([
+    const [todayBookingsResult, tomorrowBookingsResult, orders, workOrders, approvals, purchases] = await Promise.all([
       getAdminBookings({ skip: 0, limit: 200, date_str: todayStr }),
+      getAdminBookings({ skip: 0, limit: 200, date_str: tomorrowStr }),
       getAllOrders(),
       getWorkOrders({ skip: 0, limit: 200 }),
       getWorkOrderApprovals({ status: 'PENDING' }),
       getPurchaseRequests({ status: 'awaiting-arrival', limit: 200 })
     ]);
 
-    allBookings.value = Array.isArray(bookings) ? bookings : [];
+    allBookings.value = [
+      ...(Array.isArray(todayBookingsResult) ? todayBookingsResult : []),
+      ...(Array.isArray(tomorrowBookingsResult) ? tomorrowBookingsResult : [])
+    ];
     allOrders.value = Array.isArray(orders) ? orders : [];
     allWorkOrders.value = Array.isArray(workOrders) ? workOrders : [];
     purchaseRequests.value = Array.isArray(purchases) ? purchases : [];
