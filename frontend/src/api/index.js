@@ -16,12 +16,14 @@ apiClient.interceptors.request.use(
   (config) => {
     const adminToken = localStorage.getItem('adminToken');
     const userToken = localStorage.getItem('token');
+    const currentPath = window.location.pathname;
+    const isAdminRoute = currentPath === '/admin' || currentPath.startsWith('/admin/');
     
-    // 管理後台有些 API 不在 /admin 路徑下，例如 /orders、/products、/users。
-    // 管理員登入後優先帶 adminToken；一般會員則帶自己的 user token。
+    // 後台頁面才優先帶 adminToken；會員中心與一般會員流程應使用 user token。
+    // 這可避免手機瀏覽器殘留的後台 token 影響會員新增/修改車輛。
     const hasAuthHeader = config.headers?.Authorization || config.headers?.authorization;
     if (!hasAuthHeader) {
-      if (adminToken) {
+      if (isAdminRoute && adminToken) {
         config.headers.Authorization = `Bearer ${adminToken}`;
       } else if (userToken) {
         config.headers.Authorization = `Bearer ${userToken}`;
