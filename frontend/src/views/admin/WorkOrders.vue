@@ -508,12 +508,12 @@ const staffAdmins = ref([]);
 const activeFilter = ref('');
 const searchKeyword = ref('');
 const filterDate = ref('');
-const managerRoles = ['最高級', '管理層'];
+const workOrderEditorRoles = ['最高級', '管理層', '一般'];
 const defaultResponsibleStaff = '火腿';
 const paymentMethodOptions = ['現金', '轉帳', 'Linepay'];
-const canEditWorkOrder = computed(() => managerRoles.includes(adminUser.value?.role));
-const canUseCriticalWorkOrder = computed(() => adminUser.value?.role === '最高級');
-const canReviewApprovals = computed(() => canUseCriticalWorkOrder.value);
+const canEditWorkOrder = computed(() => workOrderEditorRoles.includes(adminUser.value?.role));
+const canUseCriticalWorkOrder = computed(() => canEditWorkOrder.value);
+const canReviewApprovals = computed(() => adminUser.value?.role === '最高級');
 
 const showCreateModal = ref(false);
 const createSource = ref('guest');
@@ -1013,7 +1013,7 @@ const confirmDeleteSelectedWorkOrder = async () => {
   try {
     await deleteWorkOrder(selectedWorkOrder.value.id, {
       reason: deleteForm.value.reason,
-      actor: adminUser.value?.username || adminUser.value?.full_name || '最高級'
+      actor: adminUser.value?.username || adminUser.value?.full_name || '管理員'
     });
     closeDeleteModal();
     closeDetail();

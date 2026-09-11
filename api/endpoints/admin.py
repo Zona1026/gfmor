@@ -9,7 +9,7 @@ from urllib.parse import quote
 from db import database, models, crud
 from schemas import admin as admin_schema
 from schemas import booking as booking_schema
-from api.dependencies.admin_auth import require_manager_admin
+from api.dependencies.admin_auth import require_admin
 from core.config import settings
 from core.email import send_plain_email
 from core.security import verify_password, create_access_token, get_password_hash
@@ -155,7 +155,7 @@ def confirm_admin_password_reset(
 @router.post("/bookings", response_model=booking_schema.Booking, summary="管理員手動新增預約單")
 def create_admin_booking(
     booking: booking_schema.AdminBookingCreate,
-    admin=Depends(require_manager_admin),
+    admin=Depends(require_admin),
     db: Session = Depends(database.get_db),
 ):
     try:
@@ -166,7 +166,7 @@ def create_admin_booking(
 @router.post("/bookings/close", response_model=booking_schema.Booking, summary="關閉特定時段")
 def close_timeslot(
     close_data: booking_schema.AdminCloseTimeslot,
-    admin=Depends(require_manager_admin),
+    admin=Depends(require_admin),
     db: Session = Depends(database.get_db),
 ):
     try:

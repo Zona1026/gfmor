@@ -19,6 +19,7 @@ cloudinary.config(
 from api.dependencies.admin_auth import (
     auth_context,
     ensure_self_or_manager,
+    require_admin,
     require_manager_admin,
     require_self_or_admin,
     require_super_admin,
@@ -99,7 +100,7 @@ def search_users_by_name(
     name: Optional[str] = None,
     skip: int = 0,
     limit: int = 10,
-    admin=Depends(require_manager_admin),
+    admin=Depends(require_admin),
     db: Session = Depends(get_db)
 ):
     """

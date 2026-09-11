@@ -3,14 +3,14 @@ from sqlalchemy.orm import Session
 from typing import List
 from db import models
 from schemas import admin as admin_schema
-from api.dependencies.admin_auth import ROLE_STAFF, require_manager_admin, require_super_admin
+from api.dependencies.admin_auth import ROLE_STAFF, require_admin, require_super_admin
 from db.database import get_db
 from core.security import get_password_hash # Reuse the hashing function
 
 router = APIRouter()
 
 @router.get("/staff", response_model=List[admin_schema.AdminDetail])
-def get_staff_admins(admin=Depends(require_manager_admin), db: Session = Depends(get_db)):
+def get_staff_admins(admin=Depends(require_admin), db: Session = Depends(get_db)):
     """
     列出可指派為工單負責人的一般權限帳號。
     """

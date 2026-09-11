@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 # 引入資料庫 CRUD 函式、schemas 和資料庫 session 管理
-from api.dependencies.admin_auth import require_admin, require_manager_admin, require_self_or_admin, require_super_admin
+from api.dependencies.admin_auth import require_admin, require_self_or_admin, require_super_admin
 from db import crud, models
 from schemas import work_order as work_order_schema
 from db.database import SessionLocal
@@ -41,7 +41,7 @@ def get_db():
 )
 def create_work_order(
     work_order: work_order_schema.WorkOrderCreate,
-    admin=Depends(require_manager_admin),
+    admin=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """
@@ -179,7 +179,7 @@ def read_work_order(
 def add_work_order_line_item(
     work_order_id: int,
     item: work_order_schema.WorkOrderLineItemCreate,
-    admin=Depends(require_manager_admin),
+    admin=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     try:
@@ -194,7 +194,7 @@ def add_work_order_line_item(
 def add_work_order_payment(
     work_order_id: int,
     payment: work_order_schema.WorkOrderPaymentCreate,
-    admin=Depends(require_manager_admin),
+    admin=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     try:
@@ -209,7 +209,7 @@ def add_work_order_payment(
 def update_work_order(
     work_order_id: int, 
     work_order: work_order_schema.WorkOrderUpdate, 
-    admin=Depends(require_manager_admin),
+    admin=Depends(require_admin),
     db: Session = Depends(get_db)
 ):
     """
@@ -229,7 +229,7 @@ def update_work_order(
 def delete_work_order(
     work_order_id: int,
     delete: work_order_schema.WorkOrderDeleteCreate,
-    admin=Depends(require_super_admin),
+    admin=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     if not delete.actor:

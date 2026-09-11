@@ -3,7 +3,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 
-from api.dependencies.admin_auth import require_manager_admin
+from api.dependencies.admin_auth import require_admin, require_manager_admin
 from db import models
 from db.database import get_db
 from schemas import guest_customer as guest_schema
@@ -15,7 +15,7 @@ router = APIRouter()
 @router.get("/", response_model=List[guest_schema.GuestCustomer], summary="取得散客列表")
 def get_guest_customers(
     q: Optional[str] = None,
-    admin=Depends(require_manager_admin),
+    admin=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     query = db.query(models.GuestCustomer)
