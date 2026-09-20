@@ -157,12 +157,11 @@ def _cumulative_spending(orders, work_orders):
         for order in orders
         if order.status in [models.OrderStatus.COMPLETED, models.OrderStatus.FULL_PAID]
     )
-    work_order_payment_total = sum(
-        payment.amount or 0
+    eligible_work_order_total = sum(
+        work_order.membership_consumption_amount or 0
         for work_order in work_orders
-        for payment in (work_order.payments or [])
     )
-    return paid_order_total + work_order_payment_total
+    return paid_order_total + eligible_work_order_total
 
 
 def _latest_service_at(work_orders):

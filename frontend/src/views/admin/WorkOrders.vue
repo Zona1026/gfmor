@@ -209,7 +209,7 @@
                   <select v-if="item.type === 'PART'" v-model.number="item.product_id" @change="applyProductToLine(item)">
                     <option :value="null">不綁商品 / 不扣庫存</option>
                     <option v-for="product in products" :key="product.id" :value="product.id">
-                      {{ product.name }} / NT$ {{ product.price }} / 庫存 {{ product.stock }}
+                      {{ product.name }}
                     </option>
                   </select>
                   <input v-else value="不適用" disabled />
@@ -226,6 +226,10 @@
                   <span>單價</span>
                   <input v-model.number="item.unit_price" type="number" min="0" />
                 </label>
+                <label class="membership-toggle">
+                  <input v-model="item.counts_toward_membership" type="checkbox" />
+                  <span>列入會員累積</span>
+                </label>
                 <div class="line-total">
                   <span>小計</span>
                   <strong>NT$ {{ lineItemTotal(item).toLocaleString() }}</strong>
@@ -236,6 +240,10 @@
             <div class="total-row">
               <span>總金額</span>
               <strong>NT$ {{ createTotal.toLocaleString() }}</strong>
+            </div>
+            <div class="total-row membership-total">
+              <span>可列入會員累積</span>
+              <strong>NT$ {{ createMembershipTotal.toLocaleString() }}</strong>
             </div>
           </section>
 
@@ -327,6 +335,8 @@
               <div><dt>已收款</dt><dd>NT$ {{ selectedWorkOrder.paid_amount?.toLocaleString() || 0 }}</dd></div>
               <div><dt>待收款</dt><dd>NT$ {{ selectedWorkOrder.balance_amount?.toLocaleString() || 0 }}</dd></div>
               <div><dt>付款狀態</dt><dd>{{ paymentStatusMap[selectedWorkOrder.payment_status] }}</dd></div>
+              <div><dt>可列入會員累積</dt><dd>NT$ {{ selectedWorkOrder.membership_eligible_amount?.toLocaleString() || 0 }}</dd></div>
+              <div><dt>已計入會員累積</dt><dd>NT$ {{ selectedWorkOrder.membership_consumption_amount?.toLocaleString() || 0 }}</dd></div>
             </dl>
             <div v-if="canEditWorkOrder" class="payment-form">
               <input v-model.number="paymentForm.amount" type="number" min="1" placeholder="付款金額" />
@@ -354,50 +364,63 @@
         <section class="form-section">
           <div class="section-title-row">
             <h4>施工 / 零件 / 工資 / 折扣明細</h4>
-            <button v-if="canEditWorkOrder" type="button" class="btn btn-outline" @click="addDetailLineItem">新增明細</button>
+            <button v-if="canEditWorkOrder" type="button" class="btn btn-outline" :disabled="membershipSelectionLocked" @click="addDetailLineItem">新增明細</button>
           </div>
           <div class="line-editor">
             <div v-for="(item, index) in detailLineItems" :key="item.id || index" class="line-row">
               <label class="line-field">
                 <span>類型</span>
-                <select v-model="item.type" :disabled="!canEditWorkOrder || isLineItemInventoryLocked(item)">
+                <select v-model="item.type" :disabled="!canEditWorkOrder || membershipSelectionLocked || isLineItemInventoryLocked(item)">
                   <option v-for="(label, value) in lineItemTypeMap" :key="value" :value="value">{{ label }}</option>
                 </select>
               </label>
               <label class="line-field">
                 <span>商品</span>
-                <select v-if="item.type === 'PART'" v-model.number="item.product_id" :disabled="!canEditWorkOrder || isLineItemInventoryLocked(item)" @change="applyProductToLine(item)">
+                <select v-if="item.type === 'PART'" v-model.number="item.product_id" :disabled="!canEditWorkOrder || membershipSelectionLocked || isLineItemInventoryLocked(item)" @change="applyProductToLine(item)">
                   <option :value="null">不綁商品 / 不扣庫存</option>
                   <option v-for="product in products" :key="product.id" :value="product.id">
-                    {{ product.name }} / NT$ {{ product.price }} / 庫存 {{ product.stock }}
+                    {{ product.name }}
                   </option>
                 </select>
                 <input v-else value="不適用" disabled />
               </label>
               <label class="line-field">
                 <span>明細名稱</span>
-                <input v-model.trim="item.name" :disabled="!canEditWorkOrder || isLineItemInventoryLocked(item)" placeholder="明細名稱" />
+                <input v-model.trim="item.name" :disabled="!canEditWorkOrder || membershipSelectionLocked || isLineItemInventoryLocked(item)" placeholder="明細名稱" />
               </label>
               <label class="line-field">
                 <span>數量</span>
-                <input v-model.number="item.quantity" type="number" min="1" :disabled="!canEditWorkOrder || isLineItemInventoryLocked(item)" />
+                <input v-model.number="item.quantity" type="number" min="1" :disabled="!canEditWorkOrder || membershipSelectionLocked || isLineItemInventoryLocked(item)" />
               </label>
               <label class="line-field">
                 <span>單價</span>
-                <input v-model.number="item.unit_price" type="number" min="0" :disabled="!canEditWorkOrder || isLineItemInventoryLocked(item)" />
+                <input v-model.number="item.unit_price" type="number" min="0" :disabled="!canEditWorkOrder || membershipSelectionLocked || isLineItemInventoryLocked(item)" />
+              </label>
+              <label class="membership-toggle">
+                <input
+                  v-model="item.counts_toward_membership"
+                  type="checkbox"
+                  :disabled="!canEditWorkOrder || membershipSelectionLocked"
+                />
+                <span>列入會員累積</span>
               </label>
               <div class="line-total">
                 <span>小計</span>
                 <strong>NT$ {{ lineItemTotal(item).toLocaleString() }}</strong>
                 <small v-if="item.type === 'PART'">{{ inventoryStatusText(item) }}</small>
               </div>
-              <button v-if="canEditWorkOrder" type="button" class="icon-btn danger" :disabled="isLineItemInventoryLocked(item)" @click="removeDetailLineItem(index)">×</button>
+              <button v-if="canEditWorkOrder" type="button" class="icon-btn danger" :disabled="membershipSelectionLocked || isLineItemInventoryLocked(item)" @click="removeDetailLineItem(index)">×</button>
             </div>
           </div>
           <div class="total-row">
             <span>總金額</span>
             <strong>NT$ {{ detailTotal.toLocaleString() }}</strong>
           </div>
+          <div class="total-row membership-total">
+            <span>可列入會員累積</span>
+            <strong>NT$ {{ detailMembershipTotal.toLocaleString() }}</strong>
+          </div>
+          <div v-if="membershipSelectionLocked" class="muted-line">已有付款紀錄，會員累積資格已鎖定。</div>
           <div v-if="canEditWorkOrder" class="form-actions">
             <button class="btn btn-primary" @click="saveWorkOrder" :disabled="saving">儲存工單</button>
           </div>
@@ -615,6 +638,9 @@ const memberMotorOptions = computed(() => {
 
 const createTotal = computed(() => calculateTotal(createLineItems.value));
 const detailTotal = computed(() => calculateTotal(detailLineItems.value));
+const createMembershipTotal = computed(() => calculateMembershipTotal(createLineItems.value));
+const detailMembershipTotal = computed(() => calculateMembershipTotal(detailLineItems.value));
+const membershipSelectionLocked = computed(() => Number(selectedWorkOrder.value?.paid_amount || 0) > 0);
 const responsibleStaffOptions = computed(() => {
   const names = staffAdmins.value
     .map(admin => admin.full_name || admin.username)
@@ -651,7 +677,8 @@ function defaultLineItem() {
     product_id: null,
     quantity: 1,
     unit_price: 0,
-    is_confirmed: 1
+    is_confirmed: 1,
+    counts_toward_membership: false
   };
 }
 
@@ -846,6 +873,18 @@ const calculateTotal = (items) => {
   return Math.max(0, subtotal - discount);
 };
 
+const calculateMembershipTotal = (items) => {
+  let subtotal = 0;
+  let discount = 0;
+  for (const item of items) {
+    if (!item.counts_toward_membership) continue;
+    const amount = lineItemTotal(item);
+    if (item.type === 'DISCOUNT') discount += amount;
+    else subtotal += amount;
+  }
+  return Math.min(calculateTotal(items), Math.max(0, subtotal - discount));
+};
+
 const cleanLineItem = (item) => ({
   type: item.type,
   name: item.name || (item.type === 'DISCOUNT' ? '折扣' : ''),
@@ -853,7 +892,8 @@ const cleanLineItem = (item) => ({
   product_id: item.type === 'PART' ? Number(item.product_id) || null : null,
   quantity: Number(item.quantity) || 1,
   unit_price: Number(item.unit_price) || 0,
-  is_confirmed: Number(item.is_confirmed ?? 1)
+  is_confirmed: Number(item.is_confirmed ?? 1),
+  counts_toward_membership: Boolean(item.counts_toward_membership)
 });
 
 const hasText = (value) => String(value ?? '').trim().length > 0;
@@ -941,11 +981,14 @@ const saveWorkOrder = async () => {
   if (!selectedWorkOrder.value) return;
   saving.value = true;
   try {
-    selectedWorkOrder.value = await updateWorkOrder(selectedWorkOrder.value.id, {
+    const payload = {
       ...detailForm.value,
-      scheduled_at: detailForm.value.scheduled_at || null,
-      line_items: detailLineItems.value.filter(item => item.name || item.product_id).map(cleanLineItem)
-    });
+      scheduled_at: detailForm.value.scheduled_at || null
+    };
+    if (!membershipSelectionLocked.value) {
+      payload.line_items = detailLineItems.value.filter(item => item.name || item.product_id).map(cleanLineItem);
+    }
+    selectedWorkOrder.value = await updateWorkOrder(selectedWorkOrder.value.id, payload);
     detailLineItems.value = (selectedWorkOrder.value.line_items || []).map(item => ({ ...item }));
     await fetchWorkOrders();
     alert('工單已儲存');
@@ -1430,13 +1473,15 @@ watch(
 
   .line-row {
     display: grid;
-    grid-template-columns: 130px minmax(150px, 1.2fr) minmax(160px, 1.4fr) 88px 110px 110px 36px;
+    grid-template-columns: 96px minmax(130px, 0.9fr) minmax(160px, 1.35fr) 68px 80px 132px 104px 36px;
     gap: 0.5rem;
     align-items: end;
+    min-width: 0;
 
     .line-field {
       display: grid;
       gap: 0.28rem;
+      min-width: 0;
 
       span {
         color: $text-secondary;
@@ -1446,12 +1491,16 @@ watch(
 
       input,
       select {
+        box-sizing: border-box;
         width: 100%;
+        max-width: 100%;
         min-width: 0;
       }
     }
 
     .line-total {
+      grid-column: 7;
+      grid-row: 1;
       display: grid;
       gap: 0.28rem;
       color: $primary-light;
@@ -1476,6 +1525,40 @@ watch(
         font-weight: 400;
       }
     }
+
+    .membership-toggle {
+      grid-column: 6;
+      grid-row: 1;
+      justify-self: stretch;
+      min-height: 42px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.55rem 0.65rem;
+      box-sizing: border-box;
+      border: 1px solid $medium-grey;
+      border-radius: $border-radius;
+      color: $text-primary;
+      cursor: pointer;
+
+      input {
+        width: 18px;
+        height: 18px;
+        accent-color: $primary-color;
+      }
+
+      span {
+        font-size: 0.78rem;
+        font-weight: 700;
+        line-height: 1.25;
+      }
+    }
+
+    > .icon-btn {
+      grid-column: 8;
+      grid-row: 1;
+    }
   }
 
   .total-row {
@@ -1489,6 +1572,10 @@ watch(
       color: $primary-light;
       font-size: 1.1rem;
     }
+  }
+
+  .membership-total strong {
+    color: #66bb6a;
   }
 
   .money-summary {
@@ -1531,6 +1618,17 @@ watch(
     .line-row {
       grid-template-columns: 1fr;
       align-items: stretch;
+
+      .line-total,
+      .membership-toggle,
+      > .icon-btn {
+        grid-column: auto;
+        grid-row: auto;
+      }
+
+      .membership-toggle {
+        justify-self: stretch;
+      }
     }
   }
 }

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, joinedload
 from . import inventory as inventory_service
 from . import models
 from . import accounting as accounting_service
+from . import membership as membership_service
 from . import purchases as purchase_service
 from schemas.user import UserCreate, UserUpdate
 from schemas.product import ProductCreate, ProductUpdate
@@ -171,6 +172,10 @@ def merge_guest_customer_to_user(db: Session, guest: models.GuestCustomer, user:
         if work_order.guest_motor_id in guest_motor_to_member_motor:
             work_order.motor_id = guest_motor_to_member_motor[work_order.guest_motor_id]
         work_order.guest_motor_id = None
+        previous_consumption = work_order.membership_consumption_amount or 0
+        target_consumption = membership_service.calculate_work_order_membership_consumption(db, work_order)
+        work_order.membership_consumption_amount = target_consumption
+        summary["added_consumption"] += target_consumption - previous_consumption
         summary["moved_work_orders"] += 1
 
     if summary["added_consumption"]:
@@ -919,6 +924,8 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
     line_items_data = update_data.pop("line_items", None)
 
     if line_items_data is not None:
+        if (db_work_order.paid_amount or 0) > 0:
+            raise ValueError("已有付款紀錄，不能修改工單明細或會員累積資格")
         if any(item.inventory_deducted or (item.inventory_consumed_quantity or 0) > 0 for item in db_work_order.line_items):
             raise ValueError("已扣庫存的工單明細不可整批覆蓋，請用追加明細處理")
         _detach_work_order_purchase_requests(db, db_work_order)
@@ -956,6 +963,7 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
     _recalculate_work_order_total(db_work_order)
     _sync_payment_status(db_work_order)
     _sync_work_order_approvals(db_work_order)
+    membership_service.sync_work_order_membership_consumption(db, db_work_order)
     
     db.add(db_work_order)
     db.commit()
@@ -984,6 +992,7 @@ def soft_delete_work_order(db: Session, work_order_id: int, delete: WorkOrderDel
     db_work_order.deleted_at = datetime.utcnow()
     db_work_order.deleted_by = delete_data.get("actor")
     db_work_order.delete_reason = reason
+    membership_service.sync_work_order_membership_consumption(db, db_work_order)
     db.add(db_work_order)
     db.commit()
     return get_work_order(db, work_order_id)
@@ -993,6 +1002,8 @@ def add_work_order_line_item(db: Session, work_order_id: int, item: WorkOrderLin
     db_work_order = get_work_order(db, work_order_id)
     if not db_work_order:
         return None
+    if (db_work_order.paid_amount or 0) > 0:
+        raise ValueError("已有付款紀錄，不能新增工單明細")
     db_item = _build_line_item(db, item)
     db_work_order.line_items.append(db_item)
     _recalculate_work_order_total(db_work_order)
@@ -1028,6 +1039,7 @@ def add_work_order_payment(db: Session, work_order_id: int, payment: WorkOrderPa
         and db_work_order.status == models.WorkOrderStatus.AWAITING_PAYMENT
     ):
         _request_inventory_consumption_approval(db_work_order)
+    membership_service.sync_work_order_membership_consumption(db, db_work_order)
     db.commit()
     return get_work_order(db, work_order_id)
 
@@ -1068,6 +1080,8 @@ def review_work_order_approval(
             ):
                 db_approval.work_order.status = models.WorkOrderStatus.COMPLETED
                 db_approval.work_order.completed_at = db_approval.work_order.completed_at or datetime.utcnow()
+
+        membership_service.sync_work_order_membership_consumption(db, db_approval.work_order)
 
     db.commit()
     db.refresh(db_approval)

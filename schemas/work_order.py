@@ -104,6 +104,7 @@ class WorkOrderLineItemBase(BaseModel):
     quantity: int = 1
     unit_price: int = 0
     is_confirmed: int = 1
+    counts_toward_membership: bool = False
 
 
 class WorkOrderLineItemCreate(WorkOrderLineItemBase):
@@ -259,6 +260,8 @@ class WorkOrder(BaseModel):
     responsible_staff: Optional[str] = None
     scheduled_at: Optional[datetime] = None
     total_amount: int
+    membership_eligible_amount: int = 0
+    membership_consumption_amount: int = 0
     paid_amount: int = 0
     balance_amount: int = 0
     notes: Optional[str] = None

@@ -19,11 +19,11 @@
       </button>
     </div>
 
-    <section v-if="activeTab === 'shop'" class="panel">
+    <section v-if="activeTab === 'shop'" class="inventory-panel">
       <InventoryTable title="商品庫存" :items="shopItems" :can-manage="canManageInventory" />
     </section>
 
-    <section v-if="activeTab === 'parts'" class="panel">
+    <section v-if="activeTab === 'parts'" class="inventory-panel">
       <InventoryTable title="零件 / 耗材庫存" :items="partItems" :can-manage="canManageInventory" />
     </section>
 
@@ -171,7 +171,7 @@
       </form>
     </section>
 
-    <section v-if="activeTab === 'low'" class="panel">
+    <section v-if="activeTab === 'low'" class="inventory-panel">
       <InventoryTable title="低庫存提醒" :items="lowStockItems" :can-manage="canManageInventory" />
     </section>
   </div>
@@ -297,31 +297,35 @@ const InventoryTable = defineComponent({
   },
   setup(props) {
     const stockValue = (value) => value === null || value === undefined ? '-' : formatNumber(value);
-    return () => h('div', { class: 'inventory-table-block' }, [
-      h('div', { class: 'panel-title' }, [
-        h('h3', props.title)
-      ]),
-      props.items.length
-        ? h('div', { class: 'inventory-scroll' }, [
-          h('div', { class: 'inventory-list' }, [
-            h('div', { class: 'inventory-row inventory-head' }, [
-              h('span', '商品名稱'),
-              h('span', '商品分類'),
-              h('span', '實際庫存'),
-              h('span', '可用庫存'),
-              h('span', '預留數量')
+    return () => {
+      const rows = props.items.length
+        ? props.items.map(item => h('tr', { key: item.id, class: { 'low-stock': item.is_low_stock } }, [
+          h('td', [h('strong', { class: 'product-name' }, item.name)]),
+          h('td', productCategory(item)),
+          h('td', { class: 'stock-cell' }, stockValue(item.stock)),
+          h('td', { class: 'available-cell' }, stockValue(item.available_stock)),
+          h('td', { class: 'reserved-cell' }, stockValue(item.reserved_stock))
+        ]))
+        : [h('tr', [h('td', { colspan: 5, class: 'empty-row' }, '尚無庫存資料。')])];
+
+      return h('div', { class: 'inventory-table-block' }, [
+        h('div', { class: 'panel-title' }, [h('h3', props.title)]),
+        h('div', { class: 'table-wrap' }, [
+          h('table', { class: 'data-table inventory-table' }, [
+            h('thead', [
+              h('tr', [
+                h('th', '商品名稱'),
+                h('th', '商品分類'),
+                h('th', '實際庫存'),
+                h('th', '可用庫存'),
+                h('th', '預留數量')
+              ])
             ]),
-            ...props.items.map(item => h('div', { key: item.id, class: { 'inventory-row': true, 'low-stock': item.is_low_stock } }, [
-              h('strong', { class: 'product-name' }, item.name),
-              h('span', { class: 'category-name' }, productCategory(item)),
-              h('span', { class: 'stock-cell' }, stockValue(item.stock)),
-              h('span', { class: 'available-cell' }, stockValue(item.available_stock)),
-              h('span', { class: 'reserved-cell' }, stockValue(item.reserved_stock))
-            ]))
+            h('tbody', rows)
           ])
         ])
-        : h('p', { class: 'empty-row' }, '尚無庫存資料。')
-    ]);
+      ]);
+    };
   }
 });
 
@@ -493,9 +497,28 @@ onMounted(fetchAll);
   background: rgba(15, 23, 42, 0.54);
 }
 
+.inventory-panel {
+  width: 100%;
+}
+
+.inventory-table-block :deep(.panel-title) {
+  margin-bottom: 16px;
+}
+
+.inventory-table-block :deep(.table-wrap) {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid $medium-grey;
+  border-radius: $border-radius;
+  background-color: $dark-grey;
+}
+
 .table-wrap {
   width: 100%;
   overflow-x: auto;
+  border: 1px solid $medium-grey;
+  border-radius: $border-radius;
+  background-color: $dark-grey;
 }
 
 .data-table {
@@ -506,87 +529,80 @@ onMounted(fetchAll);
 
 .data-table th,
 .data-table td {
-  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
-  padding: 12px 10px;
+  border-bottom: 1px solid $medium-grey;
+  padding: 0.8rem 0.9rem;
   text-align: left;
+  vertical-align: middle;
   white-space: nowrap;
 }
 
 .data-table th {
-  color: #94a3b8;
-  font-weight: 600;
-}
-
-.inventory-table-block :deep(.inventory-scroll) {
-  display: inline-block;
-  width: auto;
-  max-width: 100%;
-  overflow-x: auto;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  margin-top: 16px;
-  background: #1f1f1f;
-}
-
-.inventory-table-block :deep(.inventory-list) {
-  display: block;
-  width: 860px;
-  max-width: 100%;
-  margin: 0;
-}
-
-.inventory-table-block :deep(.inventory-row) {
-  display: grid;
-  grid-template-columns: 220px 160px 110px 110px 110px;
-  align-items: center;
-  gap: 14px;
-  min-height: 78px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.11);
-  padding: 18px 20px;
-  background: #202020;
-}
-
-.inventory-table-block :deep(.inventory-row:last-child) {
-  border-bottom: 0;
-}
-
-.inventory-table-block :deep(.inventory-row strong),
-.inventory-table-block :deep(.inventory-row span) {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.inventory-table-block :deep(.inventory-head) {
-  min-height: 74px;
-  color: #f8fafc;
-  font-size: 19px;
-  font-weight: 800;
-  background: #101010;
-}
-
-.inventory-table-block :deep(.inventory-head span) {
-  color: #f8fafc;
-}
-
-.inventory-table-block :deep(.product-name) {
-  color: #ff5656;
-  font-size: 22px;
-  font-weight: 800;
-}
-
-.inventory-table-block :deep(.category-name),
-.inventory-table-block :deep(.stock-cell),
-.inventory-table-block :deep(.reserved-cell) {
-  color: #f8fafc;
-  font-size: 20px;
+  color: $text-secondary;
+  background-color: $background-color;
+  font-size: 0.82rem;
   font-weight: 700;
 }
 
-.inventory-table-block :deep(.available-cell) {
-  color: #f8fafc;
-  font-size: 20px;
+.data-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.data-table tbody tr:hover {
+  background-color: rgba($primary-color, 0.05);
+}
+
+.inventory-table-block :deep(.inventory-table) {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.inventory-table-block :deep(.inventory-table th),
+.inventory-table-block :deep(.inventory-table td) {
+  padding: 0.8rem 0.9rem;
+  border-bottom: 1px solid $medium-grey;
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.inventory-table-block :deep(.inventory-table th) {
+  color: $text-secondary;
+  background-color: $background-color;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.inventory-table-block :deep(.inventory-table tbody tr:last-child td) {
+  border-bottom: 0;
+}
+
+.inventory-table-block :deep(.inventory-table tbody tr:hover) {
+  background-color: rgba($primary-color, 0.05);
+}
+
+.inventory-table-block :deep(.inventory-table th:first-child) {
+  width: 30%;
+}
+
+.inventory-table-block :deep(.inventory-table th:nth-child(2)) {
+  width: 25%;
+}
+
+.inventory-table-block :deep(.inventory-table td) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inventory-table :deep(.product-name) {
+  color: #ff5656;
+  font-weight: 700;
+}
+
+.inventory-table :deep(.stock-cell),
+.inventory-table :deep(.available-cell),
+.inventory-table :deep(.reserved-cell) {
   font-weight: 700;
 }
 
@@ -598,8 +614,15 @@ onMounted(fetchAll);
   color: #fca5a5;
 }
 
-.inventory-table-block :deep(.low-stock .available-cell) {
+.inventory-table :deep(.low-stock .available-cell) {
   color: #ff5656;
+}
+
+.data-table .empty-row,
+.inventory-table-block :deep(.empty-row) {
+  padding: 2rem;
+  color: $text-disabled;
+  text-align: center;
 }
 
 .status-tag {
@@ -662,11 +685,6 @@ textarea {
 
   .tabs button {
     flex: 1 1 46%;
-  }
-
-  .inventory-table-block :deep(.inventory-list) {
-    width: 760px;
-    max-width: none;
   }
 
 }

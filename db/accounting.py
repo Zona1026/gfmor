@@ -4,6 +4,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from db import models
+from db import membership as membership_service
 
 
 SHOP_RECEIVABLE_STATUSES = [
@@ -151,6 +152,7 @@ def _create_work_order_refund(db: Session, refund):
         work_order.payment_status = models.WorkOrderPaymentStatus.REFUNDED
     elif refunded_total > 0:
         work_order.payment_status = models.WorkOrderPaymentStatus.PARTIALLY_PAID
+    membership_service.sync_work_order_membership_consumption(db, work_order)
     return record
 
 

@@ -1,5 +1,5 @@
 # 引入 SQLAlchemy 的必要模組
-from sqlalchemy import (Column, Integer, String, Enum, DateTime, ForeignKey, Text, func, and_)
+from sqlalchemy import (Boolean, Column, Integer, String, Enum, DateTime, ForeignKey, Text, func, and_)
 from sqlalchemy.orm import relationship
 
 # 引入我們在 db/database.py 中建立的 Base
@@ -495,6 +495,7 @@ class WorkOrder(Base):
     scheduled_at = Column(DateTime, nullable=True)
     # 這張工單的總金額，包含所有商品和服務
     total_amount = Column(Integer, nullable=False, default=0)
+    membership_consumption_amount = Column(Integer, nullable=False, default=0)
     # 技師或管理員可填寫的內部備註
     notes = Column(Text, nullable=True)
     # 工單的建立時間，資料庫會自動填入現在的時間
@@ -529,6 +530,23 @@ class WorkOrder(Base):
     @property
     def balance_amount(self):
         return max(0, (self.total_amount or 0) - self.paid_amount)
+
+    @property
+    def membership_eligible_amount(self):
+        eligible_subtotal = 0
+        eligible_discount = 0
+        for item in self.line_items:
+            if not item.counts_toward_membership:
+                continue
+            amount = max(0, item.quantity or 0) * max(0, item.unit_price or 0)
+            if item.type == WorkOrderLineItemType.DISCOUNT:
+                eligible_discount += amount
+            else:
+                eligible_subtotal += amount
+        return min(
+            self.total_amount or 0,
+            max(0, eligible_subtotal - eligible_discount),
+        )
 
     @property
     def customer_type(self):
@@ -623,6 +641,7 @@ class WorkOrderLineItem(Base):
     quantity = Column(Integer, nullable=False, default=1)
     unit_price = Column(Integer, nullable=False, default=0)
     is_confirmed = Column(Integer, nullable=False, default=1)
+    counts_toward_membership = Column(Boolean, nullable=False, default=False)
     inventory_reserved_quantity = Column(Integer, nullable=False, default=0)
     inventory_consumed_quantity = Column(Integer, nullable=False, default=0)
     inventory_deducted = Column(Integer, nullable=False, default=0)
