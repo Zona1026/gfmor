@@ -2,7 +2,7 @@
   <div class="admin-orders">
     <div class="section-header">
       <h2>訂單管理</h2>
-      <button class="btn btn-primary" @click="openCreateModal">＋ 新增現場訂單</button>
+      <button v-if="canManageOrders" class="btn btn-primary" @click="openCreateModal">＋ 新增現場訂單</button>
     </div>
 
     <!-- 篩選 -->
@@ -32,7 +32,7 @@
             <th>金額</th>
             <th>狀態</th>
             <th>建立時間</th>
-            <th>操作</th>
+            <th v-if="canManageOrders">操作</th>
           </tr>
         </thead>
         <tbody>
@@ -50,12 +50,13 @@
             <td>{{ order.recipient_phone }}</td>
             <td class="amount">NT$ {{ order.total_amount?.toLocaleString() }}</td>
             <td>
-              <select v-model="order.status" @click.stop @change.stop="handleStatusChange(order)" class="status-select" :class="getStatusClass(order.status)">
+              <select v-if="canManageOrders" v-model="order.status" @click.stop @change.stop="handleStatusChange(order)" class="status-select" :class="getStatusClass(order.status)">
                 <option v-for="(label, key) in statusMap" :key="key" :value="key">{{ label }}</option>
               </select>
+              <span v-else class="status-label" :class="getStatusClass(order.status)">{{ statusMap[order.status] || order.status }}</span>
             </td>
             <td class="time">{{ formatDate(order.created_at) }}</td>
-            <td class="actions">
+            <td v-if="canManageOrders" class="actions">
               <button v-if="order.source === 'instore' && order.status !== 'CANCELED'" class="btn-icon" @click.stop="openEditModal(order)" title="編輯">✏️</button>
               <button v-if="getCustomerType(order) === 'guest'" class="btn-icon merge" @click.stop="openMergeModal(order)" title="合併到會員">⇄</button>
               <button v-if="order.status !== 'CANCELED'" class="btn-icon danger" @click.stop="handleCancel(order.id)" title="取消訂單">🗑️</button>
@@ -67,7 +68,7 @@
     </div>
 
     <!-- 新增現場訂單 Modal -->
-    <div class="modal-overlay" v-if="showCreateModal" @click.self="showCreateModal = false">
+    <div class="modal-overlay" v-if="showCreateModal && canManageOrders" @click.self="showCreateModal = false">
       <div class="modal">
         <h3>新增現場訂單</h3>
         <form @submit.prevent="handleCreate">
@@ -185,6 +186,7 @@
                   <td>NT$ {{ (item.quantity * item.unit_price)?.toLocaleString() }}</td>
                   <td>
                     <select
+                      v-if="canManageOrders"
                       v-model="item.status"
                       class="item-status-select"
                       :class="getItemStatusClass(item.status)"
@@ -200,10 +202,11 @@
                         {{ label }}
                       </option>
                     </select>
+                    <span v-else class="status-label" :class="getItemStatusClass(item.status)">{{ itemStatusMap[item.status] || item.status }}</span>
                   </td>
                   <td class="notification-cell">
                     <button
-                      v-if="item.status === 'ARRIVED_NEED_NOTIFY'"
+                      v-if="canManageOrders && item.status === 'ARRIVED_NEED_NOTIFY'"
                       type="button"
                       class="btn btn-sm notify-btn"
                       :disabled="submitting"
@@ -228,7 +231,7 @@
     </div>
 
     <!-- 編輯現場訂單 Modal -->
-    <div class="modal-overlay" v-if="showEditModal" @click.self="showEditModal = false">
+    <div class="modal-overlay" v-if="showEditModal && canManageOrders" @click.self="showEditModal = false">
       <div class="modal">
         <h3>編輯現場訂單 #{{ editForm.id }}</h3>
         <form @submit.prevent="handleEdit">
@@ -259,7 +262,7 @@
     </div>
 
     <!-- 散客合併 Modal -->
-    <div class="modal-overlay" v-if="showMergeModal" @click.self="showMergeModal = false">
+    <div class="modal-overlay" v-if="showMergeModal && canManageOrders" @click.self="showMergeModal = false">
       <div class="modal">
         <h3>合併散客紀錄</h3>
         <form @submit.prevent="handleMerge">
@@ -292,10 +295,15 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
+import { storeToRefs } from 'pinia';
+import { useAuthStore } from '../../store/auth';
 import { getAllOrders, createInstoreOrder, updateOrderStatus, updateOrderItemStatus, recordOrderItemNotification, updateInstoreOrder, cancelOrder, getMembers, mergeGuestToMember } from '../../api/admin';
 import Swal from 'sweetalert2';
 
 const route = useRoute();
+const authStore = useAuthStore();
+const { adminUser } = storeToRefs(authStore);
+const canManageOrders = computed(() => ['最高級', '管理層'].includes(adminUser.value?.role));
 const orders = ref([]);
 const members = ref([]);
 const loading = ref(false);
@@ -442,11 +450,13 @@ const onMemberSelect = () => {
 };
 
 const openCreateModal = () => {
+  if (!canManageOrders.value) return;
   createForm.value = emptyCreateForm();
   showCreateModal.value = true;
 };
 
 const handleCreate = async () => {
+  if (!canManageOrders.value) return;
   submitting.value = true;
   try {
     const payload = { ...createForm.value };
@@ -466,6 +476,7 @@ const handleCreate = async () => {
 };
 
 const handleStatusChange = async (order) => {
+  if (!canManageOrders.value) return;
   try {
     const updatedOrder = await updateOrderStatus(order.id, order.status);
     syncOrder(updatedOrder);
@@ -497,6 +508,7 @@ const applyUpdatedOrderItem = (orderId, itemId, updatedItem) => {
 };
 
 const handleItemStatusChange = async (order, item) => {
+  if (!canManageOrders.value) return;
   try {
     const updatedItem = await updateOrderItemStatus(item.id, item.status);
     applyUpdatedOrderItem(order.id, item.id, updatedItem);
@@ -509,6 +521,7 @@ const handleItemStatusChange = async (order, item) => {
 };
 
 const openNotificationModal = async (order, item) => {
+  if (!canManageOrders.value) return;
   const result = await Swal.fire({
     title: '記錄已通知',
     html: `
@@ -557,6 +570,7 @@ const openNotificationModal = async (order, item) => {
 };
 
 const openEditModal = (order) => {
+  if (!canManageOrders.value) return;
   editForm.value = {
     id: order.id,
     total_amount: order.total_amount,
@@ -568,6 +582,7 @@ const openEditModal = (order) => {
 };
 
 const openMergeModal = (order) => {
+  if (!canManageOrders.value) return;
   mergeForm.value = {
     guest_customer_id: order.guest_customer_id,
     guest_name: order.guest_customer?.name || order.recipient_name,
@@ -578,6 +593,7 @@ const openMergeModal = (order) => {
 };
 
 const handleMerge = async () => {
+  if (!canManageOrders.value) return;
   if (!mergeForm.value.guest_customer_id || !mergeForm.value.google_id) return;
 
   const result = await Swal.fire({
@@ -614,6 +630,7 @@ const handleMerge = async () => {
 };
 
 const handleEdit = async () => {
+  if (!canManageOrders.value) return;
   submitting.value = true;
   try {
     await updateInstoreOrder(editForm.value.id, {
@@ -633,6 +650,7 @@ const handleEdit = async () => {
 };
 
 const handleCancel = async (id) => {
+  if (!canManageOrders.value) return;
   const result = await Swal.fire({
     title: '確定要取消此訂單嗎？',
     text: "取消後，庫存將會自動恢復。",
@@ -783,6 +801,17 @@ onMounted(() => { fetchOrders(); fetchMembers(); });
       option { background: $dark-grey; color: $text-primary; }
     }
 
+    .status-label {
+      display: inline-block; padding: 0.4rem 0.6rem; border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px; font-size: 0.85rem; font-weight: bold;
+      &.unpaid, &.not-ordered { border-color: #ff9800; color: #ff9800; }
+      &.partial, &.ordered { border-color: #2196f3; color: #2196f3; }
+      &.arrived { border-color: $primary-light; color: $primary-light; }
+      &.notified { border-color: #9c27b0; color: #ce93d8; }
+      &.completed { border-color: #4caf50; color: #4caf50; }
+      &.canceled { border-color: #ff6b6b; color: #ff6b6b; }
+    }
+
     .actions { 
       display: flex; gap: 0.5rem; white-space: nowrap;
       .btn-icon {
@@ -894,6 +923,16 @@ onMounted(() => { fetchOrders(); fetchMembers(); });
       &.completed { border-color: #4caf50; color: #4caf50; }
       &:disabled { opacity: 0.7; cursor: not-allowed; }
       option { background: $dark-grey; color: $text-primary; }
+    }
+
+    .status-label {
+      display: inline-block; padding: 0.4rem 0.6rem; border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px; font-size: 0.85rem; font-weight: bold;
+      &.not-ordered { border-color: #ff9800; color: #ff9800; }
+      &.ordered { border-color: #2196f3; color: #2196f3; }
+      &.arrived { border-color: $primary-light; color: $primary-light; }
+      &.notified { border-color: #9c27b0; color: #ce93d8; }
+      &.completed { border-color: #4caf50; color: #4caf50; }
     }
 
     .notification-cell {

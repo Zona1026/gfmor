@@ -97,10 +97,38 @@
 
         <template v-else-if="selectedCustomer">
           <section v-if="activeTab === 'profile'" class="detail-panel">
+            <div class="panel-title">
+              <h4>基本資料</h4>
+              <button
+                v-if="canEditCustomerProfile && !editingProfile"
+                class="btn btn-sm"
+                type="button"
+                @click="startEditProfile"
+              >
+                編輯資料
+              </button>
+            </div>
+
+            <form v-if="editingProfile" class="profile-form" @submit.prevent="saveProfile">
+              <div class="form-grid">
+                <label>姓名<input v-model.trim="profileDraft.name" required /></label>
+                <label>電話<input v-model.trim="profileDraft.phone" required /></label>
+                <label v-if="selectedCustomer.customer_type === 'member'">Email<input v-model.trim="profileDraft.email" type="email" required /></label>
+                <label v-if="selectedCustomer.customer_type === 'member'">會員等級<input v-model.trim="profileDraft.membership_level" /></label>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-outline" type="button" @click="cancelEditProfile">取消</button>
+                <button class="btn btn-primary" type="submit" :disabled="savingProfile">
+                  {{ savingProfile ? '儲存中...' : '儲存資料' }}
+                </button>
+              </div>
+            </form>
+
             <div class="info-grid">
               <div><span>姓名</span><strong>{{ selectedCustomer.name }}</strong></div>
               <div><span>電話</span><strong>{{ selectedCustomer.phone || '未填' }}</strong></div>
               <div><span>Email</span><strong>{{ selectedCustomer.email || '散客未建立 Email' }}</strong></div>
+              <div><span>會員等級</span><strong>{{ selectedCustomer.customer_type === 'member' ? (selectedCustomer.membership_level || '未設定') : '散客未分級' }}</strong></div>
               <div><span>建立 / 加入時間</span><strong>{{ formatDateTime(selectedCustomer.joined_at) }}</strong></div>
               <div><span>車輛數</span><strong>{{ selectedCustomer.vehicle_count }}</strong></div>
               <div><span>累積消費</span><strong>NT$ {{ formatNumber(selectedCustomer.cumulative_spending) }}</strong></div>
@@ -128,7 +156,7 @@
               </thead>
               <tbody>
                 <tr v-for="vehicle in selectedCustomer.vehicles" :key="vehicleKey(vehicle)">
-                  <template v-if="editingVehicleKey === vehicleKey(vehicle)">
+                  <template v-if="canManageCustomers && editingVehicleKey === vehicleKey(vehicle)">
                     <td><input v-model.trim="vehicleDraft.license_plate" class="inline-input" /></td>
                     <td><input v-model.trim="vehicleDraft.brand" class="inline-input" /></td>
                     <td><input v-model.trim="vehicleDraft.model_name" class="inline-input" /></td>
@@ -145,14 +173,14 @@
                     <td>{{ vehicle.model_name || '未填' }}</td>
                     <td>{{ vehicle.mileage ? formatNumber(vehicle.mileage) : '未填' }}</td>
                     <td>{{ vehicle.vin || '未填' }}</td>
-                    <td><button class="btn btn-sm" type="button" @click="startEditVehicle(vehicle)">編輯</button></td>
+                    <td><button v-if="canManageCustomers" class="btn btn-sm" type="button" @click="startEditVehicle(vehicle)">編輯</button></td>
                   </template>
                 </tr>
               </tbody>
             </table>
             <p v-else class="empty-text">尚未登記車輛。</p>
 
-            <form v-if="selectedCustomer.customer_type === 'guest'" class="guest-motor-form" @submit.prevent="addGuestMotor">
+            <form v-if="canManageCustomers && selectedCustomer.customer_type === 'guest'" class="guest-motor-form" @submit.prevent="addGuestMotor">
               <h4>新增散客車輛</h4>
               <div class="form-grid">
                 <label>車牌<input v-model.trim="newGuestMotor.license_plate" required /></label>
@@ -225,8 +253,8 @@
 
           <section v-if="activeTab === 'notes'" class="detail-panel">
             <p class="text-muted">此備註僅後台可見，不會顯示在客戶端。</p>
-            <textarea v-model="detailNotes" rows="7" placeholder="記錄客戶偏好、注意事項、服務提醒..."></textarea>
-            <div class="form-actions">
+            <textarea v-model="detailNotes" rows="7" :readonly="!canManageCustomers" placeholder="記錄客戶偏好、注意事項、服務提醒..."></textarea>
+            <div v-if="canManageCustomers" class="form-actions">
               <button class="btn btn-primary" type="button" :disabled="savingNotes" @click="saveNotes">
                 {{ savingNotes ? '儲存中...' : '儲存備註' }}
               </button>
@@ -239,16 +267,22 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+import { storeToRefs } from 'pinia';
 import {
   createGuestMotor,
   getCustomerDetail,
   getCustomers,
   updateGuestCustomer,
   updateGuestMotor,
-  updateMemberNotes
+  updateMemberNotes,
+  updateMemberProfile
 } from '../../api/admin';
+import { useAuthStore } from '../../store/auth';
 import api from '../../api/index';
+
+const authStore = useAuthStore();
+const { adminUser } = storeToRefs(authStore);
 
 const loading = ref(false);
 const detailLoading = ref(false);
@@ -260,6 +294,9 @@ const selectedCustomer = ref(null);
 const activeTab = ref('profile');
 const detailNotes = ref('');
 const savingNotes = ref(false);
+const editingProfile = ref(false);
+const savingProfile = ref(false);
+const profileDraft = ref(defaultProfileDraft());
 const editingVehicleKey = ref('');
 const vehicleDraft = ref({});
 const savingVehicle = ref(false);
@@ -313,6 +350,18 @@ function defaultGuestMotor() {
     mileage: null
   };
 }
+
+function defaultProfileDraft() {
+  return {
+    name: '',
+    phone: '',
+    email: '',
+    membership_level: ''
+  };
+}
+
+const canEditCustomerProfile = computed(() => adminUser.value?.role === '最高級');
+const canManageCustomers = computed(() => ['最高級', '管理層'].includes(adminUser.value?.role));
 
 const customerKey = (customer) => `${customer.customer_type}-${customer.customer_id}`;
 const vehicleKey = (vehicle) => `${vehicle.customer_type}-${vehicle.id}`;
@@ -378,6 +427,7 @@ const loadCustomerDetail = async (type, id) => {
   try {
     selectedCustomer.value = await getCustomerDetail(type, id);
     detailNotes.value = selectedCustomer.value.notes || '';
+    resetProfileDraft();
   } catch (error) {
     alert(`載入客戶詳情失敗：${getErrorMessage(error)}`);
     closeDetail();
@@ -396,7 +446,68 @@ const closeDetail = () => {
   showDetailModal.value = false;
   selectedCustomer.value = null;
   activeTab.value = 'profile';
+  editingProfile.value = false;
+  profileDraft.value = defaultProfileDraft();
   editingVehicleKey.value = '';
+};
+
+const resetProfileDraft = () => {
+  if (!selectedCustomer.value) {
+    profileDraft.value = defaultProfileDraft();
+    return;
+  }
+  profileDraft.value = {
+    name: selectedCustomer.value.name || '',
+    phone: selectedCustomer.value.phone || '',
+    email: selectedCustomer.value.email || '',
+    membership_level: selectedCustomer.value.membership_level || ''
+  };
+};
+
+const startEditProfile = () => {
+  resetProfileDraft();
+  editingProfile.value = true;
+};
+
+const cancelEditProfile = () => {
+  editingProfile.value = false;
+  resetProfileDraft();
+};
+
+const saveProfile = async () => {
+  if (!selectedCustomer.value || !canEditCustomerProfile.value) return;
+  const payload = {
+    name: profileDraft.value.name,
+    phone: profileDraft.value.phone
+  };
+  if (!payload.name || !payload.phone) {
+    alert('姓名與電話為必填');
+    return;
+  }
+
+  savingProfile.value = true;
+  try {
+    if (selectedCustomer.value.customer_type === 'member') {
+      if (!profileDraft.value.email) {
+        alert('會員 Email 為必填');
+        return;
+      }
+      await updateMemberProfile(selectedCustomer.value.customer_id, {
+        ...payload,
+        email: profileDraft.value.email,
+        membership_level: profileDraft.value.membership_level || null
+      });
+    } else {
+      await updateGuestCustomer(selectedCustomer.value.customer_id, payload);
+    }
+    editingProfile.value = false;
+    await refreshCurrentDetail();
+    await fetchCustomers();
+  } catch (error) {
+    alert(`儲存資料失敗：${getErrorMessage(error)}`);
+  } finally {
+    savingProfile.value = false;
+  }
 };
 
 const startEditVehicle = (vehicle) => {

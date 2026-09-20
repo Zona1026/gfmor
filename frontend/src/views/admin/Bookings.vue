@@ -9,8 +9,8 @@
           <option v-for="(label, key) in bookingStatusMap" :key="key" :value="key">{{ label }}</option>
         </select>
         <button class="btn btn-outline" @click="handleFilterToday">今日預約</button>
-        <button class="btn btn-danger" @click="showCloseModal = true">封鎖時段</button>
-        <button class="btn btn-primary" @click="showAddModal = true">新增預約</button>
+        <button v-if="canManageBookings" class="btn btn-danger" @click="showCloseModal = true">封鎖時段</button>
+        <button v-if="canManageBookings" class="btn btn-primary" @click="showAddModal = true">新增預約</button>
       </div>
     </div>
 
@@ -98,7 +98,7 @@
       <div v-else class="empty-state">目前沒有符合條件的預約。</div>
     </div>
 
-    <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal = false">
+    <div v-if="showAddModal && canManageBookings" class="modal-overlay" @click.self="showAddModal = false">
       <div class="modal-content">
         <h3>新增預約</h3>
         <div class="form-group row">
@@ -158,7 +158,7 @@
       </div>
     </div>
 
-    <div v-if="showCloseModal" class="modal-overlay" @click.self="showCloseModal = false">
+    <div v-if="showCloseModal && canManageBookings" class="modal-overlay" @click.self="showCloseModal = false">
       <div class="modal-content">
         <h3>封鎖時段</h3>
         <p class="text-muted">封鎖後該時段會顯示為不可預約。</p>
@@ -189,6 +189,8 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { storeToRefs } from 'pinia';
+import { useAuthStore } from '../../store/auth';
 import {
   createWorkOrder,
   getAdminBookings,
@@ -201,6 +203,9 @@ import DatePicker from '../../components/common/DatePicker.vue';
 
 const route = useRoute();
 const router = useRouter();
+const authStore = useAuthStore();
+const { adminUser } = storeToRefs(authStore);
+const canManageBookings = computed(() => ['最高級', '管理層'].includes(adminUser.value?.role));
 const bookings = ref([]);
 const loading = ref(false);
 const convertingId = ref(null);
@@ -305,11 +310,11 @@ const formatTime = (isoString) => {
 const statusClass = (status) => `status-${String(status || '').toLowerCase().replaceAll('_', '-')}`;
 
 const canEditStatus = (booking) => {
-  return !['SYSTEM_CLOSED', 'CONVERTED_TO_WORK_ORDER'].includes(booking.status);
+  return canManageBookings.value && !['SYSTEM_CLOSED', 'CONVERTED_TO_WORK_ORDER'].includes(booking.status);
 };
 
 const canConvertToWorkOrder = (booking) => {
-  return !booking.work_order && convertableStatuses.includes(booking.status);
+  return canManageBookings.value && !booking.work_order && convertableStatuses.includes(booking.status);
 };
 
 const fetchBookings = async () => {

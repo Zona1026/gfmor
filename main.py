@@ -1,8 +1,9 @@
-import os
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+
+from core.config import settings
 
 
 app = FastAPI(
@@ -12,7 +13,7 @@ app = FastAPI(
 )
 
 
-frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:5173")
+frontend_url = settings.FRONTEND_URL
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,6 +29,11 @@ app.add_middleware(
 
 
 app.mount("/test", StaticFiles(directory="static"), name="static")
+app.mount(
+    "/uploads/portfolio",
+    StaticFiles(directory=Path(settings.PORTFOLIO_UPLOAD_DIR), check_dir=False),
+    name="portfolio_uploads",
+)
 
 
 @app.get("/")

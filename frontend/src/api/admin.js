@@ -98,6 +98,10 @@ export const updateMemberNotes = async (google_id, admin_notes) => {
   return await api.put(`/users/${google_id}`, { admin_notes });
 };
 
+export const updateMemberProfile = async (google_id, data) => {
+  return await api.put(`/users/${google_id}`, data);
+};
+
 export const updateGuestCustomer = async (id, data) => {
   return await api.put(`/guest-customers/${id}`, data);
 };

@@ -11,6 +11,7 @@ from schemas import accounting as accounting_schema
 from api.dependencies.admin_auth import (
     auth_context,
     ensure_self_or_manager,
+    require_admin,
     require_manager_admin,
     require_self_or_admin,
 )
@@ -174,7 +175,7 @@ def _orders_query(db: Session):
 @router.get("/", response_model=List[order_schema.Order], summary="取得所有訂單")
 def get_all_orders(
     source: Optional[str] = None,
-    admin=Depends(require_manager_admin),
+    admin=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     query = _orders_query(db)
@@ -190,7 +191,7 @@ def get_all_orders(
 
 
 @router.get("/shop", response_model=List[order_schema.Order], summary="取得商城網站訂單")
-def get_shop_orders(admin=Depends(require_manager_admin), db: Session = Depends(get_db)):
+def get_shop_orders(admin=Depends(require_admin), db: Session = Depends(get_db)):
     return (
         _orders_query(db)
         .filter(models.Order.source == "online")

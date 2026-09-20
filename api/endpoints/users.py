@@ -118,7 +118,7 @@ def search_users_by_name(
 def read_users(
     skip: int = 0,
     limit: int = 100,
-    admin=Depends(require_manager_admin),
+    admin=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """
@@ -158,6 +158,12 @@ def update_user(
     provided_fields = getattr(user, "model_fields_set", getattr(user, "__fields_set__", set()))
     if not auth["is_manager"] and {"membership_level", "admin_notes"} & provided_fields:
         raise HTTPException(status_code=403, detail="僅管理層以上可更新會員等級或店家註記")
+    if "email" in provided_fields and user.email is None:
+        raise HTTPException(status_code=400, detail="會員 Email 不可為空")
+    if "email" in provided_fields and user.email is not None:
+        existing_user = crud.get_user_by_email(db, email=str(user.email))
+        if existing_user and existing_user.google_id != google_id:
+            raise HTTPException(status_code=400, detail="此 Email 已被其他會員使用")
 
     try:
         db_user = crud.update_user(db, google_id=google_id, user_update=user)

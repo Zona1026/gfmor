@@ -139,7 +139,7 @@
             <th>金額</th>
             <th>付款狀態</th>
             <th>建立時間</th>
-            <th>操作</th>
+            <th v-if="canManageAccounting">操作</th>
           </tr>
         </thead>
         <tbody>
@@ -150,7 +150,7 @@
             <td class="amount">NT$ {{ formatNumber(order.total_amount) }}</td>
             <td><span class="status-tag" :class="order.payment_status">{{ shopPaymentStatusMap[order.payment_status] }}</span></td>
             <td>{{ formatDateTime(order.created_at) }}</td>
-            <td>
+            <td v-if="canManageAccounting">
               <div class="row-actions">
                 <select v-model="order.next_payment_status">
                   <option v-for="(label, value) in shopPaymentStatusMap" :key="value" :value="value">{{ label }}</option>
@@ -169,7 +169,7 @@
       <div class="panel-title">
         <h3>應付帳款</h3>
       </div>
-      <form class="inline-form payable-form" @submit.prevent="submitPayable">
+      <form v-if="canManageAccounting" class="inline-form payable-form" @submit.prevent="submitPayable">
         <label>
           供應商
           <input v-model.trim="payableForm.supplier_name" required />
@@ -202,13 +202,13 @@
             <th>未付</th>
             <th>到期日</th>
             <th>狀態</th>
-            <th>付款</th>
+            <th v-if="canManageAccounting">付款</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="payable in payables" :key="payable.id">
             <td>{{ payable.supplier_name }}</td>
-            <td>
+            <td v-if="canManageAccounting">
               <strong>{{ payable.title }}</strong>
               <small v-if="payable.purchase_request_id">叫貨 #{{ payable.purchase_request_id }}</small>
             </td>
@@ -281,6 +281,7 @@ import { useAuthStore } from '../../store/auth';
 const authStore = useAuthStore();
 const { adminUser } = storeToRefs(authStore);
 const canCreateRefund = computed(() => adminUser.value?.role === '最高級');
+const canManageAccounting = computed(() => adminUser.value?.role === '最高級');
 
 const tabs = [
   { key: 'receipts', label: '收款紀錄' },

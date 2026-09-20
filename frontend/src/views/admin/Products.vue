@@ -30,7 +30,7 @@
             </option>
           </select>
         </div>
-        <button class="btn btn-primary" type="button" @click="openProductModal()">新增商品</button>
+        <button v-if="canManageShop" class="btn btn-primary" type="button" @click="openProductModal()">新增商品</button>
       </div>
 
       <div v-if="loadingProducts" class="loading">載入商品中...</div>
@@ -44,7 +44,7 @@
               <th>庫存</th>
               <th>狀態</th>
               <th>建立時間</th>
-              <th>操作</th>
+              <th v-if="canManageShop">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -64,14 +64,14 @@
               <td>{{ formatNumber(product.stock) }}</td>
               <td><span class="status-tag" :class="product.is_active ? 'active' : 'inactive'">{{ product.is_active ? '上架中' : '已下架' }}</span></td>
               <td>{{ formatDate(product.created_at) }}</td>
-              <td class="action-cell">
+              <td v-if="canManageShop" class="action-cell">
                 <button class="btn btn-sm" type="button" @click="toggleProduct(product)">{{ product.is_active ? '下架' : '上架' }}</button>
                 <button class="btn btn-sm" type="button" @click="openProductModal(product)">編輯</button>
                 <button class="btn btn-sm btn-danger" type="button" @click="removeProduct(product)">刪除</button>
               </td>
             </tr>
             <tr v-if="filteredProducts.length === 0">
-              <td colspan="7" class="empty-row">查無符合條件的商品。</td>
+              <td :colspan="canManageShop ? 7 : 6" class="empty-row">查無符合條件的商品。</td>
             </tr>
           </tbody>
         </table>
@@ -86,7 +86,7 @@
         </div>
       </div>
 
-      <form class="inline-form" @submit.prevent="submitCategory">
+      <form v-if="canManageShop" class="inline-form" @submit.prevent="submitCategory">
         <input v-model.trim="categoryForm.name" type="text" placeholder="分類名稱" required />
         <input v-model.number="categoryForm.sort_order" type="number" placeholder="排序" />
         <button class="btn btn-primary" type="submit" :disabled="savingCategory">{{ savingCategory ? '儲存中...' : '新增分類' }}</button>
@@ -100,17 +100,17 @@
               <th>排序</th>
               <th>狀態</th>
               <th>建立時間</th>
-              <th>操作</th>
+              <th v-if="canManageShop">操作</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="category in categories" :key="category.id">
-              <template v-if="editingCategoryId === category.id">
+              <template v-if="canManageShop && editingCategoryId === category.id">
                 <td><input v-model.trim="categoryDraft.name" class="inline-input" /></td>
                 <td><input v-model.number="categoryDraft.sort_order" class="inline-input" type="number" /></td>
                 <td>{{ category.is_active ? '啟用' : '停用' }}</td>
                 <td>{{ formatDate(category.created_at) }}</td>
-                <td class="action-cell">
+                <td v-if="canManageShop" class="action-cell">
                   <button class="btn btn-sm btn-save" type="button" @click="saveCategory(category)">儲存</button>
                   <button class="btn btn-sm btn-outline" type="button" @click="cancelEditCategory">取消</button>
                 </td>
@@ -127,7 +127,7 @@
               </template>
             </tr>
             <tr v-if="categories.length === 0">
-              <td colspan="5" class="empty-row">尚未建立商品分類。</td>
+              <td :colspan="canManageShop ? 5 : 4" class="empty-row">尚未建立商品分類。</td>
             </tr>
           </tbody>
         </table>
@@ -168,15 +168,16 @@
               <td>{{ order.recipient_phone }}</td>
               <td class="amount">NT$ {{ formatNumber(order.total_amount) }}</td>
               <td>
-                <select v-model="order.status" class="status-select" @change="changeOrderStatus(order)">
+                <select v-if="canManageShop" v-model="order.status" class="status-select" @change="changeOrderStatus(order)">
                   <option v-for="(label, key) in orderStatusMap" :key="key" :value="key">{{ label }}</option>
                 </select>
+                <span v-else>{{ orderStatusMap[order.status] || order.status }}</span>
               </td>
               <td>{{ summarizeItemStatus(order) }}</td>
               <td>{{ formatDateTime(order.created_at) }}</td>
               <td class="action-cell">
                 <button class="btn btn-sm" type="button" @click="openOrderDetail(order)">詳情</button>
-                <button v-if="order.status !== 'CANCELED'" class="btn btn-sm btn-danger" type="button" @click="cancelShopOrder(order)">取消</button>
+                <button v-if="canManageShop && order.status !== 'CANCELED'" class="btn btn-sm btn-danger" type="button" @click="cancelShopOrder(order)">取消</button>
               </td>
             </tr>
             <tr v-if="filteredShopOrders.length === 0">
@@ -193,19 +194,19 @@
           <h3>金流設定</h3>
           <p>第一版僅保存付款方式與說明，不串接第三方金流。</p>
         </div>
-        <button class="btn btn-primary" type="button" :disabled="savingSettings" @click="saveShopSettings">
+        <button v-if="canManageShopSettings" class="btn btn-primary" type="button" :disabled="savingSettings" @click="saveShopSettings">
           {{ savingSettings ? '儲存中...' : '儲存設定' }}
         </button>
       </div>
       <div class="form-grid">
         <label>可用付款方式
-          <textarea v-model="settingsDraft.shop_payment_methods" rows="4" placeholder="例如：ATM 轉帳、店取付款、信用卡（未串接）"></textarea>
+          <textarea v-model="settingsDraft.shop_payment_methods" rows="4" :readonly="!canManageShopSettings" placeholder="例如：ATM 轉帳、店取付款、信用卡（未串接）"></textarea>
         </label>
         <label>付款說明
-          <textarea v-model="settingsDraft.shop_payment_note" rows="4" placeholder="顯示給後台或後續前台使用的付款說明"></textarea>
+          <textarea v-model="settingsDraft.shop_payment_note" rows="4" :readonly="!canManageShopSettings" placeholder="顯示給後台或後續前台使用的付款說明"></textarea>
         </label>
         <label>匯款資訊
-          <textarea v-model="settingsDraft.shop_payment_bank_info" rows="4" placeholder="銀行、帳號、戶名等"></textarea>
+          <textarea v-model="settingsDraft.shop_payment_bank_info" rows="4" :readonly="!canManageShopSettings" placeholder="銀行、帳號、戶名等"></textarea>
         </label>
       </div>
     </section>
@@ -216,27 +217,27 @@
           <h3>物流設定</h3>
           <p>第一版保存配送方式、基本運費與免運門檻，不串接物流服務。</p>
         </div>
-        <button class="btn btn-primary" type="button" :disabled="savingSettings" @click="saveShopSettings">
+        <button v-if="canManageShopSettings" class="btn btn-primary" type="button" :disabled="savingSettings" @click="saveShopSettings">
           {{ savingSettings ? '儲存中...' : '儲存設定' }}
         </button>
       </div>
       <div class="form-grid">
         <label>配送方式
-          <textarea v-model="settingsDraft.shop_shipping_methods" rows="4" placeholder="例如：店取、宅配、超商取貨（未串接）"></textarea>
+          <textarea v-model="settingsDraft.shop_shipping_methods" rows="4" :readonly="!canManageShopSettings" placeholder="例如：店取、宅配、超商取貨（未串接）"></textarea>
         </label>
         <label>基本運費
-          <input v-model="settingsDraft.shop_base_shipping_fee" type="number" min="0" />
+          <input v-model="settingsDraft.shop_base_shipping_fee" type="number" min="0" :readonly="!canManageShopSettings" />
         </label>
         <label>免運門檻
-          <input v-model="settingsDraft.shop_free_shipping_threshold" type="number" min="0" />
+          <input v-model="settingsDraft.shop_free_shipping_threshold" type="number" min="0" :readonly="!canManageShopSettings" />
         </label>
         <label>物流說明
-          <textarea v-model="settingsDraft.shop_shipping_note" rows="4" placeholder="配送時間、注意事項、取貨提醒等"></textarea>
+          <textarea v-model="settingsDraft.shop_shipping_note" rows="4" :readonly="!canManageShopSettings" placeholder="配送時間、注意事項、取貨提醒等"></textarea>
         </label>
       </div>
     </section>
 
-    <div class="modal-overlay" v-if="showProductModal" @click.self="closeProductModal">
+    <div class="modal-overlay" v-if="showProductModal && canManageShop" @click.self="closeProductModal">
       <div class="modal">
         <div class="modal-header">
           <h3>{{ editingProductId ? '編輯商品' : '新增商品' }}</h3>
@@ -316,9 +317,10 @@
               <td>NT$ {{ formatNumber(item.unit_price) }}</td>
               <td>NT$ {{ formatNumber(item.quantity * item.unit_price) }}</td>
               <td>
-                <select v-model="item.status" class="status-select" :disabled="selectedOrder.status === 'COMPLETED'" @change="changeItemStatus(selectedOrder, item)">
+                <select v-if="canManageShop" v-model="item.status" class="status-select" :disabled="selectedOrder.status === 'COMPLETED'" @change="changeItemStatus(selectedOrder, item)">
                   <option v-for="(label, key) in itemStatusMap" :key="key" :value="key">{{ label }}</option>
                 </select>
+                <span v-else>{{ itemStatusMap[item.status] || item.status }}</span>
               </td>
             </tr>
             <tr v-if="!selectedOrder.items?.length">
@@ -334,6 +336,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
 import { storeToRefs } from 'pinia';
+import { useAuthStore } from '../../store/auth';
 import { useSiteStore } from '../../store/site';
 import {
   cancelOrder,
@@ -352,7 +355,11 @@ import {
 } from '../../api/admin';
 
 const siteStore = useSiteStore();
+const authStore = useAuthStore();
 const { settings } = storeToRefs(siteStore);
+const { adminUser } = storeToRefs(authStore);
+const canManageShop = computed(() => ['最高級', '管理層'].includes(adminUser.value?.role));
+const canManageShopSettings = computed(() => adminUser.value?.role === '最高級');
 
 const tabs = [
   { key: 'products', label: '商品管理' },

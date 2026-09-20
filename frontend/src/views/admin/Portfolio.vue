@@ -1,8 +1,11 @@
 <template>
   <div class="admin-portfolio">
     <div class="section-header">
-      <h2>作品集管理</h2>
-      <button class="btn btn-primary" @click="openCreateModal">＋ 新增作品</button>
+      <div class="section-title">
+        <h2>作品集管理</h2>
+        <span v-if="!canManagePortfolio" class="permission-badge">唯讀</span>
+      </div>
+      <button v-if="canManagePortfolio" class="btn btn-primary" @click="openCreateModal">＋ 新增作品</button>
     </div>
 
     <!-- 分類篩選 -->
@@ -26,7 +29,7 @@
           <h3>{{ item.title }}</h3>
           <p v-if="item.description" class="desc">{{ item.description }}</p>
         </div>
-        <div class="card-actions">
+        <div v-if="canManagePortfolio" class="card-actions">
           <button class="btn btn-sm" @click="openEditModal(item)">編輯</button>
           <button class="btn btn-sm btn-danger" @click="handleDelete(item.id)">刪除</button>
         </div>
@@ -86,7 +89,13 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { storeToRefs } from 'pinia';
+import { useAuthStore } from '../../store/auth';
 import { getPortfolioItems, createPortfolioItem, updatePortfolioItem, deletePortfolioItem } from '../../api/admin';
+
+const authStore = useAuthStore();
+const { adminUser } = storeToRefs(authStore);
+const canManagePortfolio = computed(() => adminUser.value?.role === '最高級');
 
 const categories = [
   { id: 'level-1', label: '大改 (5-10萬)' },
@@ -128,6 +137,7 @@ const fetchItems = async () => {
 };
 
 const openCreateModal = () => {
+  if (!canManagePortfolio.value) return;
   isEditing.value = false;
   editingId.value = null;
   form.value = { title: '', category: '', description: '' };
@@ -137,6 +147,7 @@ const openCreateModal = () => {
 };
 
 const openEditModal = (item) => {
+  if (!canManagePortfolio.value) return;
   isEditing.value = true;
   editingId.value = item.id;
   form.value = { title: item.title, category: item.category, description: item.description || '' };
@@ -154,6 +165,7 @@ const onFileChange = (e) => {
 };
 
 const handleSubmit = async () => {
+  if (!canManagePortfolio.value) return;
   if (!isEditing.value && !selectedFile.value) {
     alert('請選擇一張作品圖片');
     return;
@@ -184,6 +196,7 @@ const handleSubmit = async () => {
 };
 
 const handleDelete = async (id) => {
+  if (!canManagePortfolio.value) return;
   if (!confirm('確定要刪除此作品嗎？此操作無法復原。')) return;
   try {
     await deletePortfolioItem(id);
@@ -210,6 +223,18 @@ onMounted(fetchItems);
     align-items: center;
     margin-bottom: 1rem;
     h2 { color: $primary-light; margin: 0; }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .permission-badge {
+      color: $text-secondary;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
   }
 
   .filter-bar {

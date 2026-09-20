@@ -10,6 +10,11 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     FRONTEND_URL: str = "http://127.0.0.1:5173"
+    PORTFOLIO_STORAGE: str = "cloudinary"
+    PORTFOLIO_UPLOAD_DIR: str = "uploads/portfolio"
+    CLOUDINARY_CLOUD_NAME: Optional[str] = None
+    CLOUDINARY_API_KEY: Optional[str] = None
+    CLOUDINARY_API_SECRET: Optional[str] = None
     ADMIN_PASSWORD_RESET_EXPIRE_MINUTES: int = 30
     SMTP_HOST: Optional[str] = None
     SMTP_PORT: int = 587

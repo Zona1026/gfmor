@@ -55,6 +55,7 @@ class CustomerSummary(BaseModel):
     vehicle_label: Optional[str] = None
     latest_service_at: Optional[datetime] = None
     cumulative_spending: int = 0
+    membership_level: Optional[str] = None
     current_points: int = 0
     expiring_soon_points: int = 0
     has_notes: bool = False

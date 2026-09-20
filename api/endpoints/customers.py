@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session, joinedload
 
-from api.dependencies.admin_auth import require_manager_admin
+from api.dependencies.admin_auth import require_admin, require_manager_admin
 from db import crud, models
 from db.database import get_db
 from db.points import get_user_point_summary
@@ -196,6 +196,7 @@ def _member_summary(db: Session, user, include_detail: bool = False):
         "vehicle_label": _vehicle_label(vehicles),
         "latest_service_at": _latest_service_at(work_orders),
         "cumulative_spending": _cumulative_spending(orders, work_orders),
+        "membership_level": user.membership_level,
         "current_points": points["current_points"],
         "expiring_soon_points": points["expiring_soon_points"],
         "has_notes": bool(user.admin_notes),
@@ -226,6 +227,7 @@ def _guest_summary(db: Session, guest, include_detail: bool = False):
         "vehicle_label": _vehicle_label(vehicles),
         "latest_service_at": _latest_service_at(work_orders),
         "cumulative_spending": _cumulative_spending(orders, work_orders),
+        "membership_level": None,
         "current_points": 0,
         "expiring_soon_points": 0,
         "has_notes": bool(guest.notes),
@@ -247,7 +249,7 @@ def read_customers(
     customer_type: str = Query("all", alias="type"),
     skip: int = 0,
     limit: int = 200,
-    admin=Depends(require_manager_admin),
+    admin=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     if customer_type not in ["all", "member", "guest"]:
@@ -305,7 +307,7 @@ def read_customers(
 def read_customer_detail(
     customer_type: str,
     customer_id: str,
-    admin=Depends(require_manager_admin),
+    admin=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     if customer_type == "member":

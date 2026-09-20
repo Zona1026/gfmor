@@ -61,7 +61,7 @@
               <div class="row-actions">
                 <button class="btn text" type="button" @click="openDetail(request)">詳情</button>
                 <button
-                  v-if="request.status === 'PENDING_ORDER'"
+                  v-if="canManagePurchases && request.status === 'PENDING_ORDER'"
                   class="btn text"
                   type="button"
                   @click="openOrderForm(request)"
@@ -150,7 +150,7 @@
         <section class="detail-panel">
           <h4>分配紀錄</h4>
           <form
-            v-if="selectedRequest.unassigned_arrived_quantity > 0"
+            v-if="canManagePurchases && selectedRequest.unassigned_arrived_quantity > 0"
             class="assign-form"
             @submit.prevent="submitAssign"
           >
@@ -274,6 +274,7 @@ import { useAuthStore } from '../../store/auth';
 const route = useRoute();
 const authStore = useAuthStore();
 const { adminUser } = storeToRefs(authStore);
+const canManagePurchases = computed(() => ['最高級', '管理層'].includes(adminUser.value?.role));
 const canUseCriticalPurchase = computed(() => adminUser.value?.role === '最高級');
 
 const tabs = [
@@ -389,7 +390,7 @@ const formatDateTime = (value) => {
 };
 
 const canReceive = (request) => canUseCriticalPurchase.value && ['ORDERED', 'PARTIAL_ARRIVED', 'ARRIVED_PENDING_ASSIGNMENT'].includes(request.status);
-const canCancel = (request) => ['PENDING_ORDER', 'ORDERED', 'PARTIAL_ARRIVED'].includes(request.status) && !request.assigned_quantity;
+const canCancel = (request) => canManagePurchases.value && ['PENDING_ORDER', 'ORDERED', 'PARTIAL_ARRIVED'].includes(request.status) && !request.assigned_quantity;
 
 const refreshOne = async (id) => {
   const updated = await getPurchaseRequest(id);

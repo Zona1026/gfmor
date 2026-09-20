@@ -41,6 +41,7 @@ class UserUpdate(BaseModel):
     所有欄位都是可選的，因為使用者可能只想更新部分資料。
     """
     name: Optional[str] = None
+    email: Optional[EmailStr] = None
     phone: Optional[str] = None
     membership_level: Optional[str] = None
     avatar: Optional[str] = None

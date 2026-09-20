@@ -17,7 +17,7 @@ def get_staff_admins(admin=Depends(require_admin), db: Session = Depends(get_db)
     return db.query(models.Admin).filter(models.Admin.role == ROLE_STAFF).order_by(models.Admin.id).all()
 
 @router.get("/", response_model=List[admin_schema.AdminDetail])
-def get_admins(admin=Depends(require_super_admin), db: Session = Depends(get_db)):
+def get_admins(admin=Depends(require_admin), db: Session = Depends(get_db)):
     """
     列出所有管理員帳號
     """

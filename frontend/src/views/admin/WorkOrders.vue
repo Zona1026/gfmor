@@ -5,7 +5,7 @@
         <h2>工單管理</h2>
         <p>以車牌快速找單，並管理報價、施工、收款與主管審核。</p>
       </div>
-      <button class="btn btn-primary" @click="openCreateModal">新增工單</button>
+      <button v-if="canEditWorkOrder" class="btn btn-primary" @click="openCreateModal">新增工單</button>
     </div>
 
     <div class="quick-tabs">
@@ -83,7 +83,7 @@
       <div v-else class="empty-state">目前沒有符合條件的工單。</div>
     </div>
 
-    <div v-if="showCreateModal" class="modal-overlay" @click.self="closeCreateModal">
+    <div v-if="showCreateModal && canEditWorkOrder" class="modal-overlay" @click.self="closeCreateModal">
       <div class="modal-content large">
         <div class="modal-header">
           <h3>新增工單</h3>
@@ -273,13 +273,13 @@
             <div class="form-grid">
               <label>
                 服務類型
-                <select v-model="detailForm.service_type">
+                <select v-model="detailForm.service_type" :disabled="!canEditWorkOrder">
                   <option v-for="(label, value) in serviceTypeMap" :key="value" :value="value">{{ label }}</option>
                 </select>
               </label>
               <label>
                 工單狀態
-                <select v-model="detailForm.status">
+                <select v-model="detailForm.status" :disabled="!canEditWorkOrder">
                   <option
                     v-for="(label, value) in statusMap"
                     :key="value"
@@ -292,7 +292,7 @@
               </label>
               <label>
                 負責人
-                <select v-model="detailForm.responsible_staff">
+                <select v-model="detailForm.responsible_staff" :disabled="!canEditWorkOrder">
                   <option v-for="staff in responsibleStaffOptions" :key="staff" :value="staff">
                     {{ staff }}
                   </option>
@@ -300,20 +300,20 @@
               </label>
               <label>
                 預約時間
-                <input v-model="detailForm.scheduled_at" type="datetime-local" />
+                <input v-model="detailForm.scheduled_at" type="datetime-local" :disabled="!canEditWorkOrder" />
               </label>
             </div>
             <label>
               問題描述
-              <textarea v-model.trim="detailForm.problem_description" rows="3"></textarea>
+              <textarea v-model.trim="detailForm.problem_description" rows="3" :readonly="!canEditWorkOrder"></textarea>
             </label>
             <label>
               檢查結果
-              <textarea v-model.trim="detailForm.inspection_result" rows="3"></textarea>
+              <textarea v-model.trim="detailForm.inspection_result" rows="3" :readonly="!canEditWorkOrder"></textarea>
             </label>
             <label>
               備註
-              <textarea v-model.trim="detailForm.notes" rows="2"></textarea>
+              <textarea v-model.trim="detailForm.notes" rows="2" :readonly="!canEditWorkOrder"></textarea>
             </label>
             <div v-if="hasBlockingApproval(selectedWorkOrder)" class="warning-text">
               此工單仍有待主管審核或退回項目，不能進入施工中、待收款或已完工。
@@ -328,7 +328,7 @@
               <div><dt>待收款</dt><dd>NT$ {{ selectedWorkOrder.balance_amount?.toLocaleString() || 0 }}</dd></div>
               <div><dt>付款狀態</dt><dd>{{ paymentStatusMap[selectedWorkOrder.payment_status] }}</dd></div>
             </dl>
-            <div class="payment-form">
+            <div v-if="canEditWorkOrder" class="payment-form">
               <input v-model.number="paymentForm.amount" type="number" min="1" placeholder="付款金額" />
               <select v-model="paymentForm.method">
                 <option value="" disabled>付款方式</option>
@@ -354,19 +354,19 @@
         <section class="form-section">
           <div class="section-title-row">
             <h4>施工 / 零件 / 工資 / 折扣明細</h4>
-            <button type="button" class="btn btn-outline" :disabled="!canEditWorkOrder" @click="addDetailLineItem">新增明細</button>
+            <button v-if="canEditWorkOrder" type="button" class="btn btn-outline" @click="addDetailLineItem">新增明細</button>
           </div>
           <div class="line-editor">
             <div v-for="(item, index) in detailLineItems" :key="item.id || index" class="line-row">
               <label class="line-field">
                 <span>類型</span>
-                <select v-model="item.type" :disabled="isLineItemInventoryLocked(item)">
+                <select v-model="item.type" :disabled="!canEditWorkOrder || isLineItemInventoryLocked(item)">
                   <option v-for="(label, value) in lineItemTypeMap" :key="value" :value="value">{{ label }}</option>
                 </select>
               </label>
               <label class="line-field">
                 <span>商品</span>
-                <select v-if="item.type === 'PART'" v-model.number="item.product_id" :disabled="isLineItemInventoryLocked(item)" @change="applyProductToLine(item)">
+                <select v-if="item.type === 'PART'" v-model.number="item.product_id" :disabled="!canEditWorkOrder || isLineItemInventoryLocked(item)" @change="applyProductToLine(item)">
                   <option :value="null">不綁商品 / 不扣庫存</option>
                   <option v-for="product in products" :key="product.id" :value="product.id">
                     {{ product.name }} / NT$ {{ product.price }} / 庫存 {{ product.stock }}
@@ -376,30 +376,30 @@
               </label>
               <label class="line-field">
                 <span>明細名稱</span>
-                <input v-model.trim="item.name" :disabled="isLineItemInventoryLocked(item)" placeholder="明細名稱" />
+                <input v-model.trim="item.name" :disabled="!canEditWorkOrder || isLineItemInventoryLocked(item)" placeholder="明細名稱" />
               </label>
               <label class="line-field">
                 <span>數量</span>
-                <input v-model.number="item.quantity" type="number" min="1" :disabled="isLineItemInventoryLocked(item)" />
+                <input v-model.number="item.quantity" type="number" min="1" :disabled="!canEditWorkOrder || isLineItemInventoryLocked(item)" />
               </label>
               <label class="line-field">
                 <span>單價</span>
-                <input v-model.number="item.unit_price" type="number" min="0" :disabled="isLineItemInventoryLocked(item)" />
+                <input v-model.number="item.unit_price" type="number" min="0" :disabled="!canEditWorkOrder || isLineItemInventoryLocked(item)" />
               </label>
               <div class="line-total">
                 <span>小計</span>
                 <strong>NT$ {{ lineItemTotal(item).toLocaleString() }}</strong>
                 <small v-if="item.type === 'PART'">{{ inventoryStatusText(item) }}</small>
               </div>
-              <button type="button" class="icon-btn danger" :disabled="isLineItemInventoryLocked(item)" @click="removeDetailLineItem(index)">×</button>
+              <button v-if="canEditWorkOrder" type="button" class="icon-btn danger" :disabled="isLineItemInventoryLocked(item)" @click="removeDetailLineItem(index)">×</button>
             </div>
           </div>
           <div class="total-row">
             <span>總金額</span>
             <strong>NT$ {{ detailTotal.toLocaleString() }}</strong>
           </div>
-          <div class="form-actions">
-            <button class="btn btn-primary" @click="saveWorkOrder" :disabled="saving || !canEditWorkOrder">儲存工單</button>
+          <div v-if="canEditWorkOrder" class="form-actions">
+            <button class="btn btn-primary" @click="saveWorkOrder" :disabled="saving">儲存工單</button>
           </div>
         </section>
 
@@ -508,7 +508,7 @@ const staffAdmins = ref([]);
 const activeFilter = ref('');
 const searchKeyword = ref('');
 const filterDate = ref('');
-const workOrderEditorRoles = ['最高級', '管理層', '一般'];
+const workOrderEditorRoles = ['最高級', '管理層'];
 const defaultResponsibleStaff = '火腿';
 const paymentMethodOptions = ['現金', '轉帳', 'Linepay'];
 const canEditWorkOrder = computed(() => workOrderEditorRoles.includes(adminUser.value?.role));

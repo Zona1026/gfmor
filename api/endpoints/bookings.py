@@ -9,6 +9,7 @@ from api.dependencies.admin_auth import (
     ensure_self_or_admin,
     ensure_self_or_manager,
     require_admin,
+    require_manager_admin,
     require_self_or_admin,
 )
 from db import crud, models
@@ -125,7 +126,7 @@ def read_booking(
 def update_booking(
     booking_id: int,
     booking: booking_schema.BookingUpdate,
-    admin=Depends(require_admin),
+    admin=Depends(require_manager_admin),
     db: Session = Depends(get_db)
 ):
     """

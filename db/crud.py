@@ -75,6 +75,110 @@ def create_user(db: Session, user: UserCreate):
 
     return db_user
 
+
+def merge_guest_customers_to_user_by_phone(db: Session, user: models.User, phone: str):
+    """
+    將同電話散客的消費、工單與車輛資料併入會員。
+    呼叫端負責提交交易，方便和會員資料更新維持同一個 commit。
+    """
+    cleaned_phone = (phone or "").strip()
+    summary = {
+        "matched_guests": 0,
+        "moved_orders": 0,
+        "moved_work_orders": 0,
+        "moved_motors": 0,
+        "added_consumption": 0,
+    }
+    if not cleaned_phone:
+        return summary
+
+    guests = db.query(models.GuestCustomer).filter(models.GuestCustomer.phone == cleaned_phone).all()
+    for guest in guests:
+        guest_summary = merge_guest_customer_to_user(db, guest, user)
+        if guest_summary["moved_orders"] or guest_summary["moved_work_orders"] or guest_summary["moved_motors"]:
+            summary["matched_guests"] += 1
+        summary["moved_orders"] += guest_summary["moved_orders"]
+        summary["moved_work_orders"] += guest_summary["moved_work_orders"]
+        summary["moved_motors"] += guest_summary["moved_motors"]
+        summary["added_consumption"] += guest_summary["added_consumption"]
+
+    return summary
+
+
+def merge_guest_customer_to_user(db: Session, guest: models.GuestCustomer, user: models.User):
+    summary = {
+        "moved_orders": 0,
+        "moved_work_orders": 0,
+        "moved_motors": 0,
+        "added_consumption": 0,
+    }
+
+    guest_orders = db.query(models.Order).filter(models.Order.guest_customer_id == guest.id).all()
+    guest_work_orders = db.query(models.WorkOrder).filter(models.WorkOrder.guest_customer_id == guest.id).all()
+    guest_motors = (
+        db.query(models.GuestMotor)
+        .filter(models.GuestMotor.guest_customer_id == guest.id, models.GuestMotor.status.is_(None))
+        .all()
+    )
+    guest_motor_to_member_motor = {}
+
+    for order in guest_orders:
+        if order.status == models.OrderStatus.COMPLETED:
+            summary["added_consumption"] += order.total_amount or 0
+        order.google_id = user.google_id
+        order.guest_customer_id = None
+        summary["moved_orders"] += 1
+
+    for guest_motor in guest_motors:
+        member_motor = (
+            db.query(models.Motor)
+            .filter(
+                models.Motor.google_id == user.google_id,
+                models.Motor.license_plate == guest_motor.license_plate,
+                models.Motor.status.is_(None),
+            )
+            .first()
+        )
+        if not member_motor:
+            plate_owner = (
+                db.query(models.Motor)
+                .filter(models.Motor.license_plate == guest_motor.license_plate, models.Motor.status.is_(None))
+                .first()
+            )
+            if not plate_owner:
+                vin = guest_motor.vin
+                if vin and db.query(models.Motor).filter(models.Motor.vin == vin).first():
+                    vin = None
+                member_motor = models.Motor(
+                    google_id=user.google_id,
+                    license_plate=guest_motor.license_plate,
+                    brand=guest_motor.brand,
+                    model_name=guest_motor.model_name,
+                    vin=vin,
+                    mileage=guest_motor.mileage,
+                )
+                db.add(member_motor)
+                db.flush()
+                summary["moved_motors"] += 1
+
+        if member_motor:
+            guest_motor_to_member_motor[guest_motor.id] = member_motor.id
+        guest_motor.status = "已合併"
+
+    for work_order in guest_work_orders:
+        work_order.google_id = user.google_id
+        work_order.guest_customer_id = None
+        if work_order.guest_motor_id in guest_motor_to_member_motor:
+            work_order.motor_id = guest_motor_to_member_motor[work_order.guest_motor_id]
+        work_order.guest_motor_id = None
+        summary["moved_work_orders"] += 1
+
+    if summary["added_consumption"]:
+        user.cumulative_consumption = (user.cumulative_consumption or 0) + summary["added_consumption"]
+
+    return summary
+
+
 def update_user(db: Session, google_id: str, user_update: UserUpdate):
     """
     根據 Google ID 更新使用者資訊，並可選擇性地為其新增車籍資料。
@@ -110,6 +214,9 @@ def update_user(db: Session, google_id: str, user_update: UserUpdate):
                 google_id=db_user.google_id  # 確保新車輛關聯到這位使用者
             )
             db.add(new_motor)
+
+    if update_data.get("phone"):
+        merge_guest_customers_to_user_by_phone(db, db_user, update_data["phone"])
             
     # 3. 提交所有變更 (包含使用者更新和新增的車輛)
     try:

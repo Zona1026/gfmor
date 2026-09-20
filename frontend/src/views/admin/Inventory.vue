@@ -40,8 +40,8 @@
               <th>品項</th>
               <th>類型</th>
               <th>異動</th>
-              <th v-if="canManageInventory">異動前</th>
-              <th v-if="canManageInventory">異動後</th>
+              <th>異動前</th>
+              <th>異動後</th>
               <th>來源</th>
               <th>原因</th>
               <th v-if="canUseCriticalInventory">操作</th>
@@ -55,13 +55,13 @@
               <td :class="{ positive: movement.quantity_delta > 0, negative: movement.quantity_delta < 0 }">
                 {{ signedNumber(movement.quantity_delta) }}
               </td>
-              <td v-if="canManageInventory">{{ formatNumber(movement.stock_before) }}</td>
-              <td v-if="canManageInventory">{{ formatNumber(movement.stock_after) }}</td>
+              <td>{{ formatNumber(movement.stock_before) }}</td>
+              <td>{{ formatNumber(movement.stock_after) }}</td>
               <td>{{ sourceLabel(movement.source_type, movement.source_id) }}</td>
               <td>{{ movement.reason || '-' }}</td>
             </tr>
             <tr v-if="movements.length === 0">
-              <td :colspan="canManageInventory ? 8 : 6" class="empty-row">尚無庫存異動。</td>
+              <td colspan="8" class="empty-row">尚無庫存異動。</td>
             </tr>
           </tbody>
         </table>

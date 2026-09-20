@@ -2,7 +2,7 @@
   <div class="admin-announcements">
     <div class="section-header">
       <h2>公告管理</h2>
-      <button class="btn btn-primary" @click="openCreateModal">＋ 新增公告</button>
+      <button v-if="canManageAnnouncements" class="btn btn-primary" @click="openCreateModal">＋ 新增公告</button>
     </div>
 
     <div v-if="loading" class="loading">載入中...</div>
@@ -15,16 +15,16 @@
           <p v-if="ann.description">{{ ann.description }}</p>
           <small class="meta">排序：{{ ann.sort_order }} ｜ {{ ann.is_active ? '啟用中' : '已停用' }}</small>
         </div>
-        <div class="ann-actions">
+        <div v-if="canManageAnnouncements" class="ann-actions">
           <button class="btn btn-sm" @click="openEditModal(ann)">編輯</button>
           <button class="btn btn-sm btn-danger" @click="handleDelete(ann.id)">刪除</button>
         </div>
       </div>
-      <div v-if="announcements.length === 0" class="empty">尚無公告，點擊上方按鈕新增第一則公告吧！</div>
+      <div v-if="announcements.length === 0" class="empty">尚無公告。</div>
     </div>
 
     <!-- 新增 / 編輯 Modal -->
-    <div class="modal-overlay" v-if="showModal" @click.self="showModal = false">
+    <div class="modal-overlay" v-if="showModal && canManageAnnouncements" @click.self="showModal = false">
       <div class="modal">
         <h3>{{ isEditing ? '編輯公告' : '新增公告' }}</h3>
         <form @submit.prevent="handleSubmit">
@@ -61,8 +61,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { computed, ref, onMounted } from 'vue';
+import { storeToRefs } from 'pinia';
+import { useAuthStore } from '../../store/auth';
 import { getAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement } from '../../api/admin';
+
+const authStore = useAuthStore();
+const { adminUser } = storeToRefs(authStore);
+const canManageAnnouncements = computed(() => ['最高級', '管理層'].includes(adminUser.value?.role));
 
 const announcements = ref([]);
 const loading = ref(false);

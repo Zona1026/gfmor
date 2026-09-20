@@ -2,7 +2,7 @@
   <div class="settings-view">
     <div class="section-header">
       <h2>系統全域設定</h2>
-      <button @click="saveSettings" class="btn btn-primary" :disabled="saving">
+      <button v-if="canManageSettings" @click="saveSettings" class="btn btn-primary" :disabled="saving">
         <span v-if="saving" class="spinner"></span>
         {{ saving ? '儲存中...' : '儲存變更' }}
       </button>
@@ -21,16 +21,16 @@
         </div>
         <div class="form-group">
           <label>商店名稱</label>
-          <input v-model="editData.store_name" type="text" placeholder="例如：炬烽騎士精品" />
+          <input v-model="editData.store_name" type="text" :readonly="!canManageSettings" placeholder="例如：炬烽騎士精品" />
           <p class="help-text">這會影響網頁標題、頁尾以及首頁歡迎詞。</p>
         </div>
         <div class="form-group">
           <label>店面地址</label>
-          <input v-model="editData.store_address" type="text" placeholder="請輸入完整地址" />
+          <input v-model="editData.store_address" type="text" :readonly="!canManageSettings" placeholder="請輸入完整地址" />
         </div>
         <div class="form-group">
           <label>聯絡電話</label>
-          <input v-model="editData.store_phone" type="text" placeholder="例如：07-1234567" />
+          <input v-model="editData.store_phone" type="text" :readonly="!canManageSettings" placeholder="例如：07-1234567" />
         </div>
       </div>
 
@@ -41,7 +41,7 @@
         </div>
         <div class="form-group">
           <label>頁尾描述</label>
-          <textarea v-model="editData.footer_description" rows="4" placeholder="顯示在頁尾簡介區塊的文字"></textarea>
+          <textarea v-model="editData.footer_description" rows="4" :readonly="!canManageSettings" placeholder="顯示在頁尾簡介區塊的文字"></textarea>
           <p class="help-text">簡短介紹您的店面服務特點。</p>
         </div>
       </div>
@@ -53,38 +53,38 @@
         </div>
         <div class="form-group checkbox-group">
           <label class="checkbox-label">
-            <input v-model="editData.points_enabled" type="checkbox" true-value="true" false-value="false" />
+            <input v-model="editData.points_enabled" type="checkbox" :disabled="!canManageSettings" true-value="true" false-value="false" />
             啟用點數累積
           </label>
         </div>
         <div class="form-group">
           <label>消費滿額門檻</label>
-          <input v-model="editData.earn_amount_unit" type="number" min="1" />
+          <input v-model="editData.earn_amount_unit" type="number" min="1" :readonly="!canManageSettings" />
           <p class="help-text">預設 1000，代表商品消費每滿 1000 元計算一次贈點。</p>
         </div>
         <div class="form-group">
           <label>每次滿額贈點</label>
-          <input v-model="editData.earn_points" type="number" min="0" />
+          <input v-model="editData.earn_points" type="number" min="0" :readonly="!canManageSettings" />
         </div>
         <div class="form-group">
           <label>點數效期（月）</label>
-          <input v-model="editData.validity_months" type="number" min="1" />
+          <input v-model="editData.validity_months" type="number" min="1" :readonly="!canManageSettings" />
           <p class="help-text">預設 6，系統會用發放日加上指定月數。</p>
         </div>
         <div class="form-group">
           <label>快到期提醒天數</label>
-          <input v-model="editData.expiring_soon_days" type="number" min="0" />
+          <input v-model="editData.expiring_soon_days" type="number" min="0" :readonly="!canManageSettings" />
           <p class="help-text">預設 60，前台只顯示快到期點數，不顯示日期。</p>
         </div>
         <div class="form-group checkbox-group">
           <label class="checkbox-label">
-            <input v-model="editData.redeem_enabled" type="checkbox" true-value="true" false-value="false" />
+            <input v-model="editData.redeem_enabled" type="checkbox" :disabled="!canManageSettings" true-value="true" false-value="false" />
             啟用點數折抵
           </label>
         </div>
         <div class="form-group">
           <label>每 1 點折抵金額</label>
-          <input v-model="editData.point_value_amount" type="number" min="0" />
+          <input v-model="editData.point_value_amount" type="number" min="0" :readonly="!canManageSettings" />
           <p class="help-text">折抵功能可先關閉，等規則確定後再啟用。</p>
         </div>
       </div>
@@ -93,12 +93,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from 'vue';
+import { computed, ref, onMounted, reactive } from 'vue';
 import { useSiteStore } from '../../store/site';
+import { useAuthStore } from '../../store/auth';
 import { storeToRefs } from 'pinia';
 
 const siteStore = useSiteStore();
+const authStore = useAuthStore();
 const { settings, loading } = storeToRefs(siteStore);
+const { adminUser } = storeToRefs(authStore);
+const canManageSettings = computed(() => adminUser.value?.role === '最高級');
 
 const editData = reactive({
   store_name: '',

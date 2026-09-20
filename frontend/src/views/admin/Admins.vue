@@ -2,7 +2,8 @@
   <div class="admin-management">
     <div class="section-header">
       <h2>系統與權限</h2>
-      <button 
+      <button
+        v-if="adminUser?.role === '最高級'"
         class="btn btn-primary" 
         @click="showCreateModal = true"
         :disabled="adminUser?.role !== '最高級'"
@@ -28,7 +29,7 @@
             <th>Email</th>
             <th>權限等級</th>
             <th>建立時間</th>
-            <th>操作</th>
+            <th v-if="adminUser?.role === '最高級'">操作</th>
           </tr>
         </thead>
         <tbody>
@@ -43,7 +44,7 @@
               </span>
             </td>
             <td class="time">{{ formatDate(admin.created_at) }}</td>
-            <td class="actions">
+            <td v-if="adminUser?.role === '最高級'" class="actions">
               <button 
                 class="btn-edit" 
                 @click="openEditModal(admin)"
