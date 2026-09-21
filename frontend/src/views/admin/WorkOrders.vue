@@ -198,13 +198,13 @@
             </div>
             <div class="line-editor">
               <div v-for="(item, index) in createLineItems" :key="index" class="line-row">
-                <label class="line-field">
+                <label class="line-field line-type">
                   <span>類型</span>
                   <select v-model="item.type" @change="handleLineTypeChange(item)">
                     <option v-for="(label, value) in lineItemTypeMap" :key="value" :value="value">{{ label }}</option>
                   </select>
                 </label>
-                <label class="line-field">
+                <label class="line-field line-product">
                   <span>商品</span>
                   <select v-if="item.type === 'PART'" v-model.number="item.product_id" @change="applyProductToLine(item)">
                     <option :value="null">不綁商品 / 不扣庫存</option>
@@ -214,15 +214,15 @@
                   </select>
                   <input v-else value="不適用" disabled />
                 </label>
-                <label class="line-field">
+                <label class="line-field line-name">
                   <span>明細名稱</span>
                   <input v-model.trim="item.name" placeholder="明細名稱" />
                 </label>
-                <label class="line-field">
+                <label class="line-field line-quantity">
                   <span>數量</span>
                   <input v-model.number="item.quantity" type="number" min="1" />
                 </label>
-                <label class="line-field">
+                <label class="line-field line-price">
                   <span>單價</span>
                   <input v-model.number="item.unit_price" type="number" min="0" />
                 </label>
@@ -368,13 +368,13 @@
           </div>
           <div class="line-editor">
             <div v-for="(item, index) in detailLineItems" :key="item.id || index" class="line-row">
-              <label class="line-field">
+              <label class="line-field line-type">
                 <span>類型</span>
                 <select v-model="item.type" :disabled="!canEditWorkOrder || membershipSelectionLocked || isLineItemInventoryLocked(item)">
                   <option v-for="(label, value) in lineItemTypeMap" :key="value" :value="value">{{ label }}</option>
                 </select>
               </label>
-              <label class="line-field">
+              <label class="line-field line-product">
                 <span>商品</span>
                 <select v-if="item.type === 'PART'" v-model.number="item.product_id" :disabled="!canEditWorkOrder || membershipSelectionLocked || isLineItemInventoryLocked(item)" @change="applyProductToLine(item)">
                   <option :value="null">不綁商品 / 不扣庫存</option>
@@ -384,15 +384,15 @@
                 </select>
                 <input v-else value="不適用" disabled />
               </label>
-              <label class="line-field">
+              <label class="line-field line-name">
                 <span>明細名稱</span>
                 <input v-model.trim="item.name" :disabled="!canEditWorkOrder || membershipSelectionLocked || isLineItemInventoryLocked(item)" placeholder="明細名稱" />
               </label>
-              <label class="line-field">
+              <label class="line-field line-quantity">
                 <span>數量</span>
                 <input v-model.number="item.quantity" type="number" min="1" :disabled="!canEditWorkOrder || membershipSelectionLocked || isLineItemInventoryLocked(item)" />
               </label>
-              <label class="line-field">
+              <label class="line-field line-price">
                 <span>單價</span>
                 <input v-model.number="item.unit_price" type="number" min="0" :disabled="!canEditWorkOrder || membershipSelectionLocked || isLineItemInventoryLocked(item)" />
               </label>
@@ -1346,6 +1346,7 @@ watch(
   }
 
   .modal-content {
+    box-sizing: border-box;
     width: min(96vw, 920px);
     background-color: $dark-grey;
     border: 1px solid $medium-grey;
@@ -1353,6 +1354,7 @@ watch(
     padding: 1.5rem;
     box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
 
+    &.large,
     &.xlarge {
       width: min(98vw, 1180px);
     }
@@ -1469,6 +1471,7 @@ watch(
   .line-editor {
     display: grid;
     gap: 0.55rem;
+    container-type: inline-size;
   }
 
   .line-row {
@@ -1477,6 +1480,12 @@ watch(
     gap: 0.5rem;
     align-items: end;
     min-width: 0;
+
+    .line-type { grid-column: 1; }
+    .line-product { grid-column: 2; }
+    .line-name { grid-column: 3; }
+    .line-quantity { grid-column: 4; }
+    .line-price { grid-column: 5; }
 
     .line-field {
       display: grid;
@@ -1561,6 +1570,37 @@ watch(
     }
   }
 
+  @container (max-width: 900px) {
+    .line-row {
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      row-gap: 0.65rem;
+
+      .line-type { grid-column: 1 / span 2; }
+      .line-product { grid-column: 3 / span 3; }
+      .line-name { grid-column: 6 / span 3; }
+      .line-quantity { grid-column: 9 / span 2; }
+      .line-price { grid-column: 11 / span 2; }
+
+      .membership-toggle {
+        grid-column: 1 / span 4;
+        grid-row: 2;
+      }
+
+      .line-total {
+        grid-column: 9 / span 3;
+        grid-row: 2;
+        justify-self: end;
+        min-width: 96px;
+      }
+
+      > .icon-btn {
+        grid-column: 12;
+        grid-row: 2;
+        justify-self: end;
+      }
+    }
+  }
+
   .total-row {
     display: flex;
     justify-content: flex-end;
@@ -1618,6 +1658,14 @@ watch(
     .line-row {
       grid-template-columns: 1fr;
       align-items: stretch;
+
+      .line-type,
+      .line-product,
+      .line-name,
+      .line-quantity,
+      .line-price {
+        grid-column: auto;
+      }
 
       .line-total,
       .membership-toggle,
