@@ -122,6 +122,10 @@ export const updateMemberMotor = async (motorId, data) => {
   return await api.put(`/motors/${motorId}`, data);
 };
 
+export const deleteMemberMotor = async (motorId) => {
+  return await api.delete(`/motors/${motorId}`);
+};
+
 export const updateGuestCustomer = async (id, data) => {
   return await api.put(`/guest-customers/${id}`, data);
 };
@@ -132,6 +136,10 @@ export const createGuestMotor = async (guestId, data) => {
 
 export const updateGuestMotor = async (guestId, motorId, data) => {
   return await api.put(`/customers/guest/${guestId}/motors/${motorId}`, data);
+};
+
+export const deleteGuestMotor = async (guestId, motorId) => {
+  return await api.delete(`/customers/guest/${guestId}/motors/${motorId}`);
 };
 
 // ======= 公告管理 =======

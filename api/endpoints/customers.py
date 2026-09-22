@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session, joinedload
 
-from api.dependencies.admin_auth import require_admin, require_manager_admin
+from api.dependencies.admin_auth import require_admin, require_manager_admin, require_super_admin
 from db import crud, models
 from db.database import get_db
 from db.points import get_user_point_summary
@@ -367,3 +367,16 @@ def update_guest_motor(
         raise HTTPException(status_code=404, detail="找不到該散客車輛")
     updated_motor = crud.update_guest_motor(db, guest_motor_id=motor_id, motor_update=motor_in)
     return updated_motor
+
+
+@router.delete("/guest/{guest_id}/motors/{motor_id}", response_model=guest_schema.GuestMotor, summary="軟刪除散客車輛")
+def delete_guest_motor(
+    guest_id: int,
+    motor_id: int,
+    admin=Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    db_motor = crud.get_guest_motor(db, guest_motor_id=motor_id)
+    if not db_motor or db_motor.guest_customer_id != guest_id or db_motor.status is not None:
+        raise HTTPException(status_code=404, detail="找不到該散客車輛")
+    return crud.delete_guest_motor(db, guest_motor_id=motor_id)

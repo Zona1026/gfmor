@@ -1312,6 +1312,17 @@ def update_guest_motor(db: Session, guest_motor_id: int, motor_update: GuestMoto
     db.refresh(db_motor)
     return db_motor
 
+
+def delete_guest_motor(db: Session, guest_motor_id: int):
+    db_motor = get_guest_motor(db, guest_motor_id=guest_motor_id)
+    if not db_motor:
+        return None
+    db_motor.status = "已刪除"
+    db.add(db_motor)
+    db.commit()
+    db.refresh(db_motor)
+    return db_motor
+
 def delete_motor(db: Session, motor_id: int):
     """
     根據 ID 軟刪除指定的車籍資料。

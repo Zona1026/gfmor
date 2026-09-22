@@ -173,7 +173,19 @@
                     <td>{{ vehicle.model_name || '未填' }}</td>
                     <td>{{ vehicle.mileage ? formatNumber(vehicle.mileage) : '未填' }}</td>
                     <td>{{ vehicle.vin || '未填' }}</td>
-                    <td><button v-if="canManageCustomers" class="btn btn-sm" type="button" @click="startEditVehicle(vehicle)">編輯</button></td>
+                    <td class="action-cell">
+                      <template v-if="canManageCustomers">
+                        <button class="btn btn-sm" type="button" :disabled="deletingVehicleKey === vehicleKey(vehicle)" @click="startEditVehicle(vehicle)">編輯</button>
+                        <button
+                          class="btn btn-sm btn-danger"
+                          type="button"
+                          :disabled="deletingVehicleKey === vehicleKey(vehicle)"
+                          @click="removeVehicle(vehicle)"
+                        >
+                          {{ deletingVehicleKey === vehicleKey(vehicle) ? '刪除中...' : '刪除' }}
+                        </button>
+                      </template>
+                    </td>
                   </template>
                 </tr>
               </tbody>
@@ -272,6 +284,8 @@ import { storeToRefs } from 'pinia';
 import {
   createGuestMotor,
   createMemberMotor,
+  deleteGuestMotor,
+  deleteMemberMotor,
   getCustomerDetail,
   getCustomers,
   updateGuestCustomer,
@@ -301,6 +315,7 @@ const profileDraft = ref(defaultProfileDraft());
 const editingVehicleKey = ref('');
 const vehicleDraft = ref({});
 const savingVehicle = ref(false);
+const deletingVehicleKey = ref('');
 const addingVehicle = ref(false);
 const newVehicle = ref(defaultVehicle());
 
@@ -546,6 +561,28 @@ const saveVehicle = async (vehicle) => {
   }
 };
 
+const removeVehicle = async (vehicle) => {
+  if (!selectedCustomer.value || !canManageCustomers.value) return;
+  const plate = vehicle.license_plate || '未填車牌';
+  if (!confirm(`確定要刪除車輛「${plate}」嗎？刪除後將不再顯示。`)) return;
+
+  deletingVehicleKey.value = vehicleKey(vehicle);
+  try {
+    if (selectedCustomer.value.customer_type === 'member') {
+      await deleteMemberMotor(vehicle.id);
+    } else {
+      await deleteGuestMotor(selectedCustomer.value.customer_id, vehicle.id);
+    }
+    if (editingVehicleKey.value === vehicleKey(vehicle)) cancelEditVehicle();
+    await refreshCurrentDetail();
+    await fetchCustomers();
+  } catch (error) {
+    alert(`刪除車輛失敗：${getErrorMessage(error)}`);
+  } finally {
+    deletingVehicleKey.value = '';
+  }
+};
+
 const addVehicle = async () => {
   if (!selectedCustomer.value || !canManageCustomers.value) return;
   const payload = cleanVehiclePayload(newVehicle.value);
@@ -779,6 +816,16 @@ onMounted(fetchCustomers);
     &.btn-save {
       background-color: $primary-color;
       color: #fff;
+    }
+
+    &.btn-danger {
+      border-color: #e53935;
+      color: #ef5350;
+
+      &:hover {
+        background-color: #e53935;
+        color: #fff;
+      }
     }
   }
 
