@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -101,7 +101,7 @@ class WorkOrderLineItemBase(BaseModel):
     name: str
     description: Optional[str] = None
     product_id: Optional[int] = None
-    quantity: int = 1
+    quantity: int = Field(default=1, gt=0)
     unit_price: int = 0
     is_confirmed: int = 1
     counts_toward_membership: bool = False
@@ -109,6 +109,10 @@ class WorkOrderLineItemBase(BaseModel):
 
 class WorkOrderLineItemCreate(WorkOrderLineItemBase):
     pass
+
+
+class WorkOrderLineItemUpdate(WorkOrderLineItemBase):
+    id: Optional[int] = None
 
 
 class WorkOrderPurchaseRequestSummary(BaseModel):
@@ -132,6 +136,8 @@ class WorkOrderLineItem(WorkOrderLineItemBase):
     inventory_consumed_quantity: int = 0
     inventory_shortage_quantity: int = 0
     inventory_deducted: int = 0
+    fulfillment_status: Optional[str] = None
+    fulfillment_status_updated_at: Optional[datetime] = None
     line_total: int = 0
     product: Optional[Product] = None
     purchase_requests: List[WorkOrderPurchaseRequestSummary] = Field(default_factory=list)
@@ -139,6 +145,10 @@ class WorkOrderLineItem(WorkOrderLineItemBase):
 
     class Config:
         from_attributes = True
+
+
+class WorkOrderLineItemFulfillmentStatusUpdate(BaseModel):
+    status: Literal["RESERVED", "ORDERED", "ARRIVED"]
 
 
 class WorkOrderPaymentCreate(BaseModel):
@@ -177,6 +187,10 @@ class WorkOrderApproval(BaseModel):
 class WorkOrderApprovalReview(BaseModel):
     reviewed_by: Optional[str] = None
     note: Optional[str] = None
+
+
+class WorkOrderSupervisorReview(BaseModel):
+    reviewed_by: Optional[str] = None
 
 
 class WorkOrderApprovalWorkOrderSummary(BaseModel):
@@ -229,7 +243,7 @@ class WorkOrderUpdate(BaseModel):
     scheduled_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     notes: Optional[str] = None
-    line_items: Optional[List[WorkOrderLineItemCreate]] = None
+    line_items: Optional[List[WorkOrderLineItemUpdate]] = None
 
 
 class WorkOrderDeleteCreate(BaseModel):
@@ -267,6 +281,8 @@ class WorkOrder(BaseModel):
     notes: Optional[str] = None
     created_at: datetime
     completed_at: Optional[datetime] = None
+    supervisor_reviewed_at: Optional[datetime] = None
+    supervisor_reviewed_by: Optional[str] = None
     deleted_at: Optional[datetime] = None
     deleted_by: Optional[str] = None
     delete_reason: Optional[str] = None

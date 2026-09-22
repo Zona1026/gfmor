@@ -485,6 +485,9 @@ def _request_inventory_consumption_approval(db_work_order):
 
 
 def _sync_work_order_approvals(db_work_order):
+    if db_work_order.supervisor_reviewed_at:
+        return
+
     discount_total = sum(
         _line_total(item)
         for item in db_work_order.line_items
@@ -549,7 +552,8 @@ def _build_line_item(db: Session, item_in: WorkOrderLineItemCreate):
         if not item_data.get("name"):
             item_data["name"] = db_product.name
 
-    if not item_data.get("name"):
+    item_data["name"] = (item_data.get("name") or "").strip()
+    if not item_data["name"]:
         raise ValueError("工單明細名稱為必填")
 
     db_item = models.WorkOrderLineItem(**item_data)
@@ -924,16 +928,51 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
     line_items_data = update_data.pop("line_items", None)
 
     if line_items_data is not None:
+        if db_work_order.supervisor_reviewed_at:
+            raise ValueError("主管已審核，不能修改工單明細或會員累積資格")
+
+        existing_line_items = {item.id: item for item in db_work_order.line_items}
         if (db_work_order.paid_amount or 0) > 0:
-            raise ValueError("已有付款紀錄，不能修改工單明細或會員累積資格")
-        if any(item.inventory_deducted or (item.inventory_consumed_quantity or 0) > 0 for item in db_work_order.line_items):
-            raise ValueError("已扣庫存的工單明細不可整批覆蓋，請用追加明細處理")
-        _detach_work_order_purchase_requests(db, db_work_order)
-        _release_work_order_inventory(db, db_work_order)
-        db_work_order.line_items = [_build_line_item(db, WorkOrderLineItemCreate(**item)) for item in line_items_data]
-        _recalculate_work_order_total(db_work_order)
-        _sync_payment_status(db_work_order)
-        _sync_work_order_approvals(db_work_order)
+            incoming_ids = {item.get("id") for item in line_items_data}
+            if (
+                None in incoming_ids
+                or len(line_items_data) != len(existing_line_items)
+                or incoming_ids != set(existing_line_items)
+            ):
+                raise ValueError("已有付款紀錄，只能修改會員累積資格")
+
+            immutable_fields = ("type", "name", "description", "product_id", "quantity", "unit_price", "is_confirmed")
+            for item_data in line_items_data:
+                existing_item = existing_line_items[item_data["id"]]
+                for field in immutable_fields:
+                    incoming_value = item_data.get(field)
+                    existing_value = getattr(existing_item, field)
+                    if field == "name":
+                        incoming_value = (incoming_value or "").strip()
+                    elif field == "description":
+                        incoming_value = incoming_value or None
+                        existing_value = existing_value or None
+                    if incoming_value != existing_value:
+                        raise ValueError("已有付款紀錄，只能修改會員累積資格")
+                existing_item.counts_toward_membership = bool(item_data.get("counts_toward_membership"))
+        else:
+            if any(item.inventory_deducted or (item.inventory_consumed_quantity or 0) > 0 for item in db_work_order.line_items):
+                raise ValueError("已扣庫存的工單明細不可整批覆蓋，請用追加明細處理")
+            _detach_work_order_purchase_requests(db, db_work_order)
+            _release_work_order_inventory(db, db_work_order)
+            rebuilt_line_items = []
+            for item in line_items_data:
+                item_id = item.get("id")
+                rebuilt_item = _build_line_item(db, WorkOrderLineItemCreate(**item))
+                existing_item = existing_line_items.get(item_id)
+                if existing_item:
+                    rebuilt_item.fulfillment_status = existing_item.fulfillment_status
+                    rebuilt_item.fulfillment_status_updated_at = existing_item.fulfillment_status_updated_at
+                rebuilt_line_items.append(rebuilt_item)
+            db_work_order.line_items = rebuilt_line_items
+            _recalculate_work_order_total(db_work_order)
+            _sync_payment_status(db_work_order)
+            _sync_work_order_approvals(db_work_order)
 
     for key, value in update_data.items():
         if key == "status":
@@ -946,7 +985,14 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
                 models.WorkOrderStatus.AWAITING_PAYMENT,
                 models.WorkOrderStatus.COMPLETED,
             ]:
-                _request_inventory_consumption_approval(db_work_order)
+                if db_work_order.supervisor_reviewed_at:
+                    _consume_work_order_inventory(
+                        db,
+                        db_work_order,
+                        actor=db_work_order.supervisor_reviewed_by,
+                    )
+                else:
+                    _request_inventory_consumption_approval(db_work_order)
             if target_status in APPROVAL_GATED_STATUSES:
                 _sync_work_order_approvals(db_work_order)
                 if _has_blocking_approval(db_work_order, target_status=target_status):
@@ -1002,6 +1048,8 @@ def add_work_order_line_item(db: Session, work_order_id: int, item: WorkOrderLin
     db_work_order = get_work_order(db, work_order_id)
     if not db_work_order:
         return None
+    if db_work_order.supervisor_reviewed_at:
+        raise ValueError("主管已審核，不能新增工單明細")
     if (db_work_order.paid_amount or 0) > 0:
         raise ValueError("已有付款紀錄，不能新增工單明細")
     db_item = _build_line_item(db, item)
@@ -1009,6 +1057,34 @@ def add_work_order_line_item(db: Session, work_order_id: int, item: WorkOrderLin
     _recalculate_work_order_total(db_work_order)
     _sync_payment_status(db_work_order)
     _sync_work_order_approvals(db_work_order)
+    db.commit()
+    return get_work_order(db, work_order_id)
+
+
+def update_work_order_line_item_fulfillment_status(
+    db: Session,
+    work_order_id: int,
+    line_item_id: int,
+    fulfillment_status: str,
+):
+    db_line_item = (
+        db.query(models.WorkOrderLineItem)
+        .filter(
+            models.WorkOrderLineItem.id == line_item_id,
+            models.WorkOrderLineItem.work_order_id == work_order_id,
+        )
+        .first()
+    )
+    if not db_line_item:
+        return None
+
+    allowed_statuses = {"RESERVED", "ORDERED", "ARRIVED"}
+    if fulfillment_status not in allowed_statuses:
+        raise ValueError("明細狀態不正確")
+
+    db_line_item.fulfillment_status = fulfillment_status
+    db_line_item.fulfillment_status_updated_at = datetime.utcnow()
+    db.add(db_line_item)
     db.commit()
     return get_work_order(db, work_order_id)
 
@@ -1086,6 +1162,47 @@ def review_work_order_approval(
     db.commit()
     db.refresh(db_approval)
     return db_approval
+
+
+def confirm_work_order_supervisor_review(db: Session, work_order_id: int, reviewed_by: str = None):
+    db_work_order = get_work_order(db, work_order_id)
+    if not db_work_order:
+        return None
+    if db_work_order.supervisor_reviewed_at:
+        return db_work_order
+
+    reviewed_at = datetime.utcnow()
+    pending_approvals = [
+        approval for approval in db_work_order.approvals
+        if approval.status == models.WorkOrderApprovalStatus.PENDING
+    ]
+    pending_types = {approval.type for approval in pending_approvals}
+
+    for approval in pending_approvals:
+        approval.status = models.WorkOrderApprovalStatus.APPROVED
+        approval.reviewed_by = reviewed_by
+        approval.reviewed_at = reviewed_at
+
+    if models.WorkOrderApprovalType.INVENTORY_RESERVATION in pending_types:
+        _reserve_work_order_inventory(db, db_work_order, actor=reviewed_by)
+    if models.WorkOrderApprovalType.INVENTORY_CONSUMPTION in pending_types:
+        _consume_work_order_inventory(db, db_work_order, actor=reviewed_by)
+        if (
+            db_work_order.status == models.WorkOrderStatus.AWAITING_PAYMENT
+            and db_work_order.payment_status == models.WorkOrderPaymentStatus.PAID
+            and _inventory_fully_consumed(db_work_order)
+        ):
+            db_work_order.status = models.WorkOrderStatus.COMPLETED
+            db_work_order.completed_at = db_work_order.completed_at or reviewed_at
+
+    if db_work_order.status == models.WorkOrderStatus.SUPERVISOR_APPROVAL_PENDING:
+        db_work_order.status = models.WorkOrderStatus.IN_PROGRESS
+    db_work_order.supervisor_reviewed_at = reviewed_at
+    db_work_order.supervisor_reviewed_by = reviewed_by
+    membership_service.sync_work_order_membership_consumption(db, db_work_order)
+    db.add(db_work_order)
+    db.commit()
+    return get_work_order(db, work_order_id)
 
 from schemas.motor import MotorUpdate
 from schemas.guest_customer import GuestMotorCreate, GuestMotorUpdate

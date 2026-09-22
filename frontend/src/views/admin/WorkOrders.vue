@@ -5,18 +5,35 @@
         <h2>工單管理</h2>
         <p>以車牌快速找單，並管理報價、施工、收款與主管審核。</p>
       </div>
-      <button v-if="canEditWorkOrder" class="btn btn-primary" @click="openCreateModal">新增工單</button>
+      <button v-if="canCreateWorkOrder" class="btn btn-primary" @click="openCreateModal">新增工單</button>
     </div>
 
-    <div class="quick-tabs">
+    <div class="filter-bar">
+      <label class="filter-control">
+        <span>依工單類型篩選</span>
+        <select v-model="serviceTypeFilter" @change="applyFilters">
+          <option value="">全部類型</option>
+          <option v-for="option in serviceTypeFilterOptions" :key="option.value" :value="option.value">
+            {{ option.label }}
+          </option>
+        </select>
+      </label>
+      <label class="filter-control">
+        <span>依工單狀態篩選</span>
+        <select v-model="statusSelectFilter" @change="applyFilters">
+          <option value="">全部狀態</option>
+          <option v-for="option in statusFilterOptions" :key="option.value" :value="option.value">
+            {{ option.label }}
+          </option>
+        </select>
+      </label>
       <button
-        v-for="option in filterOptions"
-        :key="option.value"
-        class="filter-btn"
-        :class="{ active: activeFilter === option.value || (option.value === 'all' && !activeFilter) }"
-        @click="setFilter(option.value)"
+        type="button"
+        class="btn btn-outline supervisor-filter-btn"
+        :class="{ active: statusFilter === 'SUPERVISOR_APPROVAL_PENDING' }"
+        @click="showSupervisorPendingWorkOrders"
       >
-        {{ option.label }}
+        待主管確認
       </button>
     </div>
 
@@ -83,7 +100,7 @@
       <div v-else class="empty-state">目前沒有符合條件的工單。</div>
     </div>
 
-    <div v-if="showCreateModal && canEditWorkOrder" class="modal-overlay" @click.self="closeCreateModal">
+    <div v-if="showCreateModal && canCreateWorkOrder" class="modal-overlay" @click.self="closeCreateModal">
       <div class="modal-content large">
         <div class="modal-header">
           <h3>新增工單</h3>
@@ -100,7 +117,7 @@
 
             <div v-if="createSource === 'member'" class="source-grid">
               <div class="form-row search-row">
-                <input v-model.trim="memberSearch" placeholder="輸入會員姓名搜尋" @keyup.enter.prevent="handleMemberSearch" />
+                <input v-model.trim="memberSearch" placeholder="輸入會員姓名搜尋" @keydown.enter.prevent="handleMemberSearch" />
                 <button type="button" class="btn btn-outline" @click="handleMemberSearch">搜尋會員</button>
               </div>
               <label>
@@ -116,7 +133,7 @@
 
             <div v-else class="source-grid">
               <div class="form-row search-row">
-                <input v-model.trim="guestSearch" placeholder="輸入散客姓名或電話搜尋" @keyup.enter.prevent="handleGuestSearch" />
+                <input v-model.trim="guestSearch" placeholder="輸入散客姓名或電話搜尋" @keydown.enter.prevent="handleGuestSearch" />
                 <button type="button" class="btn btn-outline" @click="handleGuestSearch">搜尋散客</button>
               </div>
               <div v-if="guestResults.length" class="result-list">
@@ -216,11 +233,11 @@
                 </label>
                 <label class="line-field line-name">
                   <span>明細名稱</span>
-                  <input v-model.trim="item.name" placeholder="明細名稱" />
+                  <input v-model.trim="item.name" placeholder="明細名稱" required />
                 </label>
                 <label class="line-field line-quantity">
                   <span>數量</span>
-                  <input v-model.number="item.quantity" type="number" min="1" />
+                  <input v-model.number="item.quantity" type="number" min="1" step="1" required />
                 </label>
                 <label class="line-field line-price">
                   <span>單價</span>
@@ -364,19 +381,19 @@
         <section class="form-section">
           <div class="section-title-row">
             <h4>施工 / 零件 / 工資 / 折扣明細</h4>
-            <button v-if="canEditWorkOrder" type="button" class="btn btn-outline" :disabled="membershipSelectionLocked" @click="addDetailLineItem">新增明細</button>
+            <button v-if="canEditWorkOrder" type="button" class="btn btn-outline" :disabled="lineItemEditingLocked" @click="addDetailLineItem">新增明細</button>
           </div>
           <div class="line-editor">
             <div v-for="(item, index) in detailLineItems" :key="item.id || index" class="line-row">
               <label class="line-field line-type">
                 <span>類型</span>
-                <select v-model="item.type" :disabled="!canEditWorkOrder || membershipSelectionLocked || isLineItemInventoryLocked(item)">
+                <select v-model="item.type" :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)">
                   <option v-for="(label, value) in lineItemTypeMap" :key="value" :value="value">{{ label }}</option>
                 </select>
               </label>
               <label class="line-field line-product">
                 <span>商品</span>
-                <select v-if="item.type === 'PART'" v-model.number="item.product_id" :disabled="!canEditWorkOrder || membershipSelectionLocked || isLineItemInventoryLocked(item)" @change="applyProductToLine(item)">
+                <select v-if="item.type === 'PART'" v-model.number="item.product_id" :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)" @change="applyProductToLine(item)">
                   <option :value="null">不綁商品 / 不扣庫存</option>
                   <option v-for="product in products" :key="product.id" :value="product.id">
                     {{ product.name }}
@@ -386,15 +403,15 @@
               </label>
               <label class="line-field line-name">
                 <span>明細名稱</span>
-                <input v-model.trim="item.name" :disabled="!canEditWorkOrder || membershipSelectionLocked || isLineItemInventoryLocked(item)" placeholder="明細名稱" />
+                <input v-model.trim="item.name" :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)" placeholder="明細名稱" required />
               </label>
               <label class="line-field line-quantity">
                 <span>數量</span>
-                <input v-model.number="item.quantity" type="number" min="1" :disabled="!canEditWorkOrder || membershipSelectionLocked || isLineItemInventoryLocked(item)" />
+                <input v-model.number="item.quantity" type="number" min="1" step="1" required :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)" />
               </label>
               <label class="line-field line-price">
                 <span>單價</span>
-                <input v-model.number="item.unit_price" type="number" min="0" :disabled="!canEditWorkOrder || membershipSelectionLocked || isLineItemInventoryLocked(item)" />
+                <input v-model.number="item.unit_price" type="number" min="0" :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)" />
               </label>
               <label class="membership-toggle">
                 <input
@@ -409,7 +426,7 @@
                 <strong>NT$ {{ lineItemTotal(item).toLocaleString() }}</strong>
                 <small v-if="item.type === 'PART'">{{ inventoryStatusText(item) }}</small>
               </div>
-              <button v-if="canEditWorkOrder" type="button" class="icon-btn danger" :disabled="membershipSelectionLocked || isLineItemInventoryLocked(item)" @click="removeDetailLineItem(index)">×</button>
+              <button v-if="canEditWorkOrder" type="button" class="icon-btn danger" :disabled="lineItemEditingLocked || isLineItemInventoryLocked(item)" @click="removeDetailLineItem(index)">×</button>
             </div>
           </div>
           <div class="total-row">
@@ -420,49 +437,59 @@
             <span>可列入會員累積</span>
             <strong>NT$ {{ detailMembershipTotal.toLocaleString() }}</strong>
           </div>
-          <div v-if="membershipSelectionLocked" class="muted-line">已有付款紀錄，會員累積資格已鎖定。</div>
+          <div v-if="supervisorReviewLocked" class="muted-line">主管已審核，工單明細與會員累積資格已鎖定。</div>
+          <div v-else-if="hasPaymentRecord" class="muted-line">已有付款紀錄，明細內容已鎖定；會員累積資格可在主管審核前調整。</div>
           <div v-if="canEditWorkOrder" class="form-actions">
             <button class="btn btn-primary" @click="saveWorkOrder" :disabled="saving">儲存工單</button>
           </div>
         </section>
 
         <section class="form-section">
-          <h4>主管審核</h4>
-          <div v-if="pendingInventoryApprovals.length" class="approval-actions">
-            <template v-if="canReviewApprovals">
-              <button
-                v-for="approval in pendingInventoryApprovals"
-                :key="approval.id"
-                class="btn btn-primary"
-                @click="reviewDetailApproval(approval.id, true)"
-              >
-                {{ inventoryApprovalActionLabel(approval.type) }}
-              </button>
-              <button
-                v-for="approval in pendingInventoryApprovals"
-                :key="`reject-${approval.id}`"
-                class="btn btn-danger"
-                @click="reviewDetailApproval(approval.id, false)"
-              >
-                退回{{ approvalTypeMap[approval.type] || '' }}
-              </button>
-            </template>
-            <span v-else class="warning-text">此工單有庫存確認項目，僅最高級可處理。</span>
+          <div class="section-title-row line-status-heading">
+            <h4>明細狀態</h4>
+            <button
+              v-if="canReviewApprovals && !supervisorReviewLocked"
+              type="button"
+              class="btn btn-primary"
+              :disabled="reviewingWorkOrder"
+              @click="confirmSupervisorReview"
+            >
+              {{ reviewingWorkOrder ? '審核中...' : '確認審核' }}
+            </button>
+            <span v-else-if="supervisorReviewLocked" class="reviewed-label">
+              已審核
+            </span>
           </div>
-          <table v-if="selectedWorkOrder.approvals?.length" class="mini-table">
-            <thead>
-              <tr><th>類型</th><th>原因</th><th>狀態</th><th>建立時間</th></tr>
-            </thead>
-            <tbody>
-              <tr v-for="approval in selectedWorkOrder.approvals" :key="approval.id">
-                <td>{{ approvalTypeMap[approval.type] || approval.type }}</td>
-                <td>{{ approval.reason || approval.title }}</td>
-                <td>{{ approvalStatusMap[approval.status] || approval.status }}</td>
-                <td>{{ formatDateTime(approval.requested_at) }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <div v-else class="muted-line">目前沒有主管審核項目。</div>
+          <div v-if="selectedWorkOrder.line_items?.length" class="line-status-table-wrap">
+            <table class="mini-table line-status-table">
+              <thead>
+                <tr><th>類型</th><th>名稱</th><th>狀態</th><th>最後更新時間</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in selectedWorkOrder.line_items" :key="item.id">
+                  <td>{{ lineItemTypeMap[item.type] || item.type }}</td>
+                  <td>{{ item.name }}</td>
+                  <td>
+                    <select
+                      :value="item.fulfillment_status || ''"
+                      :disabled="!canReviewApprovals || updatingFulfillmentItemId === item.id"
+                      @change="updateLineItemFulfillment(item, $event.target.value)"
+                    >
+                      <option value="" disabled>請選擇</option>
+                      <option v-for="(label, value) in fulfillmentStatusMap" :key="value" :value="value">
+                        {{ label }}
+                      </option>
+                    </select>
+                  </td>
+                  <td>{{ formatDateTime(item.fulfillment_status_updated_at || item.created_at) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="muted-line">目前沒有工單明細。</div>
+          <div v-if="!canReviewApprovals && selectedWorkOrder.line_items?.length" class="muted-line">
+            僅最高級管理員可更新明細狀態。
+          </div>
         </section>
       </div>
     </div>
@@ -504,7 +531,7 @@ import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
 import {
   addWorkOrderPayment,
-  approveWorkOrderApproval,
+  confirmWorkOrderReview,
   createWorkOrder,
   deleteWorkOrder,
   getGuestCustomers,
@@ -512,9 +539,9 @@ import {
   getStaffAdmins,
   getWorkOrder,
   getWorkOrders,
-  rejectWorkOrderApproval,
   searchUsersByName,
-  updateWorkOrder
+  updateWorkOrder,
+  updateWorkOrderLineItemFulfillmentStatus
 } from '../../api/admin';
 import { useAuthStore } from '../../store/auth';
 
@@ -528,12 +555,14 @@ const saving = ref(false);
 const workOrders = ref([]);
 const products = ref([]);
 const staffAdmins = ref([]);
-const activeFilter = ref('');
+const serviceTypeFilter = ref('');
+const statusFilter = ref('');
 const searchKeyword = ref('');
 const filterDate = ref('');
 const workOrderEditorRoles = ['最高級', '管理層'];
 const defaultResponsibleStaff = '火腿';
 const paymentMethodOptions = ['現金', '轉帳', 'Linepay'];
+const canCreateWorkOrder = computed(() => ['最高級', '管理層', '一般'].includes(adminUser.value?.role));
 const canEditWorkOrder = computed(() => workOrderEditorRoles.includes(adminUser.value?.role));
 const canUseCriticalWorkOrder = computed(() => canEditWorkOrder.value);
 const canReviewApprovals = computed(() => adminUser.value?.role === '最高級');
@@ -554,14 +583,8 @@ const detailLineItems = ref([]);
 const paymentForm = ref({ amount: null, method: '', note: '' });
 const showDeleteModal = ref(false);
 const deleteForm = ref({ reason: '' });
-const pendingInventoryApprovals = computed(() => {
-  return (selectedWorkOrder.value?.approvals || []).filter(approval => {
-    return approval.status === 'PENDING' && [
-      'INVENTORY_RESERVATION',
-      'INVENTORY_CONSUMPTION'
-    ].includes(approval.type);
-  });
-});
+const updatingFulfillmentItemId = ref(null);
+const reviewingWorkOrder = ref(false);
 
 const serviceTypeMap = {
   REPAIR: '維修',
@@ -594,31 +617,32 @@ const lineItemTypeMap = {
   DISCOUNT: '折扣'
 };
 
-const approvalTypeMap = {
-  DISCOUNT: '折扣',
-  HIGH_QUOTE: '高額報價',
-  STATUS_CHANGE: '狀態變更',
-  INVENTORY_RESERVATION: '確認預留',
-  INVENTORY_CONSUMPTION: '確認扣庫存'
+const fulfillmentStatusMap = {
+  RESERVED: '已預留',
+  ORDERED: '已叫貨',
+  ARRIVED: '已到貨'
 };
 
-const approvalStatusMap = {
-  PENDING: '待審核',
-  APPROVED: '已核准',
-  REJECTED: '已退回'
-};
-
-const filterOptions = [
-  { label: '全部工單', value: 'all' },
-  { label: '維修工單', value: 'service:REPAIR' },
-  { label: '保養工單', value: 'service:MAINTENANCE' },
-  { label: '改裝工單', value: 'service:MODIFICATION' },
-  { label: '待檢查', value: 'status:INSPECTION_PENDING' },
-  { label: '待報價', value: 'status:QUOTE_PENDING' },
-  { label: '施工中', value: 'status:IN_PROGRESS' },
-  { label: '待收款', value: 'status:AWAITING_PAYMENT' },
-  { label: '已完工', value: 'status:COMPLETED' }
+const serviceTypeFilterOptions = [
+  { label: '維修工單', value: 'REPAIR' },
+  { label: '保養工單', value: 'MAINTENANCE' },
+  { label: '改裝工單', value: 'MODIFICATION' }
 ];
+
+const statusFilterOptions = [
+  { label: '待檢查', value: 'INSPECTION_PENDING' },
+  { label: '施工中', value: 'IN_PROGRESS' },
+  { label: '待收款', value: 'AWAITING_PAYMENT' },
+  { label: '已完工', value: 'COMPLETED' }
+];
+
+const selectableStatusFilterValues = new Set(statusFilterOptions.map(option => option.value));
+const statusSelectFilter = computed({
+  get: () => selectableStatusFilterValues.has(statusFilter.value) ? statusFilter.value : '',
+  set: value => {
+    statusFilter.value = value;
+  }
+});
 
 const gatedStatuses = ['IN_PROGRESS', 'AWAITING_PAYMENT', 'COMPLETED'];
 
@@ -640,7 +664,10 @@ const createTotal = computed(() => calculateTotal(createLineItems.value));
 const detailTotal = computed(() => calculateTotal(detailLineItems.value));
 const createMembershipTotal = computed(() => calculateMembershipTotal(createLineItems.value));
 const detailMembershipTotal = computed(() => calculateMembershipTotal(detailLineItems.value));
-const membershipSelectionLocked = computed(() => Number(selectedWorkOrder.value?.paid_amount || 0) > 0);
+const supervisorReviewLocked = computed(() => Boolean(selectedWorkOrder.value?.supervisor_reviewed_at));
+const hasPaymentRecord = computed(() => Number(selectedWorkOrder.value?.paid_amount || 0) > 0);
+const lineItemEditingLocked = computed(() => hasPaymentRecord.value || supervisorReviewLocked.value);
+const membershipSelectionLocked = computed(() => supervisorReviewLocked.value);
 const responsibleStaffOptions = computed(() => {
   const names = staffAdmins.value
     .map(admin => admin.full_name || admin.username)
@@ -685,16 +712,22 @@ function defaultLineItem() {
 const readQuery = () => {
   searchKeyword.value = typeof route.query.q === 'string' ? route.query.q : '';
   filterDate.value = typeof route.query.date === 'string' ? route.query.date : '';
-  if (typeof route.query.status === 'string') {
-    activeFilter.value = route.query.status === 'active' ? 'active' : `status:${route.query.status}`;
-  } else {
-    activeFilter.value = typeof route.query.view === 'string' ? route.query.view : '';
+  serviceTypeFilter.value = typeof route.query.service_type === 'string' ? route.query.service_type : '';
+  statusFilter.value = typeof route.query.status === 'string' ? route.query.status : '';
+
+  const legacyView = typeof route.query.view === 'string' ? route.query.view : '';
+  if (!serviceTypeFilter.value && legacyView.startsWith('service:')) {
+    serviceTypeFilter.value = legacyView.split(':')[1];
+  }
+  if (!statusFilter.value && legacyView.startsWith('status:')) {
+    statusFilter.value = legacyView.split(':')[1];
   }
 };
 
 const buildQuery = () => {
   const query = {};
-  if (activeFilter.value && activeFilter.value !== 'active') query.view = activeFilter.value;
+  if (serviceTypeFilter.value) query.service_type = serviceTypeFilter.value;
+  if (statusFilter.value) query.status = statusFilter.value;
   if (searchKeyword.value) query.q = searchKeyword.value;
   if (filterDate.value) query.date = filterDate.value;
   return query;
@@ -702,13 +735,8 @@ const buildQuery = () => {
 
 const filterToParams = () => {
   const params = { skip: 0, limit: 200 };
-  if (activeFilter.value === 'active') {
-    params.status = 'active';
-  } else if (activeFilter.value?.startsWith('status:')) {
-    params.status = activeFilter.value.split(':')[1];
-  } else if (activeFilter.value?.startsWith('service:')) {
-    params.service_type = activeFilter.value.split(':')[1];
-  }
+  if (serviceTypeFilter.value) params.service_type = serviceTypeFilter.value;
+  if (statusFilter.value) params.status = statusFilter.value;
   if (searchKeyword.value) params.q = searchKeyword.value;
   if (filterDate.value) params.date_str = filterDate.value;
   return params;
@@ -719,8 +747,10 @@ const applyFilters = async () => {
   await fetchWorkOrders();
 };
 
-const setFilter = (value) => {
-  activeFilter.value = value === 'all' ? '' : value;
+const showSupervisorPendingWorkOrders = () => {
+  statusFilter.value = statusFilter.value === 'SUPERVISOR_APPROVAL_PENDING'
+    ? ''
+    : 'SUPERVISOR_APPROVAL_PENDING';
   applyFilters();
 };
 
@@ -730,7 +760,8 @@ const showTodayWorkOrders = () => {
 };
 
 const clearFilters = () => {
-  activeFilter.value = '';
+  serviceTypeFilter.value = '';
+  statusFilter.value = '';
   searchKeyword.value = '';
   filterDate.value = '';
   applyFilters();
@@ -784,10 +815,28 @@ const closeCreateModal = () => {
 const handleMemberSearch = async () => {
   if (!memberSearch.value) return;
   memberResults.value = await searchUsersByName(memberSearch.value);
+  if (memberResults.value.length === 0) {
+    selectedMemberMotorKey.value = '';
+    alert('找不到符合條件的會員。');
+    return;
+  }
+
+  const firstOption = memberMotorOptions.value[0];
+  if (!firstOption) {
+    selectedMemberMotorKey.value = '';
+    alert('找不到可選擇的會員車輛。');
+    return;
+  }
+
+  selectedMemberMotorKey.value = firstOption.key;
+  applySelectedMemberMotor();
 };
 
 const handleGuestSearch = async () => {
   guestResults.value = await getGuestCustomers(guestSearch.value);
+  if (guestResults.value.length === 0) {
+    alert('找不到符合條件的散客。');
+  }
 };
 
 const selectGuest = (guest) => {
@@ -886,11 +935,12 @@ const calculateMembershipTotal = (items) => {
 };
 
 const cleanLineItem = (item) => ({
+  id: item.id || undefined,
   type: item.type,
   name: item.name || (item.type === 'DISCOUNT' ? '折扣' : ''),
   description: item.description || '',
   product_id: item.type === 'PART' ? Number(item.product_id) || null : null,
-  quantity: Number(item.quantity) || 1,
+  quantity: Number(item.quantity),
   unit_price: Number(item.unit_price) || 0,
   is_confirmed: Number(item.is_confirmed ?? 1),
   counts_toward_membership: Boolean(item.counts_toward_membership)
@@ -904,6 +954,18 @@ const hasMileageValue = (value) => {
   return Number.isFinite(mileage) && mileage >= 0;
 };
 
+const validateLineItems = (items) => {
+  for (const [index, item] of items.entries()) {
+    if (!hasText(item.name)) return `第 ${index + 1} 項明細：明細名稱為必填`;
+
+    const quantity = Number(item.quantity);
+    if (!Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity <= 0) {
+      return `第 ${index + 1} 項明細：數量必須是大於 0 的整數`;
+    }
+  }
+  return '';
+};
+
 const validateCreateRequiredFields = () => {
   if (!hasText(createForm.value.vehicle_license_plate)) return '車牌為必填';
   if (!hasText(createForm.value.vehicle_model)) return '車型為必填';
@@ -913,7 +975,7 @@ const validateCreateRequiredFields = () => {
 };
 
 const submitCreateWorkOrder = async () => {
-  const validationMessage = validateCreateRequiredFields();
+  const validationMessage = validateCreateRequiredFields() || validateLineItems(createLineItems.value);
   if (validationMessage) {
     alert(validationMessage);
     return;
@@ -925,7 +987,7 @@ const submitCreateWorkOrder = async () => {
       ...createForm.value,
       vehicle_mileage: Number(createForm.value.vehicle_mileage),
       scheduled_at: createForm.value.scheduled_at || null,
-      line_items: createLineItems.value.filter(item => item.name || item.product_id).map(cleanLineItem)
+      line_items: createLineItems.value.map(cleanLineItem)
     };
     if (createSource.value === 'guest') {
       delete payload.google_id;
@@ -979,6 +1041,13 @@ const closeDetail = () => {
 
 const saveWorkOrder = async () => {
   if (!selectedWorkOrder.value) return;
+  if (!membershipSelectionLocked.value) {
+    const validationMessage = validateLineItems(detailLineItems.value);
+    if (validationMessage) {
+      alert(validationMessage);
+      return;
+    }
+  }
   saving.value = true;
   try {
     const payload = {
@@ -986,7 +1055,7 @@ const saveWorkOrder = async () => {
       scheduled_at: detailForm.value.scheduled_at || null
     };
     if (!membershipSelectionLocked.value) {
-      payload.line_items = detailLineItems.value.filter(item => item.name || item.product_id).map(cleanLineItem);
+      payload.line_items = detailLineItems.value.map(cleanLineItem);
     }
     selectedWorkOrder.value = await updateWorkOrder(selectedWorkOrder.value.id, payload);
     detailLineItems.value = (selectedWorkOrder.value.line_items || []).map(item => ({ ...item }));
@@ -1019,23 +1088,36 @@ const hasBlockingApproval = (workOrder, targetStatus = null) => {
   return pending.length > 0;
 };
 
-const inventoryApprovalActionLabel = (type) => {
-  if (type === 'INVENTORY_RESERVATION') return '確認預留';
-  if (type === 'INVENTORY_CONSUMPTION') return '確認扣庫存';
-  return '核准';
-};
-
-const reviewDetailApproval = async (id, approved) => {
-  if (!selectedWorkOrder.value) return;
+const updateLineItemFulfillment = async (item, status) => {
+  if (!selectedWorkOrder.value || !item?.id || !status || !canReviewApprovals.value) return;
+  updatingFulfillmentItemId.value = item.id;
   try {
-    const payload = { reviewed_by: adminUser.value?.username || adminUser.value?.full_name || '主管' };
-    if (approved) await approveWorkOrderApproval(id, payload);
-    else await rejectWorkOrderApproval(id, payload);
-    selectedWorkOrder.value = await getWorkOrder(selectedWorkOrder.value.id);
+    selectedWorkOrder.value = await updateWorkOrderLineItemFulfillmentStatus(
+      selectedWorkOrder.value.id,
+      item.id,
+      status
+    );
     detailLineItems.value = (selectedWorkOrder.value.line_items || []).map(item => ({ ...item }));
     await fetchWorkOrders();
   } catch (error) {
-    alert(`主管確認處理失敗：${getErrorMessage(error)}`);
+    alert(`明細狀態更新失敗：${getErrorMessage(error)}`);
+  } finally {
+    updatingFulfillmentItemId.value = null;
+  }
+};
+
+const confirmSupervisorReview = async () => {
+  if (!selectedWorkOrder.value || !canReviewApprovals.value || supervisorReviewLocked.value) return;
+  reviewingWorkOrder.value = true;
+  try {
+    const payload = { reviewed_by: adminUser.value?.username || adminUser.value?.full_name || '主管' };
+    selectedWorkOrder.value = await confirmWorkOrderReview(selectedWorkOrder.value.id, payload);
+    detailLineItems.value = (selectedWorkOrder.value.line_items || []).map(item => ({ ...item }));
+    await fetchWorkOrders();
+  } catch (error) {
+    alert(`確認審核失敗：${getErrorMessage(error)}`);
+  } finally {
+    reviewingWorkOrder.value = false;
   }
 };
 
@@ -1106,7 +1188,7 @@ watch(
 
   .section-header,
   .toolbar,
-  .quick-tabs,
+  .filter-bar,
   .search-box,
   .form-actions,
   .approval-actions,
@@ -1134,10 +1216,28 @@ watch(
     }
   }
 
-  .quick-tabs,
+  .filter-bar,
   .toolbar {
     margin-bottom: 1rem;
     align-items: center;
+  }
+
+  .filter-bar {
+    align-items: flex-end;
+
+    .filter-control {
+      min-width: 210px;
+
+      span {
+        font-weight: 700;
+      }
+    }
+
+    .supervisor-filter-btn.active {
+      border-color: $primary-color;
+      color: $primary-light;
+      background-color: rgba($primary-color, 0.14);
+    }
   }
 
   .search-box {
@@ -1189,8 +1289,7 @@ watch(
     font-weight: 800;
   }
 
-  .btn,
-  .filter-btn {
+  .btn {
     padding: 0.58rem 0.95rem;
     border: 1px solid rgba(255, 255, 255, 0.1);
     background: rgba(255, 255, 255, 0.05);
@@ -1204,13 +1303,6 @@ watch(
       cursor: not-allowed;
       opacity: 0.48;
     }
-  }
-
-  .filter-btn.active,
-  .filter-btn:hover {
-    border-color: $primary-color;
-    color: $primary-color;
-    background: rgba($primary-color, 0.1);
   }
 
   .btn-primary {
@@ -1570,6 +1662,34 @@ watch(
     }
   }
 
+  .line-status-table-wrap {
+    overflow-x: auto;
+  }
+
+  .line-status-heading {
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .reviewed-label {
+    color: #81c784;
+    font-weight: 700;
+  }
+
+  .line-status-table {
+    min-width: 680px;
+
+    th:nth-child(2),
+    td:nth-child(2) {
+      width: 42%;
+      white-space: normal;
+    }
+
+    select {
+      min-width: 120px;
+    }
+  }
+
   @container (max-width: 900px) {
     .line-row {
       grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -1649,6 +1769,15 @@ watch(
   }
 
   @media (max-width: 980px) {
+    .filter-bar {
+      align-items: stretch;
+
+      .filter-control,
+      .supervisor-filter-btn {
+        width: 100%;
+      }
+    }
+
     .detail-grid,
     .form-grid,
     .source-grid {

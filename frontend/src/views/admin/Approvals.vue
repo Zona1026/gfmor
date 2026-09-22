@@ -35,8 +35,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="approval in approvals" :key="approval.id">
-            <td>{{ approvalTypeMap[approval.type] || approval.type }}</td>
+          <tr v-for="approval in workOrderApprovals" :key="approval.work_order_id">
+            <td>{{ approval.type_labels }}</td>
             <td>#{{ approval.work_order_id }}</td>
             <td>
               <strong>{{ approval.work_order?.customer_name || '-' }}</strong>
@@ -47,8 +47,7 @@
             <td>{{ formatDateTime(approval.requested_at) }}</td>
             <td>
               <div v-if="approval.status === 'PENDING' && canReview" class="action-buttons">
-                <button class="btn btn-primary" @click="reviewApproval(approval.id, true)">核准</button>
-                <button class="btn btn-danger" @click="reviewApproval(approval.id, false)">退回</button>
+                <button class="btn btn-primary" @click="reviewWorkOrder(approval.work_order_id)">確認審核</button>
               </div>
               <span v-else-if="approval.status === 'PENDING'" class="secondary-line">僅最高級可處理</span>
               <span v-else class="secondary-line">{{ approval.reviewed_by || '已處理' }}</span>
@@ -64,7 +63,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
-import { approveWorkOrderApproval, getWorkOrderApprovals, rejectWorkOrderApproval } from '../../api/admin';
+import { confirmWorkOrderReview, getWorkOrderApprovals } from '../../api/admin';
 import { useAuthStore } from '../../store/auth';
 
 const loading = ref(false);
@@ -73,6 +72,30 @@ const activeStatus = ref('PENDING');
 const authStore = useAuthStore();
 const { adminUser } = storeToRefs(authStore);
 const canReview = computed(() => adminUser.value?.role === '最高級');
+const workOrderApprovals = computed(() => {
+  const grouped = new Map();
+  for (const approval of approvals.value) {
+    const existing = grouped.get(approval.work_order_id);
+    if (existing) {
+      existing.items.push(approval);
+      continue;
+    }
+    grouped.set(approval.work_order_id, { ...approval, items: [approval] });
+  }
+  return [...grouped.values()].map(group => {
+    const typeLabels = [...new Set(group.items.map(item => approvalTypeMap[item.type] || item.type))];
+    const reasons = [...new Set(group.items.map(item => item.reason || item.title).filter(Boolean))];
+    const status = group.items.some(item => item.status === 'PENDING')
+      ? 'PENDING'
+      : group.items.some(item => item.status === 'REJECTED') ? 'REJECTED' : 'APPROVED';
+    return {
+      ...group,
+      type_labels: typeLabels.join('、'),
+      reason: reasons.join('；'),
+      status
+    };
+  });
+});
 
 const filterOptions = [
   { label: '待審核', value: 'PENDING' },
@@ -113,11 +136,10 @@ const fetchApprovals = async () => {
   }
 };
 
-const reviewApproval = async (id, approved) => {
+const reviewWorkOrder = async (workOrderId) => {
   try {
-    const payload = { reviewed_by: '主管' };
-    if (approved) await approveWorkOrderApproval(id, payload);
-    else await rejectWorkOrderApproval(id, payload);
+    const payload = { reviewed_by: adminUser.value?.username || adminUser.value?.full_name || '主管' };
+    await confirmWorkOrderReview(workOrderId, payload);
     await fetchApprovals();
   } catch (error) {
     alert(`審核失敗：${getErrorMessage(error)}`);

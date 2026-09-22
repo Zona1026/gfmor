@@ -3,6 +3,10 @@
     <div class="header-actions">
       <h2>預約管理</h2>
       <div class="actions">
+        <label class="open-only-toggle">
+          <input v-model="showOpenOnly" type="checkbox" />
+          <span>只顯示未結案</span>
+        </label>
         <input type="date" v-model="filterDate" @change="fetchBookings" class="date-picker" />
         <select v-model="filterStatus" @change="fetchBookings" class="status-filter">
           <option value="">全部狀態</option>
@@ -10,12 +14,12 @@
         </select>
         <button class="btn btn-outline" @click="handleFilterToday">今日預約</button>
         <button v-if="canManageBookings" class="btn btn-danger" @click="showCloseModal = true">封鎖時段</button>
-        <button v-if="canManageBookings" class="btn btn-primary" @click="showAddModal = true">新增預約</button>
+        <button v-if="canCreateBooking" class="btn btn-primary" @click="showAddModal = true">新增預約</button>
       </div>
     </div>
 
     <div class="table-container">
-      <table v-if="!loading && bookings.length > 0">
+      <table v-if="!loading && visibleBookings.length > 0">
         <thead>
           <tr>
             <th>預約日期 / 時間</th>
@@ -29,7 +33,7 @@
         </thead>
         <tbody>
           <tr
-            v-for="booking in bookings"
+            v-for="booking in visibleBookings"
             :key="booking.id"
             :class="{ 'row-closed': booking.status === 'SYSTEM_CLOSED' }"
           >
@@ -98,7 +102,7 @@
       <div v-else class="empty-state">目前沒有符合條件的預約。</div>
     </div>
 
-    <div v-if="showAddModal && canManageBookings" class="modal-overlay" @click.self="showAddModal = false">
+    <div v-if="showAddModal && canCreateBooking" class="modal-overlay" @click.self="showAddModal = false">
       <div class="modal-content">
         <h3>新增預約</h3>
         <div class="form-group row">
@@ -205,12 +209,16 @@ const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const { adminUser } = storeToRefs(authStore);
+const adminRoles = ['最高級', '管理層', '一般'];
+const canCreateBooking = computed(() => adminRoles.includes(adminUser.value?.role));
+const canCreateWorkOrder = computed(() => adminRoles.includes(adminUser.value?.role));
 const canManageBookings = computed(() => ['最高級', '管理層'].includes(adminUser.value?.role));
 const bookings = ref([]);
 const loading = ref(false);
 const convertingId = ref(null);
 const filterDate = ref(typeof route.query.date === 'string' ? route.query.date : '');
 const filterStatus = ref(typeof route.query.status === 'string' ? route.query.status : '');
+const showOpenOnly = ref(true);
 
 const showAddModal = ref(false);
 const showCloseModal = ref(false);
@@ -248,6 +256,13 @@ const bookingStatusMap = {
   COMPLETED: '已結案',
   SYSTEM_CLOSED: '時段封鎖'
 };
+
+const closedBookingStatuses = new Set(['CONVERTED_TO_WORK_ORDER', 'COMPLETED']);
+const visibleBookings = computed(() => (
+  showOpenOnly.value
+    ? bookings.value.filter(booking => !closedBookingStatuses.has(booking.status))
+    : bookings.value
+));
 
 const workOrderStatusMap = {
   PENDING: '待檢查',
@@ -314,7 +329,7 @@ const canEditStatus = (booking) => {
 };
 
 const canConvertToWorkOrder = (booking) => {
-  return canManageBookings.value && !booking.work_order && convertableStatuses.includes(booking.status);
+  return canCreateWorkOrder.value && !booking.work_order && convertableStatuses.includes(booking.status);
 };
 
 const fetchBookings = async () => {
@@ -459,12 +474,14 @@ onMounted(() => {
     h2 {
       margin: 0;
       color: $primary-light;
+      flex-shrink: 0;
     }
 
     .actions {
       display: flex;
       gap: 0.8rem;
       align-items: center;
+      justify-content: flex-end;
       flex-wrap: wrap;
 
       .date-picker,
@@ -474,6 +491,57 @@ onMounted(() => {
         color: $text-primary;
         border: 1px solid $medium-grey;
         border-radius: $border-radius;
+      }
+
+      .open-only-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: $text-secondary;
+        font-size: 0.88rem;
+        font-weight: 700;
+        cursor: pointer;
+        white-space: nowrap;
+
+        input {
+          appearance: none;
+          width: 36px;
+          height: 20px;
+          margin: 0;
+          border: 1px solid $medium-grey;
+          border-radius: 999px;
+          background-color: $dark-grey;
+          cursor: pointer;
+          position: relative;
+          transition: 0.2s;
+
+          &::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background-color: $text-secondary;
+            transition: 0.2s;
+          }
+
+          &:checked {
+            border-color: $primary-color;
+            background-color: rgba($primary-color, 0.35);
+
+            &::after {
+              left: 18px;
+              background-color: $primary-light;
+            }
+          }
+
+          &:focus-visible {
+            outline: 2px solid $primary-light;
+            outline-offset: 2px;
+          }
+        }
       }
     }
   }

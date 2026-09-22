@@ -41,7 +41,7 @@ def get_db():
 )
 def create_work_order(
     work_order: work_order_schema.WorkOrderCreate,
-    admin=Depends(require_manager_admin),
+    admin=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """
@@ -175,6 +175,27 @@ def read_work_order(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="找不到該工單")
     return db_work_order
 
+
+@router.post("/{work_order_id}/confirm-review", response_model=work_order_schema.WorkOrder, summary="確認整張工單主管審核")
+def confirm_work_order_supervisor_review(
+    work_order_id: int,
+    review: work_order_schema.WorkOrderSupervisorReview,
+    admin=Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    reviewed_by = review.reviewed_by or admin["username"] or admin["role"]
+    try:
+        db_work_order = crud.confirm_work_order_supervisor_review(
+            db,
+            work_order_id=work_order_id,
+            reviewed_by=reviewed_by,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    if db_work_order is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="找不到該工單")
+    return db_work_order
+
 @router.post("/{work_order_id}/line-items", response_model=work_order_schema.WorkOrder, summary="追加工單明細")
 def add_work_order_line_item(
     work_order_id: int,
@@ -186,6 +207,32 @@ def add_work_order_line_item(
         db_work_order = crud.add_work_order_line_item(db, work_order_id=work_order_id, item=item)
         if db_work_order is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="找不到該工單")
+        return db_work_order
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.put(
+    "/{work_order_id}/line-items/{line_item_id}/fulfillment-status",
+    response_model=work_order_schema.WorkOrder,
+    summary="更新工單明細供應狀態",
+)
+def update_work_order_line_item_fulfillment_status(
+    work_order_id: int,
+    line_item_id: int,
+    status_update: work_order_schema.WorkOrderLineItemFulfillmentStatusUpdate,
+    admin=Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    try:
+        db_work_order = crud.update_work_order_line_item_fulfillment_status(
+            db,
+            work_order_id=work_order_id,
+            line_item_id=line_item_id,
+            fulfillment_status=status_update.status,
+        )
+        if db_work_order is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="找不到工單明細")
         return db_work_order
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

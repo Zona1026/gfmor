@@ -42,12 +42,24 @@ export const updateWorkOrder = async (id, data) => {
   return await api.put(`/work-orders/${id}`, data, adminAuthConfig());
 };
 
+export const confirmWorkOrderReview = async (id, data = {}) => {
+  return await api.post(`/work-orders/${id}/confirm-review`, data, adminAuthConfig());
+};
+
 export const deleteWorkOrder = async (id, data) => {
   return await api.delete(`/work-orders/${id}`, { ...adminAuthConfig(), data });
 };
 
 export const addWorkOrderLineItem = async (id, data) => {
   return await api.post(`/work-orders/${id}/line-items`, data);
+};
+
+export const updateWorkOrderLineItemFulfillmentStatus = async (workOrderId, lineItemId, status) => {
+  return await api.put(
+    `/work-orders/${workOrderId}/line-items/${lineItemId}/fulfillment-status`,
+    { status },
+    adminAuthConfig()
+  );
 };
 
 export const addWorkOrderPayment = async (id, data) => {

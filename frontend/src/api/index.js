@@ -10,14 +10,31 @@ const apiClient = axios.create({
   },
 });
 
+let isRedirectingToAdminLogin = false;
+
+const isAdminPage = () => {
+  const currentPath = window.location.pathname;
+  return currentPath === '/admin' || currentPath.startsWith('/admin/');
+};
+
+const redirectToAdminLogin = () => {
+  localStorage.removeItem('adminToken');
+  localStorage.removeItem('adminUser');
+  localStorage.removeItem('adminLastActivityAt');
+
+  if (!isRedirectingToAdminLogin) {
+    isRedirectingToAdminLogin = true;
+    window.location.replace('/admin-login');
+  }
+};
+
 // 2. 請求攔截器 (Request Interceptor)
 // 未來會在此處加入邏輯，自動在每個請求的 header 中附上 JWT
 apiClient.interceptors.request.use(
   (config) => {
     const adminToken = localStorage.getItem('adminToken');
     const userToken = localStorage.getItem('token');
-    const currentPath = window.location.pathname;
-    const isAdminRoute = currentPath === '/admin' || currentPath.startsWith('/admin/');
+    const isAdminRoute = isAdminPage();
     
     // 後台頁面才優先帶 adminToken；會員中心與一般會員流程應使用 user token。
     // 這可避免手機瀏覽器殘留的後台 token 影響會員新增/修改車輛。
@@ -45,18 +62,20 @@ apiClient.interceptors.request.use(
 );
 
 // 3. 回應攔截器 (Response Interceptor)
-// 未來可用於統一處理錯誤，例如 401 未授權時自動導向到登入頁
 apiClient.interceptors.response.use(
   (response) => {
     // 只回傳 response.data，簡化在組件中使用的層級
     return response.data;
   },
   (error) => {
-    // 在此處可以處理各種 HTTP 錯誤
-    // 例如：
-    // if (error.response.status === 401) {
-    //   // 導向到登入頁
-    // }
+    if (error.response?.status === 401 && isAdminPage()) {
+      redirectToAdminLogin();
+
+      // The page is unloading. Keep the rejected request from reaching page-level
+      // handlers that would otherwise display an alert before the redirect.
+      return new Promise(() => {});
+    }
+
     return Promise.reject(error);
   }
 );

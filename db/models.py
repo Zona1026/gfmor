@@ -502,6 +502,8 @@ class WorkOrder(Base):
     created_at = Column(DateTime, server_default=func.now())
     # 工單的完成時間，預設為空，當工單狀態變為「已完成」時才填入
     completed_at = Column(DateTime, nullable=True)
+    supervisor_reviewed_at = Column(DateTime, nullable=True)
+    supervisor_reviewed_by = Column(String(50), nullable=True)
     deleted_at = Column(DateTime, nullable=True)
     deleted_by = Column(String(50), nullable=True)
     delete_reason = Column(Text, nullable=True)
@@ -645,6 +647,8 @@ class WorkOrderLineItem(Base):
     inventory_reserved_quantity = Column(Integer, nullable=False, default=0)
     inventory_consumed_quantity = Column(Integer, nullable=False, default=0)
     inventory_deducted = Column(Integer, nullable=False, default=0)
+    fulfillment_status = Column(String(20), nullable=True)
+    fulfillment_status_updated_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
     work_order = relationship("WorkOrder", back_populates="line_items")
