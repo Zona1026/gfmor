@@ -127,3 +127,9 @@ def ensure_self_or_manager(google_id: str, context):
     if context["is_manager"] or context["user_google_id"] == google_id:
         return
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="無權修改此會員資料")
+
+
+def ensure_self_or_super(google_id: str, context):
+    if context["is_super"] or context["user_google_id"] == google_id:
+        return
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="僅會員本人或最高級管理員可修改此會員資料")

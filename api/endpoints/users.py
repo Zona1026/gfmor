@@ -18,9 +18,8 @@ cloudinary.config(
 # 引入資料庫 CRUD 函式、schemas 和資料庫 session 管理
 from api.dependencies.admin_auth import (
     auth_context,
-    ensure_self_or_manager,
+    ensure_self_or_super,
     require_admin,
-    require_manager_admin,
     require_self_or_admin,
     require_super_admin,
 )
@@ -67,7 +66,7 @@ def attach_point_summaries(db: Session, users):
 @router.post("/", response_model=user_schema.User, summary="建立測試用使用者")
 def create_test_user(
     user: user_schema.TestUserCreate,
-    admin=Depends(require_manager_admin),
+    admin=Depends(require_super_admin),
     db: Session = Depends(get_db),
 ):
     """
@@ -154,10 +153,10 @@ def update_user(
     """
     根據 `google_id` 更新該使用者的資訊 (例如：姓名、電話、會員等級)。
     """
-    ensure_self_or_manager(google_id, auth)
+    ensure_self_or_super(google_id, auth)
     provided_fields = getattr(user, "model_fields_set", getattr(user, "__fields_set__", set()))
-    if not auth["is_manager"] and {"membership_level", "admin_notes"} & provided_fields:
-        raise HTTPException(status_code=403, detail="僅管理層以上可更新會員等級或店家註記")
+    if not auth["is_super"] and {"membership_level", "admin_notes"} & provided_fields:
+        raise HTTPException(status_code=403, detail="僅最高級管理員可更新會員等級或店家註記")
     if "email" in provided_fields and user.email is None:
         raise HTTPException(status_code=400, detail="會員 Email 不可為空")
     if "email" in provided_fields and user.email is not None:
@@ -203,7 +202,7 @@ def upload_avatar(
     """
     上傳使用者頭像至 Cloudinary 並更新資料庫紀錄。
     """
-    ensure_self_or_manager(google_id, auth)
+    ensure_self_or_super(google_id, auth)
     # 先確認使用者存在
     db_user = crud.get_user(db, google_id=google_id)
     if not db_user:

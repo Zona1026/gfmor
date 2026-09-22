@@ -208,11 +208,19 @@ def update_user(db: Session, google_id: str, user_update: UserUpdate):
             # 檢查該車牌是否已存在
             existing_motor = db.query(models.Motor).filter(models.Motor.license_plate == motor_data.license_plate).first()
             if existing_motor:
-                # 如果車牌已存在且屬於同一位使用者，我們就跳過新增 (或者在此更新)
-                if existing_motor.google_id == db_user.google_id:
-                    continue
-                else:
+                if existing_motor.google_id != db_user.google_id:
                     raise ValueError(f"車牌 '{motor_data.license_plate}' 已經被其他使用者註冊了！")
+                if existing_motor.status is None:
+                    raise ValueError(f"車牌 '{motor_data.license_plate}' 已存在於此會員名下")
+                for key, value in _schema_dict(motor_data, exclude_unset=True).items():
+                    setattr(existing_motor, key, value)
+                existing_motor.status = None
+                continue
+
+            if motor_data.vin:
+                existing_vin = db.query(models.Motor).filter(models.Motor.vin == motor_data.vin).first()
+                if existing_vin:
+                    raise ValueError(f"引擎號碼 '{motor_data.vin}' 已經被使用")
             
             new_motor = models.Motor(
                 **motor_data.dict(),
@@ -1225,8 +1233,31 @@ def update_motor(db: Session, motor_id: int, motor_update: MotorUpdate):
     if not db_motor:
         return None
     
-    # 獲取所有前端有提供的欄位值
-    update_data = motor_update.dict(exclude_unset=True)
+    update_data = _schema_dict(motor_update, exclude_unset=True)
+
+    if "license_plate" in update_data:
+        update_data["license_plate"] = (update_data["license_plate"] or "").strip()
+        if not update_data["license_plate"]:
+            raise ValueError("車牌為必填")
+        duplicate_plate = (
+            db.query(models.Motor)
+            .filter(
+                models.Motor.license_plate == update_data["license_plate"],
+                models.Motor.id != motor_id,
+            )
+            .first()
+        )
+        if duplicate_plate:
+            raise ValueError(f"車牌 '{update_data['license_plate']}' 已經被使用")
+
+    if update_data.get("vin"):
+        duplicate_vin = (
+            db.query(models.Motor)
+            .filter(models.Motor.vin == update_data["vin"], models.Motor.id != motor_id)
+            .first()
+        )
+        if duplicate_vin:
+            raise ValueError(f"引擎號碼 '{update_data['vin']}' 已經被使用")
     
     # 遍歷所有要更新的欄位，並更新到資料庫物件上
     for key, value in update_data.items():

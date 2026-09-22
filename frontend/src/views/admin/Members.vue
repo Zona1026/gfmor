@@ -160,7 +160,7 @@
                     <td><input v-model.trim="vehicleDraft.license_plate" class="inline-input" /></td>
                     <td><input v-model.trim="vehicleDraft.brand" class="inline-input" /></td>
                     <td><input v-model.trim="vehicleDraft.model_name" class="inline-input" /></td>
-                    <td><input v-model.number="vehicleDraft.mileage" type="number" class="inline-input" /></td>
+                    <td><input v-model.number="vehicleDraft.mileage" type="number" min="0" class="inline-input" /></td>
                     <td><input v-model.trim="vehicleDraft.vin" class="inline-input" /></td>
                     <td class="action-cell">
                       <button class="btn btn-sm btn-save" type="button" :disabled="savingVehicle" @click="saveVehicle(vehicle)">儲存</button>
@@ -180,17 +180,17 @@
             </table>
             <p v-else class="empty-text">尚未登記車輛。</p>
 
-            <form v-if="canManageCustomers && selectedCustomer.customer_type === 'guest'" class="guest-motor-form" @submit.prevent="addGuestMotor">
-              <h4>新增散客車輛</h4>
+            <form v-if="canManageCustomers" class="guest-motor-form" @submit.prevent="addVehicle">
+              <h4>新增{{ selectedCustomer.customer_type === 'member' ? '會員' : '散客' }}車輛</h4>
               <div class="form-grid">
-                <label>車牌<input v-model.trim="newGuestMotor.license_plate" required /></label>
-                <label>廠牌<input v-model.trim="newGuestMotor.brand" /></label>
-                <label>車型<input v-model.trim="newGuestMotor.model_name" /></label>
-                <label>里程<input v-model.number="newGuestMotor.mileage" type="number" /></label>
-                <label>引擎號碼<input v-model.trim="newGuestMotor.vin" /></label>
+                <label>車牌<input v-model.trim="newVehicle.license_plate" required /></label>
+                <label>廠牌<input v-model.trim="newVehicle.brand" /></label>
+                <label>車型<input v-model.trim="newVehicle.model_name" /></label>
+                <label>里程<input v-model.number="newVehicle.mileage" type="number" min="0" /></label>
+                <label>引擎號碼<input v-model.trim="newVehicle.vin" /></label>
               </div>
-              <button class="btn btn-primary" type="submit" :disabled="addingGuestMotor">
-                {{ addingGuestMotor ? '新增中...' : '新增車輛' }}
+              <button class="btn btn-primary" type="submit" :disabled="addingVehicle">
+                {{ addingVehicle ? '新增中...' : '新增車輛' }}
               </button>
             </form>
           </section>
@@ -271,15 +271,16 @@ import { computed, onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import {
   createGuestMotor,
+  createMemberMotor,
   getCustomerDetail,
   getCustomers,
   updateGuestCustomer,
   updateGuestMotor,
   updateMemberNotes,
-  updateMemberProfile
+  updateMemberProfile,
+  updateMemberMotor
 } from '../../api/admin';
 import { useAuthStore } from '../../store/auth';
-import api from '../../api/index';
 
 const authStore = useAuthStore();
 const { adminUser } = storeToRefs(authStore);
@@ -300,8 +301,8 @@ const profileDraft = ref(defaultProfileDraft());
 const editingVehicleKey = ref('');
 const vehicleDraft = ref({});
 const savingVehicle = ref(false);
-const addingGuestMotor = ref(false);
-const newGuestMotor = ref(defaultGuestMotor());
+const addingVehicle = ref(false);
+const newVehicle = ref(defaultVehicle());
 
 const serviceTypeMap = {
   REPAIR: '維修',
@@ -341,7 +342,7 @@ const spendingSourceMap = {
   work_order_payment: '工單付款'
 };
 
-function defaultGuestMotor() {
+function defaultVehicle() {
   return {
     license_plate: '',
     brand: '',
@@ -361,7 +362,7 @@ function defaultProfileDraft() {
 }
 
 const canEditCustomerProfile = computed(() => adminUser.value?.role === '最高級');
-const canManageCustomers = computed(() => ['最高級', '管理層'].includes(adminUser.value?.role));
+const canManageCustomers = computed(() => adminUser.value?.role === '最高級');
 
 const customerKey = (customer) => `${customer.customer_type}-${customer.customer_id}`;
 const vehicleKey = (vehicle) => `${vehicle.customer_type}-${vehicle.id}`;
@@ -531,7 +532,7 @@ const saveVehicle = async (vehicle) => {
   savingVehicle.value = true;
   try {
     if (selectedCustomer.value.customer_type === 'member') {
-      await api.put(`/motors/${vehicle.id}`, payload);
+      await updateMemberMotor(vehicle.id, payload);
     } else {
       await updateGuestMotor(selectedCustomer.value.customer_id, vehicle.id, payload);
     }
@@ -545,24 +546,28 @@ const saveVehicle = async (vehicle) => {
   }
 };
 
-const addGuestMotor = async () => {
-  if (!selectedCustomer.value || selectedCustomer.value.customer_type !== 'guest') return;
-  const payload = cleanVehiclePayload(newGuestMotor.value);
+const addVehicle = async () => {
+  if (!selectedCustomer.value || !canManageCustomers.value) return;
+  const payload = cleanVehiclePayload(newVehicle.value);
   if (!payload.license_plate) {
     alert('車牌為必填');
     return;
   }
 
-  addingGuestMotor.value = true;
+  addingVehicle.value = true;
   try {
-    await createGuestMotor(selectedCustomer.value.customer_id, payload);
-    newGuestMotor.value = defaultGuestMotor();
+    if (selectedCustomer.value.customer_type === 'member') {
+      await createMemberMotor(selectedCustomer.value.customer_id, payload);
+    } else {
+      await createGuestMotor(selectedCustomer.value.customer_id, payload);
+    }
+    newVehicle.value = defaultVehicle();
     await refreshCurrentDetail();
     await fetchCustomers();
   } catch (error) {
-    alert(`新增散客車輛失敗：${getErrorMessage(error)}`);
+    alert(`新增車輛失敗：${getErrorMessage(error)}`);
   } finally {
-    addingGuestMotor.value = false;
+    addingVehicle.value = false;
   }
 };
 

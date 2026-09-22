@@ -9,7 +9,7 @@ class MotorBase(BaseModel):
     brand: Optional[str] = Field(None, description="廠牌")
     model_name: Optional[str] = Field(None, description="型號")
     vin: Optional[str] = Field(None, description="引擎號碼")
-    mileage: Optional[int] = Field(None, description="里程數")
+    mileage: Optional[int] = Field(None, ge=0, description="里程數")
 
 class MotorCreate(MotorBase):
     """
@@ -27,7 +27,7 @@ class MotorUpdate(BaseModel):
     brand: Optional[str] = None
     model_name: Optional[str] = None
     vin: Optional[str] = None
-    mileage: Optional[int] = None
+    mileage: Optional[int] = Field(None, ge=0)
 
 class Motor(MotorBase):
     """

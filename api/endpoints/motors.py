@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import Any
 
-from api.dependencies.admin_auth import auth_context, ensure_self_or_manager
+from api.dependencies.admin_auth import auth_context, ensure_self_or_super
 from db import crud
 from schemas.motor import Motor, MotorUpdate
 from db.database import SessionLocal # 遵循專案模式，從此處引入 SessionLocal
@@ -44,10 +44,12 @@ def update_motor_by_id(
             detail="找不到指定的車籍資料。",
         )
     
-    ensure_self_or_manager(db_motor.google_id, auth)
-    
-    updated_motor = crud.update_motor(db=db, motor_id=motor_id, motor_update=motor_in)
-    return updated_motor
+    ensure_self_or_super(db_motor.google_id, auth)
+
+    try:
+        return crud.update_motor(db=db, motor_id=motor_id, motor_update=motor_in)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.delete("/{motor_id}", response_model=Motor, summary="軟刪除車籍資料")
 def delete_motor_by_id(
@@ -65,6 +67,6 @@ def delete_motor_by_id(
             status_code=404,
             detail="找不到指定的車籍資料。",
         )
-    ensure_self_or_manager(db_motor.google_id, auth)
+    ensure_self_or_super(db_motor.google_id, auth)
     deleted_motor = crud.delete_motor(db=db, motor_id=motor_id)
     return deleted_motor

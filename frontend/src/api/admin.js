@@ -114,6 +114,14 @@ export const updateMemberProfile = async (google_id, data) => {
   return await api.put(`/users/${google_id}`, data);
 };
 
+export const createMemberMotor = async (google_id, data) => {
+  return await api.put(`/users/${google_id}`, { motors: [data] });
+};
+
+export const updateMemberMotor = async (motorId, data) => {
+  return await api.put(`/motors/${motorId}`, data);
+};
+
 export const updateGuestCustomer = async (id, data) => {
   return await api.put(`/guest-customers/${id}`, data);
 };
