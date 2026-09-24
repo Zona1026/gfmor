@@ -1,5 +1,5 @@
 # 引入 SQLAlchemy 的必要模組
-from sqlalchemy import (Boolean, Column, Integer, String, Enum, DateTime, ForeignKey, Text, func, and_)
+from sqlalchemy import (Boolean, Column, Integer, String, Enum, Date, DateTime, ForeignKey, Text, func, and_)
 from sqlalchemy.orm import relationship
 
 # 引入我們在 db/database.py 中建立的 Base
@@ -320,11 +320,19 @@ class Motor(Base):
     model_name = Column("型號", String(45)) # 欄位名稱從「車種」改為「型號」以符合 schema
     vin = Column("引擎號碼", String(45), unique=True) # 引擎號碼應為唯一
     mileage = Column("里程數", Integer)
+    is_new_vehicle = Column(Boolean, nullable=False, default=False, server_default="0", index=True)
+    purchase_date = Column(Date, nullable=True)
     status = Column("狀態", String(45), nullable=True, index=True, comment="用於軟刪除，正常為 NULL，刪除為 '已刪除'")
     
     owner = relationship("User", back_populates="motors")
     bookings = relationship("Booking", back_populates="motor")
     work_orders = relationship("WorkOrder", back_populates="motor")
+    new_vehicle_maintenance_records = relationship(
+        "NewVehicleMaintenanceRecord",
+        back_populates="motor",
+        cascade="all, delete-orphan",
+        order_by="NewVehicleMaintenanceRecord.target_mileage",
+    )
 
 class GuestMotor(Base):
     """
@@ -340,12 +348,42 @@ class GuestMotor(Base):
     model_name = Column(String(45), nullable=True)
     vin = Column(String(45), nullable=True)
     mileage = Column(Integer, nullable=True)
+    is_new_vehicle = Column(Boolean, nullable=False, default=False, server_default="0", index=True)
+    purchase_date = Column(Date, nullable=True)
     status = Column(String(45), nullable=True, index=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
 
     guest_customer = relationship("GuestCustomer", back_populates="motors")
     work_orders = relationship("WorkOrder", back_populates="guest_motor")
+    new_vehicle_maintenance_records = relationship(
+        "NewVehicleMaintenanceRecord",
+        back_populates="guest_motor",
+        cascade="all, delete-orphan",
+        order_by="NewVehicleMaintenanceRecord.target_mileage",
+    )
+
+
+class NewVehicleMaintenanceRecord(Base):
+    """獨立的新車定期保養表，不參與工單、消費與點數計算。"""
+
+    __tablename__ = "new_vehicle_maintenance_records"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    motor_id = Column(Integer, ForeignKey("motor.ID"), nullable=True, index=True)
+    guest_motor_id = Column(Integer, ForeignKey("guest_motors.id"), nullable=True, index=True)
+    target_mileage = Column(Integer, nullable=False)
+    service_date = Column(Date, nullable=True)
+    actual_mileage = Column(Integer, nullable=True)
+    engine_oil = Column(Boolean, nullable=False, default=False, server_default="0")
+    gear_oil = Column(Boolean, nullable=False, default=False, server_default="0")
+    air_filter = Column(Boolean, nullable=False, default=False, server_default="0")
+    notes = Column(String(255), nullable=True)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+    motor = relationship("Motor", back_populates="new_vehicle_maintenance_records")
+    guest_motor = relationship("GuestMotor", back_populates="new_vehicle_maintenance_records")
 
 class Booking(Base):
     """
@@ -452,6 +490,7 @@ class PointTransaction(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     google_id = Column(String(255), ForeignKey("users.Google ID"), nullable=False, index=True)
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=True, index=True)
+    work_order_id = Column(Integer, ForeignKey("work_orders.id"), nullable=True, index=True)
     type = Column(Enum(PointTransactionType), nullable=False, index=True)
     points = Column(Integer, nullable=False)
     remaining_points = Column(Integer, nullable=False, default=0)
@@ -462,6 +501,7 @@ class PointTransaction(Base):
 
     user = relationship("User", back_populates="point_transactions")
     order = relationship("Order", back_populates="point_transactions")
+    work_order = relationship("WorkOrder", back_populates="point_transactions")
 
 class WorkOrder(Base):
     """
@@ -493,6 +533,7 @@ class WorkOrder(Base):
     payment_status = Column(Enum(WorkOrderPaymentStatus), nullable=False, default=WorkOrderPaymentStatus.UNPAID)
     responsible_staff = Column(String(50), nullable=True)
     scheduled_at = Column(DateTime, nullable=True)
+    consumption_date = Column(Date, nullable=False)
     # 這張工單的總金額，包含所有商品和服務
     total_amount = Column(Integer, nullable=False, default=0)
     membership_consumption_amount = Column(Integer, nullable=False, default=0)
@@ -524,6 +565,7 @@ class WorkOrder(Base):
     purchase_requests = relationship("PurchaseRequest", back_populates="work_order")
     payment_records = relationship("PaymentRecord", back_populates="work_order")
     refund_records = relationship("RefundRecord", back_populates="work_order")
+    point_transactions = relationship("PointTransaction", back_populates="work_order")
 
     @property
     def paid_amount(self):

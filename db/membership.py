@@ -50,4 +50,7 @@ def sync_work_order_membership_consumption(db: Session, work_order) -> int:
             )
 
     work_order.membership_consumption_amount = target_amount
+    from . import points as points_service
+
+    points_service.sync_work_order_points(db, work_order)
     return delta

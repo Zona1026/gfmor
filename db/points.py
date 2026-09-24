@@ -1,5 +1,5 @@
 from calendar import monthrange
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any, Dict, Optional
 
 from sqlalchemy import func
@@ -122,6 +122,57 @@ def get_order_point_entitlement(db: Session, order_id: int) -> int:
     )
 
 
+def _work_order_point_date(work_order: models.WorkOrder) -> datetime:
+    value = work_order.consumption_date
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, date):
+        return datetime.combine(value, time.min)
+    return work_order.completed_at or work_order.created_at or datetime.utcnow()
+
+
+def calculate_work_order_points(
+    work_order: models.WorkOrder,
+    settings: Optional[Dict[str, Any]] = None,
+    db: Optional[Session] = None,
+    allow_disabled: bool = False,
+) -> int:
+    if settings is None:
+        if db is None:
+            raise ValueError("settings or db is required")
+        settings = get_point_settings(db)
+
+    if not settings["points_enabled"] and not allow_disabled:
+        return 0
+    if not work_order.google_id:
+        return 0
+
+    unit = settings["earn_amount_unit"]
+    earn_points = settings["earn_points"]
+    if unit <= 0 or earn_points <= 0:
+        return 0
+
+    eligible_amount = max(0, work_order.membership_consumption_amount or 0)
+    return (eligible_amount // unit) * earn_points
+
+
+def get_work_order_point_entitlement(db: Session, work_order_id: int) -> int:
+    return (
+        db.query(func.coalesce(func.sum(models.PointTransaction.points), 0))
+        .filter(
+            models.PointTransaction.work_order_id == work_order_id,
+            models.PointTransaction.type.in_(
+                [
+                    models.PointTransactionType.EARN,
+                    models.PointTransactionType.REFUND_ADJUST,
+                ]
+            ),
+        )
+        .scalar()
+        or 0
+    )
+
+
 def _consume_remaining_order_points(db: Session, order: models.Order, points_to_consume: int) -> None:
     remaining = points_to_consume
     earn_rows = (
@@ -192,6 +243,95 @@ def sync_order_points(db: Session, order: models.Order) -> int:
     return -refund_points
 
 
+def _consume_remaining_work_order_points(
+    db: Session,
+    work_order: models.WorkOrder,
+    points_to_consume: int,
+) -> None:
+    remaining = points_to_consume
+    earn_rows = (
+        db.query(models.PointTransaction)
+        .filter(
+            models.PointTransaction.google_id == work_order.google_id,
+            models.PointTransaction.work_order_id == work_order.id,
+            models.PointTransaction.type == models.PointTransactionType.EARN,
+            models.PointTransaction.remaining_points > 0,
+        )
+        .order_by(models.PointTransaction.expires_at.asc(), models.PointTransaction.id.asc())
+        .all()
+    )
+
+    for row in earn_rows:
+        if remaining <= 0:
+            break
+        consumed = min(row.remaining_points, remaining)
+        row.remaining_points -= consumed
+        remaining -= consumed
+
+
+def sync_work_order_points(db: Session, work_order: models.WorkOrder) -> int:
+    if not work_order.google_id or not work_order.id:
+        return 0
+
+    current_entitlement = get_work_order_point_entitlement(db, work_order.id)
+    settings = get_point_settings(db)
+    desired_points = calculate_work_order_points(
+        work_order,
+        settings=settings,
+        allow_disabled=current_entitlement > 0,
+    )
+    delta = desired_points - current_entitlement
+
+    issued_at = _work_order_point_date(work_order)
+    expires_at = add_months(issued_at, settings["validity_months"])
+
+    active_earn_rows = (
+        db.query(models.PointTransaction)
+        .filter(
+            models.PointTransaction.work_order_id == work_order.id,
+            models.PointTransaction.type == models.PointTransactionType.EARN,
+            models.PointTransaction.remaining_points > 0,
+        )
+        .all()
+    )
+    for row in active_earn_rows:
+        row.issued_at = issued_at
+        row.expires_at = expires_at
+
+    if delta == 0:
+        return 0
+
+    if delta > 0:
+        db.add(
+            models.PointTransaction(
+                google_id=work_order.google_id,
+                work_order_id=work_order.id,
+                type=models.PointTransactionType.EARN,
+                points=delta,
+                remaining_points=delta,
+                issued_at=issued_at,
+                expires_at=expires_at,
+                note=f"Work order #{work_order.id} earned points",
+            )
+        )
+        return delta
+
+    refund_points = abs(delta)
+    _consume_remaining_work_order_points(db, work_order, refund_points)
+    db.add(
+        models.PointTransaction(
+            google_id=work_order.google_id,
+            work_order_id=work_order.id,
+            type=models.PointTransactionType.REFUND_ADJUST,
+            points=-refund_points,
+            remaining_points=0,
+            issued_at=datetime.utcnow(),
+            note=f"Work order #{work_order.id} point refund adjustment",
+        )
+    )
+    return -refund_points
+
+
 def expire_points(db: Session, google_id: Optional[str] = None) -> int:
     now = datetime.utcnow()
     query = db.query(models.PointTransaction).filter(
@@ -214,6 +354,7 @@ def expire_points(db: Session, google_id: Optional[str] = None) -> int:
             models.PointTransaction(
                 google_id=row.google_id,
                 order_id=row.order_id,
+                work_order_id=row.work_order_id,
                 type=models.PointTransactionType.EXPIRE,
                 points=-points,
                 remaining_points=0,

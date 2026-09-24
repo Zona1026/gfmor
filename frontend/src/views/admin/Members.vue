@@ -151,6 +151,7 @@
                   <th>車型</th>
                   <th>里程</th>
                   <th>引擎號碼</th>
+                  <th>新車</th>
                   <th></th>
                 </tr>
               </thead>
@@ -162,6 +163,10 @@
                     <td><input v-model.trim="vehicleDraft.model_name" class="inline-input" /></td>
                     <td><input v-model.number="vehicleDraft.mileage" type="number" min="0" class="inline-input" /></td>
                     <td><input v-model.trim="vehicleDraft.vin" class="inline-input" /></td>
+                    <td>
+                      <label class="vehicle-new-toggle"><input v-model="vehicleDraft.is_new_vehicle" type="checkbox" /> 新車</label>
+                      <input v-if="vehicleDraft.is_new_vehicle" v-model="vehicleDraft.purchase_date" type="date" class="inline-input" aria-label="購車日期" />
+                    </td>
                     <td class="action-cell">
                       <button class="btn btn-sm btn-save" type="button" :disabled="savingVehicle" @click="saveVehicle(vehicle)">儲存</button>
                       <button class="btn btn-sm btn-outline" type="button" @click="cancelEditVehicle">取消</button>
@@ -173,6 +178,7 @@
                     <td>{{ vehicle.model_name || '未填' }}</td>
                     <td>{{ vehicle.mileage ? formatNumber(vehicle.mileage) : '未填' }}</td>
                     <td>{{ vehicle.vin || '未填' }}</td>
+                    <td>{{ vehicle.is_new_vehicle ? `是${vehicle.purchase_date ? ` / ${formatDate(vehicle.purchase_date)}` : ''}` : '否' }}</td>
                     <td class="action-cell">
                       <template v-if="canManageCustomers">
                         <button class="btn btn-sm" type="button" :disabled="deletingVehicleKey === vehicleKey(vehicle)" @click="startEditVehicle(vehicle)">編輯</button>
@@ -200,6 +206,8 @@
                 <label>車型<input v-model.trim="newVehicle.model_name" /></label>
                 <label>里程<input v-model.number="newVehicle.mileage" type="number" min="0" /></label>
                 <label>引擎號碼<input v-model.trim="newVehicle.vin" /></label>
+                <label class="vehicle-new-toggle"><span>新車</span><input v-model="newVehicle.is_new_vehicle" type="checkbox" /></label>
+                <label v-if="newVehicle.is_new_vehicle">購車日期<input v-model="newVehicle.purchase_date" type="date" /></label>
               </div>
               <button class="btn btn-primary" type="submit" :disabled="addingVehicle">
                 {{ addingVehicle ? '新增中...' : '新增車輛' }}
@@ -363,7 +371,9 @@ function defaultVehicle() {
     brand: '',
     model_name: '',
     vin: '',
-    mileage: null
+    mileage: null,
+    is_new_vehicle: false,
+    purchase_date: ''
   };
 }
 
@@ -378,6 +388,11 @@ function defaultProfileDraft() {
 
 const canEditCustomerProfile = computed(() => adminUser.value?.role === '最高級');
 const canManageCustomers = computed(() => adminUser.value?.role === '最高級');
+const VEHICLE_DATA_UPDATED_KEY = 'vehicleDataUpdatedAt';
+
+const notifyVehicleDataUpdated = () => {
+  localStorage.setItem(VEHICLE_DATA_UPDATED_KEY, String(Date.now()));
+};
 
 const customerKey = (customer) => `${customer.customer_type}-${customer.customer_id}`;
 const vehicleKey = (vehicle) => `${vehicle.customer_type}-${vehicle.id}`;
@@ -409,6 +424,8 @@ const cleanVehiclePayload = (vehicle) => ({
   brand: vehicle.brand || null,
   model_name: vehicle.model_name || null,
   vin: vehicle.vin || null,
+  is_new_vehicle: Boolean(vehicle.is_new_vehicle),
+  purchase_date: vehicle.purchase_date || null,
   mileage: vehicle.mileage === '' || vehicle.mileage === null || vehicle.mileage === undefined
     ? null
     : Number(vehicle.mileage)
@@ -551,6 +568,7 @@ const saveVehicle = async (vehicle) => {
     } else {
       await updateGuestMotor(selectedCustomer.value.customer_id, vehicle.id, payload);
     }
+    notifyVehicleDataUpdated();
     cancelEditVehicle();
     await refreshCurrentDetail();
     await fetchCustomers();
@@ -573,6 +591,7 @@ const removeVehicle = async (vehicle) => {
     } else {
       await deleteGuestMotor(selectedCustomer.value.customer_id, vehicle.id);
     }
+    notifyVehicleDataUpdated();
     if (editingVehicleKey.value === vehicleKey(vehicle)) cancelEditVehicle();
     await refreshCurrentDetail();
     await fetchCustomers();
@@ -598,6 +617,7 @@ const addVehicle = async () => {
     } else {
       await createGuestMotor(selectedCustomer.value.customer_id, payload);
     }
+    notifyVehicleDataUpdated();
     newVehicle.value = defaultVehicle();
     await refreshCurrentDetail();
     await fetchCustomers();
@@ -981,6 +1001,19 @@ onMounted(fetchCustomers);
   .action-cell {
     display: flex;
     gap: 0.4rem;
+  }
+
+  .vehicle-new-toggle {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.45rem;
+    color: $text-secondary;
+
+    input[type='checkbox'] {
+      width: 18px;
+      height: 18px;
+    }
   }
 
   .guest-motor-form {

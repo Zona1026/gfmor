@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import List, Optional
 
 from pydantic import BaseModel
@@ -14,6 +14,8 @@ class CustomerVehicle(BaseModel):
     model_name: Optional[str] = None
     vin: Optional[str] = None
     mileage: Optional[int] = None
+    is_new_vehicle: bool = False
+    purchase_date: Optional[date] = None
     status: Optional[str] = None
 
 

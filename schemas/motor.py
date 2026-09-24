@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from datetime import date
 from typing import Optional
 
 class MotorBase(BaseModel):
@@ -10,6 +11,8 @@ class MotorBase(BaseModel):
     model_name: Optional[str] = Field(None, description="型號")
     vin: Optional[str] = Field(None, description="引擎號碼")
     mileage: Optional[int] = Field(None, ge=0, description="里程數")
+    is_new_vehicle: bool = Field(False, description="是否為新車")
+    purchase_date: Optional[date] = Field(None, description="購車日期")
 
 class MotorCreate(MotorBase):
     """
@@ -28,6 +31,8 @@ class MotorUpdate(BaseModel):
     model_name: Optional[str] = None
     vin: Optional[str] = None
     mileage: Optional[int] = Field(None, ge=0)
+    is_new_vehicle: Optional[bool] = None
+    purchase_date: Optional[date] = None
 
 class Motor(MotorBase):
     """

@@ -17,6 +17,13 @@ export const getUserPoints = async (googleId) => {
 };
 
 /**
+ * 取得會員點數累積、使用、到期與回沖紀錄
+ */
+export const getUserPointTransactions = async (googleId) => {
+  return await api.get(`/points/user/${googleId}/transactions`);
+};
+
+/**
  * 更新使用者資訊 (含建立新車籍資料)
  * @param {string} googleId - 使用者的 Google ID 
  * @param {Object} profileData - 要更新的資料 (包含 phone, motors 等)

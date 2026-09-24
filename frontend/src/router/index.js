@@ -25,6 +25,7 @@ import AdminApprovals from '../views/admin/Approvals.vue'
 import AdminPurchases from '../views/admin/Purchases.vue'
 import AdminAccounting from '../views/admin/Accounting.vue'
 import AdminAdmins from '../views/admin/Admins.vue'
+import AdminNewVehicles from '../views/admin/NewVehicles.vue'
 import { useAuthStore } from '../store/auth'
 
 const routes = [
@@ -104,6 +105,12 @@ const routes = [
         name: 'AdminMembers',
         component: AdminMembers,
         meta: { title: '客戶 / 會員管理' }
+      },
+      {
+        path: 'new-vehicles',
+        name: 'AdminNewVehicles',
+        component: AdminNewVehicles,
+        meta: { title: '新車專區' }
       },
       {
         path: 'announcements',

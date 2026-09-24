@@ -16,3 +16,11 @@ export const updateMotor = async (motorId, motorData) => {
 export const deleteMotor = async (motorId) => {
   return await api.delete(`/motors/${motorId}`);
 };
+
+/**
+ * 讀取會員新車的原廠保養里程紀錄
+ * @param {number} motorId - 車籍 ID
+ */
+export const getMotorMaintenanceRecords = async (motorId) => {
+  return await api.get(`/motors/${motorId}/maintenance-records`);
+};

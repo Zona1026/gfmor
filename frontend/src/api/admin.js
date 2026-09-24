@@ -142,6 +142,14 @@ export const deleteGuestMotor = async (guestId, motorId) => {
   return await api.delete(`/customers/guest/${guestId}/motors/${motorId}`);
 };
 
+export const getNewVehicleProfiles = async (params = {}) => {
+  return await api.get('/admin/new-vehicles/', { params });
+};
+
+export const updateNewVehicleMaintenanceRecord = async (vehicleType, vehicleId, recordId, data) => {
+  return await api.put(`/admin/new-vehicles/${vehicleType}/${vehicleId}/records/${recordId}`, data);
+};
+
 // ======= 公告管理 =======
 export const getAnnouncements = async () => {
   return await api.get('/announcements/all');

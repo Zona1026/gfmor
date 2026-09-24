@@ -1,7 +1,12 @@
 <template>
   <div class="admin-dashboard" :class="{ 'sidebar-open': isSidebarOpen }">
     <div class="mobile-topbar">
-      <button class="hamburger-btn" @click="isSidebarOpen = !isSidebarOpen">
+      <button
+        class="hamburger-btn"
+        :aria-label="isSidebarOpen ? '關閉後台選單' : '開啟後台選單'"
+        :aria-expanded="isSidebarOpen"
+        @click="isSidebarOpen = !isSidebarOpen"
+      >
         <span class="bar"></span>
         <span class="bar"></span>
         <span class="bar"></span>
@@ -18,16 +23,34 @@
         <router-link to="/admin/bookings" active-class="active" @click="closeSidebar">預約管理</router-link>
         <router-link to="/admin/work-orders" active-class="active" @click="closeSidebar">工單管理</router-link>
         <router-link to="/admin/members" active-class="active" @click="closeSidebar">客戶 / 會員管理</router-link>
+        <router-link to="/admin/new-vehicles" active-class="active" @click="closeSidebar">新車專區</router-link>
         <router-link to="/admin/products" active-class="active" @click="closeSidebar">商城管理</router-link>
         <router-link to="/admin/inventory" active-class="active" @click="closeSidebar">庫存管理</router-link>
-        <router-link to="/admin/purchases" active-class="active" @click="closeSidebar">採購 / 叫貨管理</router-link>
-        <router-link to="/admin/accounting" active-class="active" @click="closeSidebar">帳務管理</router-link>
+        <div class="nav-group">
+          <button
+            type="button"
+            class="nav-group-toggle"
+            :class="{ active: isShopManagementRoute }"
+            :aria-expanded="isShopManagementOpen"
+            @click="isShopManagementOpen = !isShopManagementOpen"
+          >
+            <span>店務管理</span>
+            <span class="nav-group-chevron" aria-hidden="true">⌄</span>
+          </button>
+          <div v-show="isShopManagementOpen" class="nav-submenu">
+            <router-link to="/admin/purchases" active-class="active" @click="closeSidebar">採購 / 叫貨</router-link>
+            <router-link to="/admin/accounting" active-class="active" @click="closeSidebar">帳務</router-link>
+            <router-link to="/admin/admins" active-class="active" @click="closeSidebar">系統與權限</router-link>
+            <router-link to="/admin/settings" active-class="active" @click="closeSidebar">全域系統設定</router-link>
+          </div>
+        </div>
         <router-link to="/admin/announcements" active-class="active" @click="closeSidebar">公告管理</router-link>
         <router-link to="/admin/portfolio" active-class="active" @click="closeSidebar">作品集管理</router-link>
-        <router-link to="/admin/admins" active-class="active" @click="closeSidebar">系統與權限</router-link>
-        <router-link to="/admin/settings" active-class="active" @click="closeSidebar">全域系統設定</router-link>
       </nav>
-      <button @click="handleLogout" class="btn-logout">登出</button>
+      <div class="sidebar-footer">
+        <button @click="handleLogout" class="btn-logout">登出</button>
+        <small class="app-version">GFmotor Admin v{{ appVersion }}</small>
+      </div>
     </aside>
 
     <main class="content">
@@ -249,12 +272,13 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useAuthStore } from '../../store/auth';
 import { useSiteStore } from '../../store/site';
 import { getAdminBookings, getAllOrders, getPurchaseRequests, getWorkOrderApprovals, getWorkOrders } from '../../api/admin';
+import packageInfo from '../../../package.json';
 
 const authStore = useAuthStore();
 const siteStore = useSiteStore();
@@ -264,6 +288,8 @@ const { adminUser } = storeToRefs(authStore);
 const { settings } = storeToRefs(siteStore);
 
 const isSidebarOpen = ref(false);
+const shopManagementPaths = ['/admin/purchases', '/admin/accounting', '/admin/admins', '/admin/settings'];
+const isShopManagementOpen = ref(shopManagementPaths.includes(route.path));
 const allBookings = ref([]);
 const allOrders = ref([]);
 const allWorkOrders = ref([]);
@@ -284,6 +310,14 @@ const closeSidebar = () => {
 };
 
 const routeTitle = computed(() => route.meta?.title || '後台管理');
+const appVersion = packageInfo.version;
+const isShopManagementRoute = computed(() => shopManagementPaths.includes(route.path));
+
+watch(() => route.path, (path) => {
+  if (shopManagementPaths.includes(path)) {
+    isShopManagementOpen.value = true;
+  }
+});
 
 const bookingCategoryMap = {
   REPAIR: '維修',
@@ -546,11 +580,15 @@ onMounted(() => {
 
   .sidebar {
     width: 250px;
+    height: 100vh;
+    position: sticky;
+    top: 0;
     background-color: $background-color;
     border-right: 1px solid $medium-grey;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
+    overflow-y: auto;
 
     h2 {
       padding: 1.5rem;
@@ -578,19 +616,89 @@ onMounted(() => {
           border-right: 3px solid $primary-color;
         }
       }
+
+      .nav-group {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .nav-group-toggle {
+        width: 100%;
+        min-height: 52px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.9rem 1.5rem;
+        border: 0;
+        border-right: 3px solid transparent;
+        background: transparent;
+        color: $text-secondary;
+        font: inherit;
+        font-weight: 600;
+        text-align: left;
+        cursor: pointer;
+        transition: 0.3s;
+
+        &:hover,
+        &.active {
+          background-color: rgba($primary-color, 0.1);
+          color: $primary-color;
+        }
+
+        &.active {
+          border-right-color: $primary-color;
+        }
+
+        &[aria-expanded='true'] .nav-group-chevron {
+          transform: rotate(180deg);
+        }
+      }
+
+      .nav-group-chevron {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        font-size: 1.1rem;
+        transition: transform 0.2s ease;
+      }
+
+      .nav-submenu {
+        padding: 0.25rem 0 0.5rem;
+        background: rgba(255, 255, 255, 0.02);
+
+        a {
+          display: block;
+          padding: 0.7rem 1.5rem 0.7rem 2.5rem;
+          font-size: 0.9rem;
+        }
+      }
     }
 
-    .btn-logout {
-      padding: 1rem;
-      background-color: transparent;
-      color: #ff6b6b;
-      border: none;
+    .sidebar-footer {
+      display: flex;
+      flex-direction: column;
       border-top: 1px solid $medium-grey;
-      cursor: pointer;
-      font-weight: bold;
 
-      &:hover {
-        background-color: rgba(#ff6b6b, 0.1);
+      .btn-logout {
+        padding: 0.85rem 1rem;
+        background-color: transparent;
+        color: #ff6b6b;
+        border: none;
+        cursor: pointer;
+        font-weight: bold;
+
+        &:hover {
+          background-color: rgba(#ff6b6b, 0.1);
+        }
+      }
+
+      .app-version {
+        padding: 0 1rem 0.8rem;
+        color: $text-disabled;
+        font-size: 0.72rem;
+        text-align: center;
       }
     }
   }

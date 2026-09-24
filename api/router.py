@@ -11,6 +11,7 @@ from .endpoints import (
     guest_customers,
     inventory,
     motors,
+    new_vehicles,
     orders,
     points,
     portfolio,
@@ -37,6 +38,7 @@ api_router.include_router(admin.router, prefix="/admin", tags=["Admin"])
 api_router.include_router(inventory.router, prefix="/admin/inventory", tags=["Inventory"])
 api_router.include_router(purchases.router, prefix="/admin/purchases", tags=["Purchases"])
 api_router.include_router(accounting.router, prefix="/admin/accounting", tags=["Accounting"])
+api_router.include_router(new_vehicles.router, prefix="/admin/new-vehicles", tags=["New Vehicles"])
 api_router.include_router(admins.router, prefix="/admins", tags=["Admin Accounts"])
 api_router.include_router(announcements.router, prefix="/announcements", tags=["Announcements"])
 api_router.include_router(portfolio.router, prefix="/portfolio", tags=["Portfolio"])

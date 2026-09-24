@@ -25,6 +25,18 @@
 
       <div class="form-checkbox-group">
         <label class="checkbox-label">
+          <input type="checkbox" v-model="motorData.is_new_vehicle" />
+          <span>這是新車，建立新車保養里程表</span>
+        </label>
+      </div>
+
+      <div v-if="motorData.is_new_vehicle" class="form-group">
+        <label for="purchase_date">購車日期</label>
+        <input type="date" id="purchase_date" v-model="motorData.purchase_date" />
+      </div>
+
+      <div class="form-checkbox-group">
+        <label class="checkbox-label">
           <input type="checkbox" v-model="agreed" required />
           <span>我已閱讀並同意 <router-link to="/terms" target="_blank" class="legal-link">服務條款</router-link> 與 <router-link to="/privacy" target="_blank" class="legal-link">隱私權政策</router-link></span>
         </label>
@@ -54,7 +66,9 @@ const formData = reactive({
 const motorData = reactive({
   license_plate: '',
   brand: '',
-  model_name: ''
+  model_name: '',
+  is_new_vehicle: false,
+  purchase_date: ''
 });
 
 const handleSubmit = async () => {
@@ -68,7 +82,9 @@ const handleSubmit = async () => {
         {
           license_plate: motorData.license_plate,
           brand: motorData.brand,
-          model_name: motorData.model_name
+          model_name: motorData.model_name,
+          is_new_vehicle: motorData.is_new_vehicle,
+          purchase_date: motorData.purchase_date || null
         }
       ]
     };

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -219,11 +219,14 @@ class WorkOrderBase(BaseModel):
     vehicle_model: Optional[str] = None
     vehicle_vin: Optional[str] = None
     vehicle_mileage: Optional[int] = None
+    vehicle_is_new: Optional[bool] = None
+    vehicle_purchase_date: Optional[date] = None
     service_type: Optional[WorkOrderServiceType] = None
     problem_description: Optional[str] = None
     inspection_result: Optional[str] = None
     responsible_staff: Optional[str] = None
     scheduled_at: Optional[datetime] = None
+    consumption_date: Optional[date] = None
     notes: Optional[str] = None
 
 
@@ -241,6 +244,7 @@ class WorkOrderUpdate(BaseModel):
     inspection_result: Optional[str] = None
     responsible_staff: Optional[str] = None
     scheduled_at: Optional[datetime] = None
+    consumption_date: Optional[date] = None
     completed_at: Optional[datetime] = None
     notes: Optional[str] = None
     line_items: Optional[List[WorkOrderLineItemUpdate]] = None
@@ -273,6 +277,7 @@ class WorkOrder(BaseModel):
     payment_status: WorkOrderPaymentStatus
     responsible_staff: Optional[str] = None
     scheduled_at: Optional[datetime] = None
+    consumption_date: date
     total_amount: int
     membership_eligible_amount: int = 0
     membership_consumption_amount: int = 0

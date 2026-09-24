@@ -53,6 +53,8 @@ def _member_vehicles(user):
             model_name=motor.model_name,
             vin=motor.vin,
             mileage=motor.mileage,
+            is_new_vehicle=motor.is_new_vehicle,
+            purchase_date=motor.purchase_date,
             status=motor.status,
         )
         for motor in (user.motors or [])
@@ -70,6 +72,8 @@ def _guest_vehicles(guest):
             model_name=motor.model_name,
             vin=motor.vin,
             mileage=motor.mileage,
+            is_new_vehicle=motor.is_new_vehicle,
+            purchase_date=motor.purchase_date,
             status=motor.status,
         )
         for motor in (guest.motors or [])

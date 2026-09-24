@@ -66,6 +66,7 @@
             <th>付款狀態</th>
             <th>負責人</th>
             <th>預約時間</th>
+            <th>消費日期</th>
             <th>總金額</th>
           </tr>
         </thead>
@@ -93,6 +94,7 @@
             </td>
             <td>{{ workOrder.responsible_staff || '-' }}</td>
             <td>{{ formatDateTime(workOrder.scheduled_at || workOrder.booking?.booking_time) }}</td>
+            <td>{{ formatDate(workOrder.consumption_date) }}</td>
             <td class="amount">NT$ {{ workOrder.total_amount?.toLocaleString() || 0 }}</td>
           </tr>
         </tbody>
@@ -196,6 +198,18 @@
               <label>
                 預約時間
                 <input v-model="createForm.scheduled_at" type="datetime-local" />
+              </label>
+              <label>
+                消費日期
+                <input v-model="createForm.consumption_date" type="date" required />
+              </label>
+              <label v-if="createSource === 'guest'" class="new-vehicle-field">
+                新車
+                <span><input v-model="createForm.vehicle_is_new" type="checkbox" /> 建立新車保養里程表</span>
+              </label>
+              <label v-if="createSource === 'guest' && createForm.vehicle_is_new">
+                購車日期
+                <input v-model="createForm.vehicle_purchase_date" type="date" />
               </label>
             </div>
             <label>
@@ -326,6 +340,10 @@
               <label>
                 預約時間
                 <input v-model="detailForm.scheduled_at" type="datetime-local" :disabled="!canEditWorkOrder" />
+              </label>
+              <label>
+                消費日期
+                <input v-model="detailForm.consumption_date" type="date" required :disabled="!canEditWorkOrder" />
               </label>
             </div>
             <label>
@@ -688,10 +706,13 @@ function defaultCreateForm() {
     vehicle_model: '',
     vehicle_vin: '',
     vehicle_mileage: null,
+    vehicle_is_new: false,
+    vehicle_purchase_date: '',
     service_type: 'MAINTENANCE',
     problem_description: '',
     responsible_staff: defaultResponsibleStaff,
     scheduled_at: '',
+    consumption_date: todayDateString(),
     notes: ''
   };
 }
@@ -986,6 +1007,7 @@ const submitCreateWorkOrder = async () => {
     const payload = {
       ...createForm.value,
       vehicle_mileage: Number(createForm.value.vehicle_mileage),
+      vehicle_purchase_date: createForm.value.vehicle_purchase_date || null,
       scheduled_at: createForm.value.scheduled_at || null,
       line_items: createLineItems.value.map(cleanLineItem)
     };
@@ -996,6 +1018,8 @@ const submitCreateWorkOrder = async () => {
       delete payload.guest_customer_id;
       delete payload.guest_name;
       delete payload.guest_phone;
+      delete payload.vehicle_is_new;
+      delete payload.vehicle_purchase_date;
     }
     const created = await createWorkOrder(payload);
     closeCreateModal();
@@ -1019,6 +1043,7 @@ const openDetail = async (id) => {
       inspection_result: selectedWorkOrder.value.inspection_result || '',
       responsible_staff: selectedWorkOrder.value.responsible_staff || defaultResponsibleStaff,
       scheduled_at: toDatetimeLocal(selectedWorkOrder.value.scheduled_at),
+      consumption_date: selectedWorkOrder.value.consumption_date || '',
       notes: selectedWorkOrder.value.notes || ''
     };
     detailLineItems.value = (selectedWorkOrder.value.line_items || []).map(item => ({ ...item }));
@@ -1156,6 +1181,17 @@ const formatDateTime = (iso) => {
   return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 };
 
+const formatDate = (value) => {
+  if (!value) return '-';
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[1]}/${match[2]}/${match[3]}` : '-';
+};
+
+function todayDateString() {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
 const toDatetimeLocal = (iso) => {
   if (!iso) return '';
   const date = new Date(iso);
@@ -1287,6 +1323,20 @@ watch(
   .required-mark {
     color: $primary-light;
     font-weight: 800;
+  }
+
+  .new-vehicle-field span {
+    min-height: 39px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: $text-primary;
+
+    input {
+      width: 18px;
+      height: 18px;
+      padding: 0;
+    }
   }
 
   .btn {

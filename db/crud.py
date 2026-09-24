@@ -6,6 +6,8 @@ from . import inventory as inventory_service
 from . import models
 from . import accounting as accounting_service
 from . import membership as membership_service
+from . import new_vehicle as new_vehicle_service
+from . import points as points_service
 from . import purchases as purchase_service
 from schemas.user import UserCreate, UserUpdate
 from schemas.product import ProductCreate, ProductUpdate
@@ -68,6 +70,8 @@ def create_user(db: Session, user: UserCreate):
                 google_id=db_user.google_id  # 確保車輛關聯到這位新使用者
             )
             db.add(db_motor)
+            db.flush()
+            new_vehicle_service.ensure_maintenance_schedule(db, db_motor)
         
         # 再次提交，以儲存新建立的車籍資料
         db.commit()
@@ -157,12 +161,15 @@ def merge_guest_customer_to_user(db: Session, guest: models.GuestCustomer, user:
                     model_name=guest_motor.model_name,
                     vin=vin,
                     mileage=guest_motor.mileage,
+                    is_new_vehicle=guest_motor.is_new_vehicle,
+                    purchase_date=guest_motor.purchase_date,
                 )
                 db.add(member_motor)
                 db.flush()
                 summary["moved_motors"] += 1
 
         if member_motor:
+            new_vehicle_service.transfer_guest_schedule(db, guest_motor, member_motor)
             guest_motor_to_member_motor[guest_motor.id] = member_motor.id
         guest_motor.status = "已合併"
 
@@ -175,6 +182,7 @@ def merge_guest_customer_to_user(db: Session, guest: models.GuestCustomer, user:
         previous_consumption = work_order.membership_consumption_amount or 0
         target_consumption = membership_service.calculate_work_order_membership_consumption(db, work_order)
         work_order.membership_consumption_amount = target_consumption
+        points_service.sync_work_order_points(db, work_order)
         summary["added_consumption"] += target_consumption - previous_consumption
         summary["moved_work_orders"] += 1
 
@@ -215,6 +223,7 @@ def update_user(db: Session, google_id: str, user_update: UserUpdate):
                 for key, value in _schema_dict(motor_data, exclude_unset=True).items():
                     setattr(existing_motor, key, value)
                 existing_motor.status = None
+                new_vehicle_service.ensure_maintenance_schedule(db, existing_motor)
                 continue
 
             if motor_data.vin:
@@ -227,6 +236,8 @@ def update_user(db: Session, google_id: str, user_update: UserUpdate):
                 google_id=db_user.google_id  # 確保新車輛關聯到這位使用者
             )
             db.add(new_motor)
+            db.flush()
+            new_vehicle_service.ensure_maintenance_schedule(db, new_motor)
 
     if update_data.get("phone"):
         merge_guest_customers_to_user_by_phone(db, db_user, update_data["phone"])
@@ -694,6 +705,10 @@ def _upsert_guest_motor_for_work_order(db: Session, guest_id: int, work_order: W
         guest_motor.vin = work_order.vehicle_vin
     if work_order.vehicle_mileage is not None:
         guest_motor.mileage = work_order.vehicle_mileage
+    if work_order.vehicle_is_new:
+        guest_motor.is_new_vehicle = True
+        guest_motor.purchase_date = work_order.vehicle_purchase_date or guest_motor.purchase_date
+        new_vehicle_service.ensure_maintenance_schedule(db, guest_motor)
 
     db_work_order.guest_motor_id = guest_motor.id
     return guest_motor
@@ -907,6 +922,7 @@ def create_work_order(db: Session, work_order: WorkOrderCreate):
         inspection_result=work_order.inspection_result,
         responsible_staff=work_order.responsible_staff,
         scheduled_at=work_order.scheduled_at,
+        consumption_date=work_order.consumption_date or datetime.now().date(),
         notes=work_order.notes,
         line_items=line_items,
     )
@@ -934,6 +950,9 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
 
     update_data = _schema_dict(work_order_update, exclude_unset=True)
     line_items_data = update_data.pop("line_items", None)
+
+    if "consumption_date" in update_data and update_data["consumption_date"] is None:
+        raise ValueError("消費日期不可為空")
 
     if line_items_data is not None:
         if db_work_order.supervisor_reviewed_at:
@@ -1262,8 +1281,9 @@ def update_motor(db: Session, motor_id: int, motor_update: MotorUpdate):
     # 遍歷所有要更新的欄位，並更新到資料庫物件上
     for key, value in update_data.items():
         setattr(db_motor, key, value)
-        
+
     db.add(db_motor)
+    new_vehicle_service.ensure_maintenance_schedule(db, db_motor)
     db.commit()
     db.refresh(db_motor)
     return db_motor
@@ -1290,12 +1310,15 @@ def create_guest_motor(db: Session, guest_id: int, motor_in: GuestMotorCreate):
     if existing:
         for key, value in _schema_dict(motor_in, exclude_unset=True).items():
             setattr(existing, key, value)
+        new_vehicle_service.ensure_maintenance_schedule(db, existing)
         db.commit()
         db.refresh(existing)
         return existing
 
     db_motor = models.GuestMotor(guest_customer_id=guest_id, **_schema_dict(motor_in))
     db.add(db_motor)
+    db.flush()
+    new_vehicle_service.ensure_maintenance_schedule(db, db_motor)
     db.commit()
     db.refresh(db_motor)
     return db_motor
@@ -1308,6 +1331,7 @@ def update_guest_motor(db: Session, guest_motor_id: int, motor_update: GuestMoto
     for key, value in _schema_dict(motor_update, exclude_unset=True).items():
         setattr(db_motor, key, value)
     db.add(db_motor)
+    new_vehicle_service.ensure_maintenance_schedule(db, db_motor)
     db.commit()
     db.refresh(db_motor)
     return db_motor
