@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
 from db.models import InventoryType
 
@@ -53,6 +53,14 @@ class Product(ProductBase):
 
     class Config:
         from_attributes = True
+
+
+class ProductPage(BaseModel):
+    items: List[Product]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
 
 class ProductCreate(ProductBase):
     """用於建立新商品（JSON 方式，不含圖片）。"""

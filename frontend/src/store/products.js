@@ -2,7 +2,7 @@
 
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { getProducts } from '../api/products';
+import { getPaginatedProducts } from '../api/products';
 
 // 使用 defineStore 定義一個名為 'products' 的 store
 // 第一個參數是 store 的唯一 ID
@@ -16,6 +16,9 @@ export const useProductsStore = defineStore('products', () => {
   const isLoading = ref(false);
   // 儲存載入過程中發生的錯誤
   const error = ref(null);
+  const total = ref(0);
+  const page = ref(1);
+  const totalPages = ref(1);
 
   // --- Actions ---
   // 在 Composition API 風格的 store 中，Actions 就是可以直接呼叫的函式
@@ -23,17 +26,24 @@ export const useProductsStore = defineStore('products', () => {
   /**
    * 從 API 獲取商品列表並更新 state
    */
-  async function fetchProducts() {
+  async function fetchProducts({ requestedPage = 1, search = '', categoryId = '' } = {}) {
     // 開始載入，將 isLoading 設為 true
     isLoading.value = true;
     // 將先前的錯誤清除
     error.value = null;
 
     try {
-      // 呼叫我們在 api/products.js 中定義的 getProducts 函式
-      const productList = await getProducts();
-      // 如果成功，將獲取到的資料存入 items
-      items.value = productList;
+      const result = await getPaginatedProducts({
+        page: requestedPage,
+        page_size: 50,
+        search: search || undefined,
+        category_id: categoryId || undefined,
+        status: 'active',
+      });
+      items.value = result.items;
+      total.value = result.total;
+      page.value = result.page;
+      totalPages.value = result.total_pages;
     } catch (err) {
       // 如果發生錯誤，將錯誤訊息存入 error
       console.error('獲取商品資料失敗:', err);
@@ -54,6 +64,9 @@ export const useProductsStore = defineStore('products', () => {
     items,
     isLoading,
     error,
+    total,
+    page,
+    totalPages,
     fetchProducts,
   };
 });

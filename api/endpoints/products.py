@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import os
@@ -71,6 +72,58 @@ def _sync_product_category(db: Session, product, category_id: Optional[int], cat
 def read_products(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     products = crud.get_products(db, skip=skip, limit=limit)
     return products
+
+
+@router.get("/paginated", response_model=product_schema.ProductPage, summary="分頁讀取商品列表")
+def read_paginated_products(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=50),
+    search: Optional[str] = None,
+    category_id: Optional[int] = None,
+    uncategorized: bool = False,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    query = db.query(models.Product)
+
+    if search and search.strip():
+        keyword = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                models.Product.name.ilike(keyword),
+                models.Product.description.ilike(keyword),
+            )
+        )
+
+    if uncategorized:
+        query = query.filter(models.Product.category_id.is_(None))
+    elif category_id is not None:
+        query = query.filter(models.Product.category_id == category_id)
+
+    if status == "active":
+        query = query.filter(models.Product.is_active.is_(True))
+    elif status == "inactive":
+        query = query.filter(models.Product.is_active.is_(False))
+    elif status not in (None, ""):
+        raise HTTPException(status_code=422, detail="無效的商品狀態")
+
+    total = query.count()
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    current_page = min(page, total_pages)
+    products = (
+        query.order_by(models.Product.id.asc())
+        .offset((current_page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    return {
+        "items": products,
+        "total": total,
+        "page": current_page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+    }
 
 
 @router.get("/categories", response_model=List[product_schema.ProductCategory], include_in_schema=False)

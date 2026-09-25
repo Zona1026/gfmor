@@ -209,6 +209,10 @@ export const getProducts = async () => {
   return await api.get('/products/');
 };
 
+export const getPaginatedProducts = async (params = {}) => {
+  return await api.get('/products/paginated', { params });
+};
+
 export const getProductCategories = async (params = {}) => {
   return await api.get('/products/categories/', { params });
 };

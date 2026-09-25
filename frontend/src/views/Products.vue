@@ -7,7 +7,7 @@
       <input type="text" v-model="searchKeyword" placeholder="搜尋商品..." class="search-input" />
       <select v-model="filterCategory" class="category-select">
         <option value="">全部分類</option>
-        <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
+        <option v-for="category in categories" :key="category.id" :value="String(category.id)">{{ category.name }}</option>
       </select>
     </div>
 
@@ -21,7 +21,7 @@
     </div>
 
     <div v-if="!isLoading && !error" class="product-grid">
-      <div v-for="product in filteredProducts" :key="product.id" class="product-card">
+      <div v-for="product in items" :key="product.id" class="product-card">
         <div class="card-image-wrap">
           <img v-if="product.image_url" :src="product.image_url" :alt="product.name" class="card-image" @load="imageLoaded($event)" />
           <div v-else class="card-image placeholder-img"><span>暫無圖片</span></div>
@@ -48,10 +48,18 @@
           </button>
         </div>
       </div>
-      <div v-if="filteredProducts.length === 0" class="empty-state">
+      <div v-if="items.length === 0" class="empty-state">
         <div class="empty-icon">🔍</div>
         <p>查無符合條件的商品。</p>
         <button class="btn-clear-filter" @click="searchKeyword = ''; filterCategory = '';">清除篩選</button>
+      </div>
+    </div>
+
+    <div v-if="!isLoading && !error && total > 0" class="pagination">
+      <span>第 {{ page }} / {{ totalPages }} 頁，共 {{ total }} 筆</span>
+      <div class="pagination-actions">
+        <button type="button" :disabled="page <= 1" @click="changePage(page - 1)">上一頁</button>
+        <button type="button" :disabled="page >= totalPages" @click="changePage(page + 1)">下一頁</button>
       </div>
     </div>
 
@@ -63,42 +71,37 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useProductsStore } from '../store/products';
 import { useCartStore } from '../store/cart';
 import { storeToRefs } from 'pinia';
+import { getProductCategories } from '../api/products';
 
 const productsStore = useProductsStore();
 const cartStore = useCartStore();
-const { isLoading, error, items } = storeToRefs(productsStore);
+const { isLoading, error, items, total, page, totalPages } = storeToRefs(productsStore);
 
 const searchKeyword = ref('');
 const filterCategory = ref('');
 const showToast = ref(false);
-
-// 只顯示上架中的商品
-const activeProducts = computed(() => items.value.filter(p => p.is_active));
-
-const categories = computed(() => {
-  const cats = new Set(activeProducts.value.map(p => p.category).filter(Boolean));
-  return [...cats];
-});
+const categories = ref([]);
+let searchTimer;
 
 const imageLoaded = (event) => {
   event.target.classList.add('is-loaded');
 };
 
-const filteredProducts = computed(() => {
-  let list = activeProducts.value;
-  if (searchKeyword.value) {
-    const kw = searchKeyword.value.toLowerCase();
-    list = list.filter(p => p.name.toLowerCase().includes(kw) || (p.description || '').toLowerCase().includes(kw));
-  }
-  if (filterCategory.value) {
-    list = list.filter(p => p.category === filterCategory.value);
-  }
-  return list;
+const loadProducts = (requestedPage = 1) => productsStore.fetchProducts({
+  requestedPage,
+  search: searchKeyword.value.trim(),
+  categoryId: filterCategory.value,
 });
+
+const changePage = async (requestedPage) => {
+  if (requestedPage < 1 || requestedPage > totalPages.value) return;
+  await loadProducts(requestedPage);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
 
 const handleAddToCart = (product) => {
   cartStore.addItem(product);
@@ -106,9 +109,22 @@ const handleAddToCart = (product) => {
   setTimeout(() => showToast.value = false, 1500);
 };
 
-onMounted(() => {
-  productsStore.fetchProducts();
+watch(searchKeyword, () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadProducts(1), 300);
 });
+
+watch(filterCategory, () => loadProducts(1));
+
+onMounted(async () => {
+  const [, productCategories] = await Promise.all([
+    loadProducts(1),
+    getProductCategories({ active_only: true }),
+  ]);
+  categories.value = productCategories;
+});
+
+onBeforeUnmount(() => clearTimeout(searchTimer));
 </script>
 
 <style lang="scss" scoped>
@@ -161,6 +177,20 @@ onMounted(() => {
 
   .product-grid {
     display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 2rem;
+  }
+
+  .pagination {
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    margin-top: 2rem; color: $text-secondary;
+
+    .pagination-actions { display: flex; gap: 0.6rem; }
+    button {
+      min-width: 82px; min-height: 38px; padding: 0.5rem 0.9rem;
+      border: 1px solid $primary-color; border-radius: $border-radius;
+      background: transparent; color: $primary-light; cursor: pointer;
+      &:hover:not(:disabled) { background: $primary-color; color: #fff; }
+      &:disabled { opacity: 0.45; cursor: not-allowed; }
+    }
   }
 
   .product-card {
@@ -249,5 +279,11 @@ onMounted(() => {
   }
   .toast-enter-active, .toast-leave-active { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
   .toast-enter-from, .toast-leave-to { opacity: 0; transform: translateX(-50%) translateY(40px) scale(0.9); }
+
+  @media (max-width: 560px) {
+    .pagination { align-items: stretch; flex-direction: column; }
+    .pagination-actions { display: grid; grid-template-columns: 1fr 1fr; }
+    .pagination button { width: 100%; }
+  }
 }
 </style>

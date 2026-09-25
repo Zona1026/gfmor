@@ -11,6 +11,14 @@ export const getProducts = (params) => {
   return apiClient.get('/products/', { params });
 };
 
+export const getPaginatedProducts = (params = {}) => {
+  return apiClient.get('/products/paginated', { params });
+};
+
+export const getProductCategories = (params = {}) => {
+  return apiClient.get('/products/categories/', { params });
+};
+
 /**
  * 根據 ID 獲取單一商品
  * @param {number|string} productId - 商品 ID

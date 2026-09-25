@@ -48,7 +48,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="product in filteredProducts" :key="product.id">
+            <tr v-for="product in products" :key="product.id">
               <td>
                 <div class="product-cell">
                   <img v-if="product.image_url" :src="product.image_url" :alt="product.name" />
@@ -70,11 +70,18 @@
                 <button class="btn btn-sm btn-danger" type="button" @click="removeProduct(product)">刪除</button>
               </td>
             </tr>
-            <tr v-if="filteredProducts.length === 0">
+            <tr v-if="products.length === 0">
               <td :colspan="canManageShop ? 7 : 6" class="empty-row">查無符合條件的商品。</td>
             </tr>
           </tbody>
         </table>
+      </div>
+      <div v-if="productTotal > 0" class="pagination">
+        <span>第 {{ productPage }} / {{ productTotalPages }} 頁，共 {{ productTotal }} 筆</span>
+        <div class="pagination-actions">
+          <button class="btn btn-sm" type="button" :disabled="productPage <= 1 || loadingProducts" @click="fetchProducts(productPage - 1)">上一頁</button>
+          <button class="btn btn-sm" type="button" :disabled="productPage >= productTotalPages || loadingProducts" @click="fetchProducts(productPage + 1)">下一頁</button>
+        </div>
       </div>
     </section>
 
@@ -334,7 +341,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useAuthStore } from '../../store/auth';
 import { useSiteStore } from '../../store/site';
@@ -344,7 +351,7 @@ import {
   createProductCategory,
   deleteProduct,
   getProductCategories,
-  getProducts,
+  getPaginatedProducts,
   getShopOrders,
   toggleProductActive,
   toggleProductCategory,
@@ -375,6 +382,11 @@ const categories = ref([]);
 const shopOrders = ref([]);
 const loadingProducts = ref(false);
 const loadingOrders = ref(false);
+const productPage = ref(1);
+const productTotal = ref(0);
+const productTotalPages = ref(1);
+const productPageSize = 50;
+let productSearchTimer;
 
 const productSearch = ref('');
 const productStatusFilter = ref('');
@@ -423,22 +435,6 @@ const itemStatusMap = {
 };
 
 const activeCategories = computed(() => categories.value.filter(category => category.is_active));
-
-const filteredProducts = computed(() => {
-  const keyword = productSearch.value.toLowerCase();
-  return products.value.filter(product => {
-    const matchesKeyword = !keyword || product.name?.toLowerCase().includes(keyword);
-    const matchesStatus =
-      !productStatusFilter.value ||
-      (productStatusFilter.value === 'active' && product.is_active) ||
-      (productStatusFilter.value === 'inactive' && !product.is_active);
-    const matchesCategory =
-      !productCategoryFilter.value ||
-      (productCategoryFilter.value === 'uncategorized' && !product.category_id) ||
-      String(product.category_id || '') === productCategoryFilter.value;
-    return matchesKeyword && matchesStatus && matchesCategory;
-  });
-});
 
 const filteredShopOrders = computed(() => {
   const keyword = orderSearch.value.toLowerCase();
@@ -504,10 +500,22 @@ const summarizeItemStatus = (order) => {
     .join('、');
 };
 
-const fetchProducts = async () => {
+const fetchProducts = async (requestedPage = productPage.value) => {
   loadingProducts.value = true;
   try {
-    products.value = await getProducts();
+    const categoryFilter = productCategoryFilter.value;
+    const result = await getPaginatedProducts({
+      page: requestedPage,
+      page_size: productPageSize,
+      search: productSearch.value || undefined,
+      status: productStatusFilter.value || undefined,
+      category_id: categoryFilter && categoryFilter !== 'uncategorized' ? categoryFilter : undefined,
+      uncategorized: categoryFilter === 'uncategorized' || undefined,
+    });
+    products.value = result.items;
+    productPage.value = result.page;
+    productTotal.value = result.total;
+    productTotalPages.value = result.total_pages;
   } catch (error) {
     alert(`載入商品失敗：${getErrorMessage(error)}`);
   } finally {
@@ -725,9 +733,18 @@ const saveShopSettings = async () => {
   }
 };
 
+watch(productSearch, () => {
+  clearTimeout(productSearchTimer);
+  productSearchTimer = setTimeout(() => fetchProducts(1), 300);
+});
+
+watch([productStatusFilter, productCategoryFilter], () => fetchProducts(1));
+
 onMounted(async () => {
   await Promise.all([fetchCategories(), fetchProducts(), fetchShopOrders(), loadSettings()]);
 });
+
+onBeforeUnmount(() => clearTimeout(productSearchTimer));
 </script>
 
 <style lang="scss" scoped>
@@ -836,6 +853,20 @@ onMounted(async () => {
     border: 1px solid $medium-grey;
     border-radius: $border-radius;
     background: $dark-grey;
+  }
+
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1rem;
+    color: $text-secondary;
+
+    .pagination-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
   }
 
   .data-table {
@@ -1165,6 +1196,16 @@ onMounted(async () => {
     .btn,
     .inline-form input {
       width: 100%;
+    }
+
+    .pagination {
+      align-items: stretch;
+      flex-direction: column;
+
+      .pagination-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
     }
 
     .settings-panel .form-grid,
