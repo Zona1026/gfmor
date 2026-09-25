@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 
@@ -18,16 +18,26 @@ def get_guest_customers(
     admin=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    query = db.query(models.GuestCustomer)
+    query = (
+        db.query(models.GuestCustomer)
+        .outerjoin(models.GuestMotor, models.GuestMotor.guest_customer_id == models.GuestCustomer.id)
+        .options(joinedload(models.GuestCustomer.motors))
+    )
     if q:
         keyword = f"%{q}%"
+        normalized_plate = q.replace("-", "").replace(" ", "").upper()
+        normalized_plate_keyword = f"%{normalized_plate}%"
         query = query.filter(
             or_(
                 models.GuestCustomer.name.ilike(keyword),
                 models.GuestCustomer.phone.ilike(keyword),
+                models.GuestMotor.license_plate.ilike(keyword),
+                func.replace(func.replace(func.upper(models.GuestMotor.license_plate), "-", ""), " ", "").like(
+                    normalized_plate_keyword
+                ),
             )
         )
-    return query.order_by(models.GuestCustomer.updated_at.desc()).limit(200).all()
+    return query.distinct().order_by(models.GuestCustomer.updated_at.desc()).limit(200).all()
 
 
 @router.post("/", response_model=guest_schema.GuestCustomer, summary="建立散客資料")

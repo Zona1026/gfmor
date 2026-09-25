@@ -1,4 +1,4 @@
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 # 引入我們建立的 models 和 schemas
@@ -36,13 +36,30 @@ def get_users(db: Session, skip: int = 0, limit: int = 100):
 
 def get_users_by_name(db: Session, name: str, skip: int = 0, limit: int = 10):
     """
-    根據姓名模糊搜尋使用者。
+    根據姓名、電話或車牌模糊搜尋使用者。
     """
     if not name:
         return []
     search_pattern = f"%{name}%"
-    # 使用 ilike 進行不區分大小寫的模糊搜尋
-    return db.query(models.User).filter(models.User.name.ilike(search_pattern)).offset(skip).limit(limit).all()
+    normalized_plate = name.replace("-", "").replace(" ", "").upper()
+    normalized_plate_pattern = f"%{normalized_plate}%"
+    return (
+        db.query(models.User)
+        .outerjoin(models.Motor, models.Motor.google_id == models.User.google_id)
+        .options(joinedload(models.User.motors))
+        .filter(or_(
+            models.User.name.ilike(search_pattern),
+            models.User.phone.ilike(search_pattern),
+            models.Motor.license_plate.ilike(search_pattern),
+            func.replace(func.replace(func.upper(models.Motor.license_plate), "-", ""), " ", "").like(
+                normalized_plate_pattern
+            ),
+        ))
+        .distinct()
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
 def create_user(db: Session, user: UserCreate):
     """

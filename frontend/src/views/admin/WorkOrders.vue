@@ -119,7 +119,7 @@
 
             <div v-if="createSource === 'member'" class="source-grid">
               <div class="form-row search-row">
-                <input v-model.trim="memberSearch" placeholder="輸入會員姓名搜尋" @keydown.enter.prevent="handleMemberSearch" />
+                <input v-model.trim="memberSearch" placeholder="輸入會員姓名、電話或車牌搜尋" @keydown.enter.prevent="handleMemberSearch" />
                 <button type="button" class="btn btn-outline" @click="handleMemberSearch">搜尋會員</button>
               </div>
               <label>
@@ -135,17 +135,20 @@
 
             <div v-else class="source-grid">
               <div class="form-row search-row">
-                <input v-model.trim="guestSearch" placeholder="輸入散客姓名或電話搜尋" @keydown.enter.prevent="handleGuestSearch" />
+                <input v-model.trim="guestSearch" placeholder="輸入散客姓名、電話或車牌搜尋" @keydown.enter.prevent="handleGuestSearch" />
                 <button type="button" class="btn btn-outline" @click="handleGuestSearch">搜尋散客</button>
               </div>
               <div v-if="guestResults.length" class="result-list">
                 <button
-                  v-for="guest in guestResults"
-                  :key="guest.id"
+                  v-for="option in guestMotorOptions"
+                  :key="option.key"
                   type="button"
-                  @click="selectGuest(guest)"
+                  @click="selectGuestMotor(option)"
                 >
-                  {{ guest.name }} / {{ guest.phone }}
+                  {{ option.guest.name }} / {{ option.guest.phone }}
+                  <template v-if="option.motor">
+                    / {{ option.motor.license_plate }} / {{ option.motor.model_name || '未填車型' }}
+                  </template>
                 </button>
               </div>
               <div class="form-grid">
@@ -679,6 +682,23 @@ const memberMotorOptions = computed(() => {
   return options;
 });
 
+const normalizedSearchValue = value => (value || '').replace(/[\s-]/g, '').toLocaleLowerCase();
+
+const guestMotorOptions = computed(() => {
+  const options = [];
+  for (const guest of guestResults.value) {
+    const motors = (guest.motors || []).filter(motor => !motor.status);
+    if (!motors.length) {
+      options.push({ key: `${guest.id}::none`, guest, motor: null });
+      continue;
+    }
+    for (const motor of motors) {
+      options.push({ key: `${guest.id}::${motor.id}`, guest, motor });
+    }
+  }
+  return options;
+});
+
 const createTotal = computed(() => calculateTotal(createLineItems.value));
 const detailTotal = computed(() => calculateTotal(detailLineItems.value));
 const createMembershipTotal = computed(() => calculateMembershipTotal(createLineItems.value));
@@ -699,6 +719,7 @@ function defaultCreateForm() {
   return {
     google_id: '',
     guest_customer_id: null,
+    guest_motor_id: null,
     guest_name: '',
     guest_phone: '',
     motor_id: null,
@@ -843,7 +864,10 @@ const handleMemberSearch = async () => {
     return;
   }
 
-  const firstOption = memberMotorOptions.value[0];
+  const keyword = normalizedSearchValue(memberSearch.value);
+  const firstOption = memberMotorOptions.value.find(option =>
+    normalizedSearchValue(option.motor.license_plate).includes(keyword)
+  ) || memberMotorOptions.value[0];
   if (!firstOption) {
     selectedMemberMotorKey.value = '';
     alert('找不到可選擇的會員車輛。');
@@ -855,21 +879,44 @@ const handleMemberSearch = async () => {
 };
 
 const handleGuestSearch = async () => {
+  if (!guestSearch.value) return;
   guestResults.value = await getGuestCustomers(guestSearch.value);
   if (guestResults.value.length === 0) {
     alert('找不到符合條件的散客。');
+    return;
   }
+
+  const keyword = normalizedSearchValue(guestSearch.value);
+  const firstOption = guestMotorOptions.value.find(option =>
+    normalizedSearchValue(option.motor?.license_plate).includes(keyword)
+  ) || guestMotorOptions.value[0];
+  if (firstOption) selectGuestMotor(firstOption);
 };
 
-const selectGuest = (guest) => {
+const selectGuestMotor = ({ guest, motor }) => {
+  createForm.value.google_id = '';
+  createForm.value.motor_id = null;
   createForm.value.guest_customer_id = guest.id;
+  createForm.value.guest_motor_id = motor?.id || null;
   createForm.value.guest_name = guest.name;
   createForm.value.guest_phone = guest.phone;
+  if (!motor) return;
+  createForm.value.vehicle_license_plate = motor.license_plate || '';
+  createForm.value.vehicle_brand = motor.brand || '';
+  createForm.value.vehicle_model = motor.model_name || '';
+  createForm.value.vehicle_vin = motor.vin || '';
+  createForm.value.vehicle_mileage = motor.mileage ?? null;
+  createForm.value.vehicle_is_new = Boolean(motor.is_new_vehicle);
+  createForm.value.vehicle_purchase_date = motor.purchase_date || '';
 };
 
 const applySelectedMemberMotor = () => {
   const selected = memberMotorOptions.value.find(option => option.key === selectedMemberMotorKey.value);
   if (!selected) return;
+  createForm.value.guest_customer_id = null;
+  createForm.value.guest_motor_id = null;
+  createForm.value.guest_name = '';
+  createForm.value.guest_phone = '';
   createForm.value.google_id = selected.user.google_id;
   createForm.value.motor_id = selected.motor.id;
   createForm.value.vehicle_license_plate = selected.motor.license_plate || '';
@@ -1017,6 +1064,7 @@ const submitCreateWorkOrder = async () => {
       delete payload.motor_id;
     } else {
       delete payload.guest_customer_id;
+      delete payload.guest_motor_id;
       delete payload.guest_name;
       delete payload.guest_phone;
       delete payload.vehicle_is_new;

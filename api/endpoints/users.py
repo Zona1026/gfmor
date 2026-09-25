@@ -93,7 +93,7 @@ def create_test_user(
 @router.get(
     "/search",
     response_model=List[user_schema.UserWithMotors],
-    summary="依姓名模糊搜尋客戶"
+    summary="依姓名、電話或車牌模糊搜尋客戶"
 )
 def search_users_by_name(
     name: Optional[str] = None,
@@ -103,10 +103,10 @@ def search_users_by_name(
     db: Session = Depends(get_db)
 ):
     """
-    根據使用者姓名進行模糊搜尋，回傳符合條件的使用者列表，
+    根據使用者姓名、電話或車牌進行模糊搜尋，回傳符合條件的使用者列表，
     以及他們名下的車籍資料。
 
-    - **name**: 要搜尋的姓名關鍵字。
+    - **name**: 要搜尋的姓名、電話或車牌關鍵字。
     """
     if not name:
         return []
