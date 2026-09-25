@@ -25,7 +25,23 @@
         <router-link to="/admin/members" active-class="active" @click="closeSidebar">客戶 / 會員管理</router-link>
         <router-link to="/admin/new-vehicles" active-class="active" @click="closeSidebar">新車專區</router-link>
         <router-link to="/admin/products" active-class="active" @click="closeSidebar">商城管理</router-link>
-        <router-link to="/admin/inventory" active-class="active" @click="closeSidebar">庫存管理</router-link>
+        <div class="nav-group">
+          <button
+            type="button"
+            class="nav-group-toggle"
+            :class="{ active: isInventoryRoute }"
+            :aria-expanded="isInventoryOpen"
+            @click="isInventoryOpen = !isInventoryOpen"
+          >
+            <span>庫存管理</span>
+            <span class="nav-group-chevron" aria-hidden="true">⌄</span>
+          </button>
+          <div v-show="isInventoryOpen" class="nav-submenu">
+            <router-link to="/admin/inventory/products" active-class="active" @click="closeSidebar">商品列表</router-link>
+            <router-link to="/admin/inventory/parts" active-class="active" @click="closeSidebar">零件列表</router-link>
+            <router-link to="/admin/inventory/stocktake" active-class="active" @click="closeSidebar">盤點表</router-link>
+          </div>
+        </div>
         <div class="nav-group">
           <button
             type="button"
@@ -290,6 +306,7 @@ const { settings } = storeToRefs(siteStore);
 const isSidebarOpen = ref(false);
 const shopManagementPaths = ['/admin/purchases', '/admin/accounting', '/admin/admins', '/admin/settings'];
 const isShopManagementOpen = ref(shopManagementPaths.includes(route.path));
+const isInventoryOpen = ref(route.path.startsWith('/admin/inventory'));
 const allBookings = ref([]);
 const allOrders = ref([]);
 const allWorkOrders = ref([]);
@@ -312,10 +329,14 @@ const closeSidebar = () => {
 const routeTitle = computed(() => route.meta?.title || '後台管理');
 const appVersion = packageInfo.version;
 const isShopManagementRoute = computed(() => shopManagementPaths.includes(route.path));
+const isInventoryRoute = computed(() => route.path.startsWith('/admin/inventory'));
 
 watch(() => route.path, (path) => {
   if (shopManagementPaths.includes(path)) {
     isShopManagementOpen.value = true;
+  }
+  if (path.startsWith('/admin/inventory')) {
+    isInventoryOpen.value = true;
   }
 });
 

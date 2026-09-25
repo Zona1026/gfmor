@@ -13,18 +13,30 @@
         :key="tab.key"
         type="button"
         :class="{ active: activeTab === tab.key }"
-        @click="activeTab = tab.key"
+        @click="selectTab(tab.key)"
       >
         {{ tab.label }}
       </button>
     </div>
 
     <section v-if="activeTab === 'shop'" class="inventory-panel">
-      <InventoryTable title="商品庫存" :items="shopItems" :can-manage="canManageInventory" />
+      <div class="panel-title list-heading">
+        <h3>商品列表</h3>
+        <button v-if="canManageInventory" class="btn btn-primary" type="button" @click="openCreateModal('SHOP')">
+          ＋ 新增商品
+        </button>
+      </div>
+      <InventoryTable :items="shopItems" />
     </section>
 
     <section v-if="activeTab === 'parts'" class="inventory-panel">
-      <InventoryTable title="零件 / 耗材庫存" :items="partItems" :can-manage="canManageInventory" />
+      <div class="panel-title list-heading">
+        <h3>零件列表</h3>
+        <button v-if="canManageInventory" class="btn btn-primary" type="button" @click="openCreateModal('PART')">
+          ＋ 新增零件
+        </button>
+      </div>
+      <InventoryTable :items="partItems" />
     </section>
 
     <section v-if="activeTab === 'movements'" class="panel">
@@ -118,36 +130,78 @@
       </div>
     </section>
 
-    <section v-if="activeTab === 'adjust' && canUseCriticalInventory" class="panel">
+    <section v-if="activeTab === 'stocktake'" class="panel">
       <div class="panel-title">
-        <h3>手動調整庫存</h3>
+        <div>
+          <h3>盤點表</h3>
+          <p class="panel-description">輸入實際盤點數量，系統會顯示差異並留下庫存異動紀錄。</p>
+        </div>
+        <button class="btn btn-outline" type="button" @click="fetchItems">重新整理</button>
       </div>
-      <form class="adjust-form" @submit.prevent="submitAdjustment">
-        <label>
-          品項
-          <select v-model.number="adjustmentForm.product_id" required @change="syncAdjustmentStock">
-            <option value="">請選擇品項</option>
-            <option v-for="item in allItems" :key="item.id" :value="item.id">
-              {{ item.name }} / 目前 {{ formatNumber(item.stock) }}
-            </option>
-          </select>
-        </label>
-        <label>
-          調整後實際庫存
-          <input v-model.number="adjustmentForm.stock_after" type="number" min="0" required />
-        </label>
-        <label class="reason-field">
-          原因
-          <textarea v-model.trim="adjustmentForm.reason" rows="3" required></textarea>
-        </label>
-        <button class="btn btn-primary" type="submit" :disabled="savingAdjustment">
-          {{ savingAdjustment ? '儲存中...' : '儲存調整' }}
-        </button>
-      </form>
-      <div class="panel-title sub-title">
+      <div class="table-wrap stocktake-wrap">
+        <table class="data-table stocktake-table">
+          <thead>
+            <tr>
+              <th>品項</th>
+              <th>類型</th>
+              <th>帳面庫存</th>
+              <th>預留</th>
+              <th>可用</th>
+              <th>實際盤點</th>
+              <th>差異</th>
+              <th v-if="canUseCriticalInventory">原因</th>
+              <th v-if="canUseCriticalInventory">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in allItems" :key="item.id">
+              <td>
+                <strong class="product-name">{{ item.name }}</strong>
+                <small>{{ productCategory(item) }}</small>
+              </td>
+              <td>{{ inventoryTypeLabel(item.inventory_type) }}</td>
+              <td>{{ stockValue(item.stock) }}</td>
+              <td>{{ stockValue(item.reserved_stock) }}</td>
+              <td>{{ stockValue(item.available_stock) }}</td>
+              <td>
+                <input
+                  v-if="canUseCriticalInventory"
+                  v-model.number="stocktakeDrafts[item.id].stock_after"
+                  class="count-input"
+                  type="number"
+                  min="0"
+                />
+                <span v-else>{{ stockValue(item.stock) }}</span>
+              </td>
+              <td :class="stocktakeDifference(item) > 0 ? 'positive' : stocktakeDifference(item) < 0 ? 'negative' : ''">
+                {{ signedNumber(stocktakeDifference(item)) }}
+              </td>
+              <td v-if="canUseCriticalInventory">
+                <input v-model.trim="stocktakeDrafts[item.id].reason" class="reason-input" type="text" placeholder="盤點原因" />
+              </td>
+              <td v-if="canUseCriticalInventory">
+                <button
+                  class="btn btn-sm btn-primary"
+                  type="button"
+                  :disabled="savingAdjustmentId === item.id || stocktakeDifference(item) === 0"
+                  @click="submitStocktake(item)"
+                >
+                  {{ savingAdjustmentId === item.id ? '儲存中' : '盤點入帳' }}
+                </button>
+              </td>
+            </tr>
+            <tr v-if="allItems.length === 0">
+              <td :colspan="canUseCriticalInventory ? 9 : 7" class="empty-row">尚無可盤點品項。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p v-if="!canUseCriticalInventory" class="permission-note">僅最高級管理員可將盤點差異入帳。</p>
+
+      <div v-if="canUseCriticalInventory" class="panel-title sub-title">
         <h3>報廢出庫</h3>
       </div>
-      <form class="adjust-form" @submit.prevent="submitScrap">
+      <form v-if="canUseCriticalInventory" class="adjust-form" @submit.prevent="submitScrap">
         <label>
           品項
           <select v-model.number="scrapForm.product_id" required>
@@ -172,24 +226,90 @@
     </section>
 
     <section v-if="activeTab === 'low'" class="inventory-panel">
-      <InventoryTable title="低庫存提醒" :items="lowStockItems" :can-manage="canManageInventory" />
+      <div class="panel-title list-heading"><h3>低庫存提醒</h3></div>
+      <InventoryTable :items="lowStockItems" />
     </section>
+
+    <div v-if="showCreateModal && canManageInventory" class="modal-overlay" @click.self="closeCreateModal">
+      <div class="modal" role="dialog" aria-modal="true" :aria-label="createModalTitle">
+        <div class="modal-header">
+          <h3>{{ createModalTitle }}</h3>
+          <button class="btn btn-outline" type="button" @click="closeCreateModal">關閉</button>
+        </div>
+        <form class="create-form" @submit.prevent="submitCreateItem">
+          <div class="form-grid">
+            <label>
+              品項名稱
+              <input v-model.trim="createForm.name" type="text" required />
+            </label>
+            <label>
+              分類
+              <select v-model="createForm.category_id">
+                <option value="">未分類</option>
+                <option v-for="category in activeCategories" :key="category.id" :value="String(category.id)">
+                  {{ category.name }}
+                </option>
+              </select>
+            </label>
+            <label>
+              售價
+              <input v-model.number="createForm.price" type="number" min="0" required />
+            </label>
+            <label>
+              初始庫存
+              <input v-model.number="createForm.stock" type="number" min="0" required />
+            </label>
+            <label>
+              庫存用途
+              <select v-model="createForm.inventory_type" required>
+                <option value="SHOP">商城商品</option>
+                <option value="PART">工單零件 / 耗材</option>
+                <option value="BOTH">商城與工單共用</option>
+              </select>
+            </label>
+            <label>
+              低庫存門檻
+              <input v-model.number="createForm.low_stock_threshold" type="number" min="0" required />
+            </label>
+          </div>
+          <label>
+            描述
+            <textarea v-model.trim="createForm.description" rows="3"></textarea>
+          </label>
+          <label>
+            圖片
+            <input type="file" accept="image/*" @change="onCreateFileChange" />
+          </label>
+          <div class="form-actions">
+            <button class="btn btn-outline" type="button" @click="closeCreateModal">取消</button>
+            <button class="btn btn-primary" type="submit" :disabled="savingCreate">
+              {{ savingCreate ? '新增中...' : '確認新增' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue';
+import { computed, defineComponent, h, onMounted, reactive, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
+import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../../store/auth';
 import {
   adjustInventory,
+  createProduct,
   getInventoryItems,
   getInventoryMovements,
   getInventoryReservations,
+  getProductCategories,
   releaseInventoryReservation,
   scrapInventory
 } from '../../api/admin';
 
+const route = useRoute();
+const router = useRouter();
 const authStore = useAuthStore();
 const { adminUser } = storeToRefs(authStore);
 
@@ -197,23 +317,40 @@ const managerRoles = ['最高級', '管理層'];
 const canManageInventory = computed(() => managerRoles.includes(adminUser.value?.role));
 const canUseCriticalInventory = computed(() => adminUser.value?.role === '最高級');
 
-const activeTab = ref('shop');
+const routeTabMap = { products: 'shop', parts: 'parts', stocktake: 'stocktake' };
+const tabRouteMap = {
+  shop: 'AdminInventoryProducts',
+  parts: 'AdminInventoryParts',
+  stocktake: 'AdminInventoryStocktake'
+};
+const activeTab = ref(routeTabMap[route.meta.inventorySection] || 'shop');
 const loading = ref(false);
-const savingAdjustment = ref(false);
+const savingAdjustmentId = ref(null);
 const savingScrap = ref(false);
+const savingCreate = ref(false);
+const showCreateModal = ref(false);
+const createItemType = ref('SHOP');
+const selectedCreateFile = ref(null);
 const shopItems = ref([]);
 const partItems = ref([]);
 const allItems = ref([]);
 const lowStockItems = ref([]);
 const movements = ref([]);
 const reservations = ref([]);
+const categories = ref([]);
 const reservationStatus = ref('');
+const stocktakeDrafts = reactive({});
 
-const adjustmentForm = reactive({
-  product_id: '',
-  stock_after: 0,
-  reason: ''
+const defaultCreateForm = (inventoryType = 'SHOP') => ({
+  name: '',
+  category_id: '',
+  price: 0,
+  stock: 0,
+  inventory_type: inventoryType,
+  low_stock_threshold: 5,
+  description: ''
 });
+const createForm = reactive(defaultCreateForm());
 
 const scrapForm = reactive({
   product_id: '',
@@ -222,11 +359,11 @@ const scrapForm = reactive({
 });
 
 const tabs = [
-  { key: 'shop', label: '商品庫存' },
-  { key: 'parts', label: '零件 / 耗材庫存' },
+  { key: 'shop', label: '商品列表' },
+  { key: 'parts', label: '零件列表' },
+  { key: 'stocktake', label: '盤點表' },
   { key: 'movements', label: '庫存異動紀錄' },
   { key: 'reservations', label: '庫存預留紀錄' },
-  { key: 'adjust', label: '手動調整 / 報廢', superOnly: true },
   { key: 'low', label: '低庫存提醒' }
 ];
 
@@ -238,6 +375,10 @@ const visibleTabs = computed(() => tabs.filter(tab => {
 
 function formatNumber(value) {
   return Number(value || 0).toLocaleString();
+}
+
+function stockValue(value) {
+  return value === null || value === undefined ? '-' : formatNumber(value);
 }
 
 function signedNumber(value) {
@@ -289,11 +430,12 @@ function productCategory(item) {
   return item.category_info?.name || item.category || '未分類';
 }
 
+const activeCategories = computed(() => categories.value.filter(category => category.is_active));
+const createModalTitle = computed(() => createItemType.value === 'PART' ? '新增零件' : '新增商品');
+
 const InventoryTable = defineComponent({
   props: {
-    title: { type: String, required: true },
-    items: { type: Array, required: true },
-    canManage: { type: Boolean, default: false }
+    items: { type: Array, required: true }
   },
   setup(props) {
     const stockValue = (value) => value === null || value === undefined ? '-' : formatNumber(value);
@@ -309,13 +451,12 @@ const InventoryTable = defineComponent({
         : [h('tr', [h('td', { colspan: 5, class: 'empty-row' }, '尚無庫存資料。')])];
 
       return h('div', { class: 'inventory-table-block' }, [
-        h('div', { class: 'panel-title' }, [h('h3', props.title)]),
         h('div', { class: 'table-wrap' }, [
           h('table', { class: 'data-table inventory-table' }, [
             h('thead', [
               h('tr', [
-                h('th', '商品名稱'),
-                h('th', '商品分類'),
+                h('th', '品項名稱'),
+                h('th', '分類'),
                 h('th', '實際庫存'),
                 h('th', '可用庫存'),
                 h('th', '預留數量')
@@ -340,6 +481,17 @@ async function fetchItems() {
   partItems.value = parts;
   allItems.value = all;
   lowStockItems.value = low;
+  all.forEach(item => {
+    const current = stocktakeDrafts[item.id];
+    stocktakeDrafts[item.id] = {
+      stock_after: current?.stock_after ?? item.stock ?? 0,
+      reason: current?.reason || ''
+    };
+  });
+}
+
+async function fetchCategories() {
+  categories.value = await getProductCategories();
 }
 
 async function fetchMovements() {
@@ -353,7 +505,7 @@ async function fetchReservations() {
 async function fetchAll() {
   loading.value = true;
   try {
-    await Promise.all([fetchItems(), fetchMovements(), fetchReservations()]);
+    await Promise.all([fetchItems(), fetchMovements(), fetchReservations(), fetchCategories()]);
   } catch (error) {
     alert(`載入庫存資料失敗：${error.response?.data?.detail || error.message}`);
   } finally {
@@ -361,29 +513,79 @@ async function fetchAll() {
   }
 }
 
-function syncAdjustmentStock() {
-  const item = allItems.value.find(entry => entry.id === Number(adjustmentForm.product_id));
-  adjustmentForm.stock_after = item?.stock || 0;
+function selectTab(tabKey) {
+  const routeName = tabRouteMap[tabKey];
+  if (routeName) {
+    router.push({ name: routeName });
+    return;
+  }
+  activeTab.value = tabKey;
 }
 
-async function submitAdjustment() {
-  if (!adjustmentForm.product_id) return;
-  savingAdjustment.value = true;
+function stocktakeDifference(item) {
+  const counted = Number(stocktakeDrafts[item.id]?.stock_after ?? item.stock ?? 0);
+  return counted - Number(item.stock || 0);
+}
+
+async function submitStocktake(item) {
+  const draft = stocktakeDrafts[item.id];
+  if (!draft || !draft.reason.trim()) {
+    alert('請輸入盤點原因。');
+    return;
+  }
+  savingAdjustmentId.value = item.id;
   try {
     await adjustInventory({
-      product_id: Number(adjustmentForm.product_id),
-      stock_after: Number(adjustmentForm.stock_after) || 0,
-      reason: adjustmentForm.reason,
+      product_id: item.id,
+      stock_after: Number(draft.stock_after) || 0,
+      reason: draft.reason,
       actor: adminUser.value?.full_name || adminUser.value?.username
     });
-    adjustmentForm.product_id = '';
-    adjustmentForm.stock_after = 0;
-    adjustmentForm.reason = '';
-    await fetchAll();
+    await Promise.all([fetchItems(), fetchMovements()]);
   } catch (error) {
-    alert(`調整庫存失敗：${error.response?.data?.detail || error.message}`);
+    alert(`盤點入帳失敗：${error.response?.data?.detail || error.message}`);
   } finally {
-    savingAdjustment.value = false;
+    savingAdjustmentId.value = null;
+  }
+}
+
+function openCreateModal(inventoryType) {
+  createItemType.value = inventoryType;
+  Object.assign(createForm, defaultCreateForm(inventoryType));
+  selectedCreateFile.value = null;
+  showCreateModal.value = true;
+}
+
+function closeCreateModal() {
+  showCreateModal.value = false;
+  selectedCreateFile.value = null;
+}
+
+function onCreateFileChange(event) {
+  selectedCreateFile.value = event.target.files?.[0] || null;
+}
+
+async function submitCreateItem() {
+  savingCreate.value = true;
+  try {
+    const formData = new FormData();
+    formData.append('name', createForm.name);
+    formData.append('price', Number(createForm.price) || 0);
+    formData.append('stock', Number(createForm.stock) || 0);
+    formData.append('inventory_type', createForm.inventory_type);
+    formData.append('low_stock_threshold', Number(createForm.low_stock_threshold) || 0);
+    formData.append('description', createForm.description || '');
+    if (createForm.category_id) formData.append('category_id', Number(createForm.category_id));
+    else formData.append('category', '');
+    if (selectedCreateFile.value) formData.append('file', selectedCreateFile.value);
+
+    await createProduct(formData);
+    closeCreateModal();
+    await fetchItems();
+  } catch (error) {
+    alert(`新增失敗：${error.response?.data?.detail || error.message}`);
+  } finally {
+    savingCreate.value = false;
   }
 }
 
@@ -425,6 +627,13 @@ async function submitScrap() {
     savingScrap.value = false;
   }
 }
+
+watch(
+  () => route.meta.inventorySection,
+  section => {
+    if (routeTabMap[section]) activeTab.value = routeTabMap[section];
+  }
+);
 
 onMounted(fetchAll);
 </script>
@@ -499,6 +708,10 @@ onMounted(fetchAll);
 
 .inventory-panel {
   width: 100%;
+}
+
+.list-heading {
+  margin-bottom: 16px;
 }
 
 .inventory-table-block :deep(.panel-title) {
@@ -653,6 +866,39 @@ onMounted(fetchAll);
   flex-wrap: wrap;
 }
 
+.panel-description,
+.permission-note {
+  margin: 6px 0 0;
+  color: $text-secondary;
+  font-size: 0.88rem;
+}
+
+.stocktake-wrap {
+  margin-top: 16px;
+}
+
+.stocktake-table {
+  min-width: 1120px;
+}
+
+.stocktake-table td:first-child {
+  min-width: 180px;
+}
+
+.stocktake-table small {
+  display: block;
+  margin-top: 4px;
+  color: $text-disabled;
+}
+
+.count-input {
+  width: 96px;
+}
+
+.reason-input {
+  width: 180px;
+}
+
 .adjust-form label {
   display: flex;
   flex: 1 1 220px;
@@ -675,6 +921,64 @@ textarea {
   background: rgba(2, 6, 23, 0.58);
 }
 
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.modal {
+  width: min(680px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  border: 1px solid $medium-grey;
+  border-radius: $border-radius;
+  padding: 20px;
+  background: $dark-grey;
+}
+
+.modal-header,
+.form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.modal-header {
+  margin-bottom: 18px;
+}
+
+.modal-header h3 {
+  margin: 0;
+}
+
+.create-form,
+.create-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.create-form {
+  gap: 16px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.form-actions {
+  justify-content: flex-end;
+}
+
 @media (max-width: 720px) {
   .section-header,
   .panel-title,
@@ -685,6 +989,10 @@ textarea {
 
   .tabs button {
     flex: 1 1 46%;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
   }
 
 }

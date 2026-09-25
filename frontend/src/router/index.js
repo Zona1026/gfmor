@@ -28,6 +28,8 @@ import AdminAdmins from '../views/admin/Admins.vue'
 import AdminNewVehicles from '../views/admin/NewVehicles.vue'
 import { useAuthStore } from '../store/auth'
 
+const AdminInventory = () => import('../views/admin/Inventory.vue')
+
 const routes = [
   {
     path: '/',
@@ -131,8 +133,25 @@ const routes = [
       {
         path: 'inventory',
         name: 'AdminInventory',
-        component: () => import('../views/admin/Inventory.vue'),
-        meta: { title: '庫存管理' }
+        redirect: { name: 'AdminInventoryProducts' }
+      },
+      {
+        path: 'inventory/products',
+        name: 'AdminInventoryProducts',
+        component: AdminInventory,
+        meta: { title: '庫存管理 / 商品列表', inventorySection: 'products' }
+      },
+      {
+        path: 'inventory/parts',
+        name: 'AdminInventoryParts',
+        component: AdminInventory,
+        meta: { title: '庫存管理 / 零件列表', inventorySection: 'parts' }
+      },
+      {
+        path: 'inventory/stocktake',
+        name: 'AdminInventoryStocktake',
+        component: AdminInventory,
+        meta: { title: '庫存管理 / 盤點表', inventorySection: 'stocktake' }
       },
       {
         path: 'orders',
