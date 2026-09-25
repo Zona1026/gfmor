@@ -193,6 +193,35 @@ class WorkOrderSupervisorReview(BaseModel):
     reviewed_by: Optional[str] = None
 
 
+class WorkOrderReopenCreate(BaseModel):
+    reason: str = Field(min_length=1)
+    actor: Optional[str] = None
+
+
+class WorkOrderRevisionRefundCreate(BaseModel):
+    method: Optional[str] = None
+    note: Optional[str] = None
+    actor: Optional[str] = None
+
+
+class WorkOrderRevision(BaseModel):
+    id: int
+    work_order_id: int
+    reason: str
+    actor: Optional[str] = None
+    previous_status: str
+    previous_total_amount: int
+    previous_paid_amount: int
+    refund_due_amount: int = 0
+    refund_status: str = "NONE"
+    refund_record_id: Optional[int] = None
+    reopened_at: datetime
+    closed_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
 class WorkOrderApprovalWorkOrderSummary(BaseModel):
     id: int
     customer_name: Optional[str] = None
@@ -295,6 +324,7 @@ class WorkOrder(BaseModel):
     line_items: List[WorkOrderLineItem] = Field(default_factory=list)
     payments: List[WorkOrderPayment] = Field(default_factory=list)
     approvals: List[WorkOrderApproval] = Field(default_factory=list)
+    revisions: List[WorkOrderRevision] = Field(default_factory=list)
     approval_status: Optional[WorkOrderApprovalStatus] = None
     inventory_reservation_pending: bool = False
     inventory_reserved: bool = False

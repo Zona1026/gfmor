@@ -18,6 +18,7 @@ def _product_payload(db: Session, product, can_view_detail: bool):
     payload = {
         "id": product.id,
         "name": product.name,
+        "price": product.price or 0,
         "category": product.category,
         "category_info": product.category_info,
         "inventory_type": product.inventory_type,

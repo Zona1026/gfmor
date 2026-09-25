@@ -566,6 +566,12 @@ class WorkOrder(Base):
     payment_records = relationship("PaymentRecord", back_populates="work_order")
     refund_records = relationship("RefundRecord", back_populates="work_order")
     point_transactions = relationship("PointTransaction", back_populates="work_order")
+    revisions = relationship(
+        "WorkOrderRevision",
+        back_populates="work_order",
+        cascade="all, delete-orphan",
+        order_by="WorkOrderRevision.reopened_at.desc()",
+    )
 
     @property
     def paid_amount(self):
@@ -748,12 +754,37 @@ class PurchaseReceipt(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     purchase_request_id = Column(Integer, ForeignKey("purchase_requests.id"), nullable=False, index=True)
+    received_product_id = Column(Integer, ForeignKey("products.id"), nullable=True, index=True)
     quantity = Column(Integer, nullable=False)
     actor = Column(String(50), nullable=True)
     note = Column(Text, nullable=True)
+    substitution_reason = Column(Text, nullable=True)
     received_at = Column(DateTime, nullable=False, server_default=func.now())
 
     purchase_request = relationship("PurchaseRequest", back_populates="receipts")
+    received_product = relationship("Product")
+
+
+class WorkOrderRevision(Base):
+    """Auditable reopen/change cycle for an approved work order."""
+    __tablename__ = "work_order_revisions"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    work_order_id = Column(Integer, ForeignKey("work_orders.id"), nullable=False, index=True)
+    reason = Column(Text, nullable=False)
+    actor = Column(String(50), nullable=True)
+    previous_status = Column(String(40), nullable=False)
+    previous_total_amount = Column(Integer, nullable=False, default=0)
+    previous_paid_amount = Column(Integer, nullable=False, default=0)
+    previous_snapshot = Column(Text, nullable=False)
+    refund_due_amount = Column(Integer, nullable=False, default=0)
+    refund_status = Column(String(20), nullable=False, default="NONE")
+    refund_record_id = Column(Integer, ForeignKey("refund_records.id"), nullable=True)
+    reopened_at = Column(DateTime, nullable=False, server_default=func.now())
+    closed_at = Column(DateTime, nullable=True)
+
+    work_order = relationship("WorkOrder", back_populates="revisions")
+    refund_record = relationship("RefundRecord")
 
 class PurchaseAssignment(Base):
     __tablename__ = "purchase_assignments"

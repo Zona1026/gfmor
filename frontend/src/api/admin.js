@@ -46,6 +46,18 @@ export const confirmWorkOrderReview = async (id, data = {}) => {
   return await api.post(`/work-orders/${id}/confirm-review`, data, adminAuthConfig());
 };
 
+export const reopenWorkOrder = async (id, data) => {
+  return await api.post(`/work-orders/${id}/reopen`, data, adminAuthConfig());
+};
+
+export const completeWorkOrderRevisionRefund = async (workOrderId, revisionId, data) => {
+  return await api.post(
+    `/work-orders/${workOrderId}/revisions/${revisionId}/refund`,
+    data,
+    adminAuthConfig()
+  );
+};
+
 export const deleteWorkOrder = async (id, data) => {
   return await api.delete(`/work-orders/${id}`, { ...adminAuthConfig(), data });
 };

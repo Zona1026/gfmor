@@ -1,3 +1,5 @@
+import json
+
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, joinedload
 
@@ -11,6 +13,7 @@ from . import points as points_service
 from . import purchases as purchase_service
 from schemas.user import UserCreate, UserUpdate
 from schemas.product import ProductCreate, ProductUpdate
+from schemas.accounting import RefundCreate
 
 # =================================================================
 # User CRUD (使用者相關)
@@ -381,6 +384,7 @@ def _work_order_options():
         joinedload(models.WorkOrder.line_items).joinedload(models.WorkOrderLineItem.purchase_requests).joinedload(models.PurchaseRequest.product),
         joinedload(models.WorkOrder.payments),
         joinedload(models.WorkOrder.approvals),
+        joinedload(models.WorkOrder.revisions),
     )
 
 
@@ -428,6 +432,26 @@ def _sync_payment_status(db_work_order):
         db_work_order.payment_status = models.WorkOrderPaymentStatus.PAID
 
 
+def _active_work_order_revision(db_work_order):
+    return next((revision for revision in db_work_order.revisions if revision.closed_at is None), None)
+
+
+def _sync_revision_refund_due(db: Session, db_work_order):
+    revision = _active_work_order_revision(db_work_order)
+    if not revision:
+        return None
+    refunded = int(
+        db.query(func.coalesce(func.sum(models.RefundRecord.amount), 0))
+        .filter(models.RefundRecord.work_order_id == db_work_order.id)
+        .scalar()
+        or 0
+    )
+    net_paid = max(0, (db_work_order.paid_amount or 0) - refunded)
+    revision.refund_due_amount = max(0, net_paid - (db_work_order.total_amount or 0))
+    revision.refund_status = "PENDING" if revision.refund_due_amount else "NONE"
+    return revision
+
+
 def _ensure_work_order_approval(db_work_order, approval_type, title, reason, active_statuses=None):
     if active_statuses is None:
         active_statuses = [
@@ -453,6 +477,8 @@ def _open_purchase_request_quantity(line_item):
     quantity = 0
     for request in line_item.purchase_requests or []:
         if request.status == models.PurchaseRequestStatus.CANCELED:
+            continue
+        if request.product_id != line_item.product_id:
             continue
         quantity += max(0, (request.requested_quantity or 0) - (request.assigned_quantity or 0))
     return quantity
@@ -976,7 +1002,24 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
             raise ValueError("主管已審核，不能修改工單明細或會員累積資格")
 
         existing_line_items = {item.id: item for item in db_work_order.line_items}
-        if (db_work_order.paid_amount or 0) > 0:
+        active_revision = _active_work_order_revision(db_work_order)
+        if active_revision:
+            incoming_ids = {item.get("id") for item in line_items_data}
+            if None in incoming_ids or incoming_ids != set(existing_line_items):
+                raise ValueError("退回修改期間不可新增或刪除明細；如需換料請由採購到貨登記替代料件。")
+            for item_data in line_items_data:
+                existing_item = existing_line_items[item_data["id"]]
+                incoming_product_id = item_data.get("product_id")
+                if incoming_product_id != existing_item.product_id:
+                    raise ValueError("替代料件必須由採購單的到貨流程更換，才能保留訂購與實收紀錄。")
+                if existing_item.inventory_reserved_quantity:
+                    inventory_service.release_work_order_line_item(db, existing_item)
+                for field in (
+                    "type", "name", "description", "quantity", "unit_price",
+                    "is_confirmed", "counts_toward_membership",
+                ):
+                    setattr(existing_item, field, item_data.get(field))
+        elif (db_work_order.paid_amount or 0) > 0:
             incoming_ids = {item.get("id") for item in line_items_data}
             if (
                 None in incoming_ids
@@ -1052,6 +1095,7 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
 
     _recalculate_work_order_total(db_work_order)
     _sync_payment_status(db_work_order)
+    _sync_revision_refund_due(db, db_work_order)
     _sync_work_order_approvals(db_work_order)
     membership_service.sync_work_order_membership_consumption(db, db_work_order)
     
@@ -1243,8 +1287,102 @@ def confirm_work_order_supervisor_review(db: Session, work_order_id: int, review
         db_work_order.status = models.WorkOrderStatus.IN_PROGRESS
     db_work_order.supervisor_reviewed_at = reviewed_at
     db_work_order.supervisor_reviewed_by = reviewed_by
+    active_revision = _sync_revision_refund_due(db, db_work_order)
+    if active_revision:
+        active_revision.closed_at = reviewed_at
     membership_service.sync_work_order_membership_consumption(db, db_work_order)
     db.add(db_work_order)
+    db.commit()
+    return get_work_order(db, work_order_id)
+
+
+def reopen_work_order(db: Session, work_order_id: int, reopen, actor: str = None):
+    db_work_order = get_work_order(db, work_order_id)
+    if not db_work_order:
+        return None
+    if not db_work_order.supervisor_reviewed_at:
+        raise ValueError("只有已完成主管審核的工單可退回修改。")
+    if db_work_order.status in [models.WorkOrderStatus.COMPLETED, models.WorkOrderStatus.CANCELED]:
+        raise ValueError("已完工或已取消的工單不可退回修改。")
+    if any(item.inventory_deducted or (item.inventory_consumed_quantity or 0) > 0 for item in db_work_order.line_items):
+        raise ValueError("工單已有實際扣庫存紀錄，不能退回修改；請改走退料或調整流程。")
+    if any((request.assigned_quantity or 0) > 0 for request in db_work_order.purchase_requests):
+        raise ValueError("工單已有到貨料件分配，請先解除分配後再退回修改。")
+    if _active_work_order_revision(db_work_order):
+        raise ValueError("此工單已在退回修改流程中。")
+
+    reason = (reopen.reason or "").strip()
+    if not reason:
+        raise ValueError("退回原因為必填。")
+    snapshot = {
+        "status": db_work_order.status.value,
+        "total_amount": db_work_order.total_amount or 0,
+        "line_items": [
+            {
+                "id": item.id,
+                "type": item.type.value,
+                "name": item.name,
+                "product_id": item.product_id,
+                "quantity": item.quantity,
+                "unit_price": item.unit_price,
+            }
+            for item in db_work_order.line_items
+        ],
+    }
+    revision = models.WorkOrderRevision(
+        work_order=db_work_order,
+        reason=reason,
+        actor=actor or reopen.actor,
+        previous_status=db_work_order.status.value,
+        previous_total_amount=db_work_order.total_amount or 0,
+        previous_paid_amount=db_work_order.paid_amount or 0,
+        previous_snapshot=json.dumps(snapshot, ensure_ascii=False),
+    )
+    db.add(revision)
+    _release_work_order_inventory(db, db_work_order)
+    db_work_order.status = models.WorkOrderStatus.QUOTE_PENDING
+    db_work_order.supervisor_reviewed_at = None
+    db_work_order.supervisor_reviewed_by = None
+    db_work_order.completed_at = None
+    _ensure_work_order_approval(
+        db_work_order,
+        models.WorkOrderApprovalType.STATUS_CHANGE,
+        "退回修改後重新審核",
+        f"退回原因：{reason}",
+        active_statuses=[models.WorkOrderApprovalStatus.PENDING],
+    )
+    _sync_work_order_approvals(db_work_order)
+    db.commit()
+    return get_work_order(db, work_order_id)
+
+
+def complete_work_order_revision_refund(db: Session, work_order_id: int, revision_id: int, refund, actor: str = None):
+    revision = (
+        db.query(models.WorkOrderRevision)
+        .filter(
+            models.WorkOrderRevision.id == revision_id,
+            models.WorkOrderRevision.work_order_id == work_order_id,
+        )
+        .first()
+    )
+    if not revision:
+        return None
+    if revision.refund_status != "PENDING" or revision.refund_due_amount <= 0:
+        raise ValueError("此修改紀錄沒有待退款差額。")
+    record = accounting_service.create_refund(
+        db,
+        RefundCreate(
+            source_type=models.AccountingSourceType.WORK_ORDER,
+            source_id=work_order_id,
+            amount=revision.refund_due_amount,
+            method=refund.method,
+            reason=refund.note or f"工單退回修改差額：{revision.reason}",
+            actor=actor or refund.actor,
+        ),
+    )
+    db.flush()
+    revision.refund_status = "REFUNDED"
+    revision.refund_record_id = record.id
     db.commit()
     return get_work_order(db, work_order_id)
 

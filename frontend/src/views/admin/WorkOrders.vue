@@ -298,6 +298,14 @@
           </div>
           <div class="modal-actions">
             <button
+              v-if="canReviewApprovals && supervisorReviewLocked && !['COMPLETED', 'CANCELED'].includes(selectedWorkOrder.status)"
+              class="btn btn-outline"
+              type="button"
+              @click="openReopenModal"
+            >
+              退回修改
+            </button>
+            <button
               v-if="canUseCriticalWorkOrder && !selectedWorkOrder.deleted_at"
               class="btn btn-danger"
               type="button"
@@ -376,6 +384,15 @@
               <div><dt>可列入會員累積</dt><dd>NT$ {{ selectedWorkOrder.membership_eligible_amount?.toLocaleString() || 0 }}</dd></div>
               <div><dt>已計入會員累積</dt><dd>NT$ {{ selectedWorkOrder.membership_consumption_amount?.toLocaleString() || 0 }}</dd></div>
             </dl>
+            <div v-if="pendingRefundRevision" class="refund-alert">
+              <div>
+                <strong>待退差額 NT$ {{ pendingRefundRevision.refund_due_amount.toLocaleString() }}</strong>
+                <span>退回原因：{{ pendingRefundRevision.reason }}</span>
+              </div>
+              <button v-if="canReviewApprovals" class="btn btn-primary" type="button" @click="openRefundModal">
+                完成退款
+              </button>
+            </div>
             <div v-if="canManageWorkOrderPayments" class="payment-form">
               <input v-model.number="paymentForm.amount" type="number" min="1" placeholder="付款金額" />
               <select v-model="paymentForm.method">
@@ -402,7 +419,7 @@
         <section class="form-section">
           <div class="section-title-row">
             <h4>施工 / 零件 / 工資 / 折扣明細</h4>
-            <button v-if="canEditWorkOrder" type="button" class="btn btn-outline" :disabled="lineItemEditingLocked" @click="addDetailLineItem">新增明細</button>
+            <button v-if="canEditWorkOrder" type="button" class="btn btn-outline" :disabled="lineItemEditingLocked || activeRevision" @click="addDetailLineItem">新增明細</button>
           </div>
           <div class="line-editor">
             <div v-for="(item, index) in detailLineItems" :key="item.id || index" class="line-row">
@@ -414,7 +431,7 @@
               </label>
               <label class="line-field line-product">
                 <span>商品</span>
-                <select v-if="item.type === 'PART'" v-model.number="item.product_id" :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)" @change="applyProductToLine(item)">
+                <select v-if="item.type === 'PART'" v-model.number="item.product_id" :disabled="!canEditWorkOrder || lineItemEditingLocked || activeRevision || isLineItemInventoryLocked(item)" @change="applyProductToLine(item)">
                   <option :value="null">不綁商品 / 不扣庫存</option>
                   <option v-for="product in products" :key="product.id" :value="product.id">
                     {{ product.name }}
@@ -447,7 +464,7 @@
                 <strong>NT$ {{ lineItemTotal(item).toLocaleString() }}</strong>
                 <small v-if="item.type === 'PART'">{{ inventoryStatusText(item) }}</small>
               </div>
-              <button v-if="canEditWorkOrder" type="button" class="icon-btn danger" :disabled="lineItemEditingLocked || isLineItemInventoryLocked(item)" @click="removeDetailLineItem(index)">×</button>
+              <button v-if="canEditWorkOrder" type="button" class="icon-btn danger" :disabled="lineItemEditingLocked || activeRevision || isLineItemInventoryLocked(item)" @click="removeDetailLineItem(index)">×</button>
             </div>
           </div>
           <div class="total-row">
@@ -459,7 +476,8 @@
             <strong>NT$ {{ detailMembershipTotal.toLocaleString() }}</strong>
           </div>
           <div v-if="supervisorReviewLocked" class="muted-line">主管已審核，工單明細與會員累積資格已鎖定。</div>
-          <div v-else-if="hasPaymentRecord" class="muted-line">已有付款紀錄，明細內容已鎖定；會員累積資格可在主管審核前調整。</div>
+          <div v-else-if="hasPaymentRecord && !activeRevision" class="muted-line">已有付款紀錄，明細內容已鎖定；最高級管理員可先退回修改。</div>
+          <div v-else-if="activeRevision" class="warning-text">工單已退回修改。換料請從對應採購單登記替代料件；修改後需重新主管審核。</div>
           <div v-if="canEditWorkOrder" class="form-actions">
             <button class="btn btn-primary" @click="saveWorkOrder" :disabled="saving">儲存工單</button>
           </div>
@@ -543,6 +561,36 @@
         </div>
       </div>
     </div>
+
+    <div v-if="showReopenModal" class="modal-overlay confirm-overlay" @click.self="closeReopenModal">
+      <div class="modal-content confirm-modal">
+        <div class="modal-header">
+          <div><h3>退回工單 #{{ selectedWorkOrder?.id }} 修改</h3><p>原審核紀錄會保留，修改後需重新審核。</p></div>
+          <button class="icon-btn" type="button" @click="closeReopenModal">×</button>
+        </div>
+        <label>退回原因<textarea v-model.trim="reopenForm.reason" rows="4" placeholder="例如：原廠以通用料件 B 替代 A，客戶同意退差價"></textarea></label>
+        <div class="form-actions modal-footer-actions">
+          <button class="btn btn-outline" type="button" @click="closeReopenModal">取消</button>
+          <button class="btn btn-primary" type="button" :disabled="saving || !reopenForm.reason" @click="submitReopen">確認退回</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showRefundModal" class="modal-overlay confirm-overlay" @click.self="closeRefundModal">
+      <div class="modal-content confirm-modal">
+        <div class="modal-header">
+          <div><h3>完成差額退款</h3><p>退款完成後會寫入帳務退款紀錄。</p></div>
+          <button class="icon-btn" type="button" @click="closeRefundModal">×</button>
+        </div>
+        <label>退款金額<input :value="pendingRefundRevision?.refund_due_amount || 0" disabled /></label>
+        <label>退款方式<select v-model="refundForm.method"><option value="" disabled>請選擇</option><option v-for="method in paymentMethodOptions" :key="method" :value="method">{{ method }}</option></select></label>
+        <label>備註<textarea v-model.trim="refundForm.note" rows="3"></textarea></label>
+        <div class="form-actions modal-footer-actions">
+          <button class="btn btn-outline" type="button" @click="closeRefundModal">取消</button>
+          <button class="btn btn-primary" type="button" :disabled="saving || !refundForm.method" @click="submitRevisionRefund">確認已退款</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -552,6 +600,7 @@ import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
 import {
   addWorkOrderPayment,
+  completeWorkOrderRevisionRefund,
   confirmWorkOrderReview,
   createWorkOrder,
   deleteWorkOrder,
@@ -561,6 +610,7 @@ import {
   getWorkOrder,
   getWorkOrders,
   searchUsersByName,
+  reopenWorkOrder,
   updateWorkOrder,
   updateWorkOrderLineItemFulfillmentStatus
 } from '../../api/admin';
@@ -607,6 +657,10 @@ const detailLineItems = ref([]);
 const paymentForm = ref({ amount: null, method: '', note: '' });
 const showDeleteModal = ref(false);
 const deleteForm = ref({ reason: '' });
+const showReopenModal = ref(false);
+const reopenForm = ref({ reason: '' });
+const showRefundModal = ref(false);
+const refundForm = ref({ method: '', note: '' });
 const updatingFulfillmentItemId = ref(null);
 const reviewingWorkOrder = ref(false);
 
@@ -707,7 +761,9 @@ const createMembershipTotal = computed(() => calculateMembershipTotal(createLine
 const detailMembershipTotal = computed(() => calculateMembershipTotal(detailLineItems.value));
 const supervisorReviewLocked = computed(() => Boolean(selectedWorkOrder.value?.supervisor_reviewed_at));
 const hasPaymentRecord = computed(() => Number(selectedWorkOrder.value?.paid_amount || 0) > 0);
-const lineItemEditingLocked = computed(() => hasPaymentRecord.value || supervisorReviewLocked.value);
+const activeRevision = computed(() => (selectedWorkOrder.value?.revisions || []).find(item => !item.closed_at) || null);
+const pendingRefundRevision = computed(() => (selectedWorkOrder.value?.revisions || []).find(item => item.refund_status === 'PENDING') || null);
+const lineItemEditingLocked = computed(() => supervisorReviewLocked.value || (hasPaymentRecord.value && !activeRevision.value));
 const membershipSelectionLocked = computed(() => supervisorReviewLocked.value);
 const responsibleStaffOptions = computed(() => {
   const names = staffAdmins.value
@@ -1113,6 +1169,8 @@ const openDetail = async (id) => {
 const closeDetail = () => {
   selectedWorkOrder.value = null;
   closeDeleteModal();
+  closeReopenModal();
+  closeRefundModal();
 };
 
 const saveWorkOrder = async () => {
@@ -1194,6 +1252,67 @@ const confirmSupervisorReview = async () => {
     alert(`確認審核失敗：${getErrorMessage(error)}`);
   } finally {
     reviewingWorkOrder.value = false;
+  }
+};
+
+const openReopenModal = () => {
+  reopenForm.value = { reason: '' };
+  showReopenModal.value = true;
+};
+
+const closeReopenModal = () => {
+  showReopenModal.value = false;
+  reopenForm.value = { reason: '' };
+};
+
+const submitReopen = async () => {
+  if (!selectedWorkOrder.value || !reopenForm.value.reason) return;
+  saving.value = true;
+  try {
+    selectedWorkOrder.value = await reopenWorkOrder(selectedWorkOrder.value.id, {
+      reason: reopenForm.value.reason,
+      actor: adminUser.value?.username || adminUser.value?.full_name || '最高級管理員'
+    });
+    detailForm.value.status = selectedWorkOrder.value.status;
+    detailLineItems.value = (selectedWorkOrder.value.line_items || []).map(item => ({ ...item }));
+    closeReopenModal();
+    await fetchWorkOrders();
+  } catch (error) {
+    alert(`退回修改失敗：${getErrorMessage(error)}`);
+  } finally {
+    saving.value = false;
+  }
+};
+
+const openRefundModal = () => {
+  refundForm.value = { method: paymentForm.value.method || '', note: '' };
+  showRefundModal.value = true;
+};
+
+const closeRefundModal = () => {
+  showRefundModal.value = false;
+  refundForm.value = { method: '', note: '' };
+};
+
+const submitRevisionRefund = async () => {
+  if (!selectedWorkOrder.value || !pendingRefundRevision.value || !refundForm.value.method) return;
+  saving.value = true;
+  try {
+    selectedWorkOrder.value = await completeWorkOrderRevisionRefund(
+      selectedWorkOrder.value.id,
+      pendingRefundRevision.value.id,
+      {
+        method: refundForm.value.method,
+        note: refundForm.value.note || null,
+        actor: adminUser.value?.username || adminUser.value?.full_name || '最高級管理員'
+      }
+    );
+    closeRefundModal();
+    await fetchWorkOrders();
+  } catch (error) {
+    alert(`退款登記失敗：${getErrorMessage(error)}`);
+  } finally {
+    saving.value = false;
   }
 };
 
@@ -1775,6 +1894,26 @@ watch(
   .reviewed-label {
     color: #81c784;
     font-weight: 700;
+  }
+
+  .refund-alert {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 1rem 0;
+    padding: 0.85rem;
+    border: 1px solid rgba(#ffb74d, 0.55);
+    border-radius: $border-radius;
+    background: rgba(#ffb74d, 0.08);
+
+    strong,
+    span {
+      display: block;
+    }
+
+    strong { color: #ffb74d; }
+    span { margin-top: 0.25rem; color: $text-secondary; font-size: 0.85rem; }
   }
 
   .line-status-table {

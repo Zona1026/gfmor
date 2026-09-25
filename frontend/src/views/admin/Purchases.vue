@@ -180,14 +180,18 @@
           <h4>到貨紀錄</h4>
           <table v-if="selectedRequest.receipts?.length" class="mini-table">
             <thead>
-              <tr><th>時間</th><th>數量</th><th>操作者</th><th>備註</th></tr>
+              <tr><th>時間</th><th>實收品項</th><th>數量</th><th>操作者</th><th>替代原因 / 備註</th></tr>
             </thead>
             <tbody>
               <tr v-for="receipt in selectedRequest.receipts" :key="receipt.id">
                 <td>{{ formatDateTime(receipt.received_at) }}</td>
+                <td>
+                  {{ receipt.received_product?.name || selectedRequest.product?.name || '-' }}
+                  <small v-if="receipt.received_product_id && receipt.received_product_id !== selectedRequest.product_id">替代品</small>
+                </td>
                 <td>{{ receipt.quantity }}</td>
                 <td>{{ receipt.actor || '-' }}</td>
-                <td>{{ receipt.note || '-' }}</td>
+                <td>{{ receipt.substitution_reason || receipt.note || '-' }}</td>
               </tr>
             </tbody>
           </table>
@@ -287,6 +291,34 @@
           到貨數量
           <input v-model.number="receiveForm.quantity" type="number" min="1" required />
         </label>
+        <div class="receive-mode" role="group" aria-label="到貨品項模式">
+          <button type="button" :class="{ active: !receiveForm.is_substitution }" @click="setReceiveMode(false)">原品項到貨</button>
+          <button type="button" :class="{ active: receiveForm.is_substitution }" @click="setReceiveMode(true)">替代料件到貨</button>
+        </div>
+        <template v-if="receiveForm.is_substitution">
+          <label>
+            實際收到的料件
+            <select v-model.number="receiveForm.received_product_id" required>
+              <option :value="null" disabled>請選擇替代料件</option>
+              <option v-for="item in substituteItems" :key="item.id" :value="item.id">
+                {{ item.name }}（可用 {{ item.available_stock }}）
+              </option>
+            </select>
+          </label>
+          <label>
+            替代原因
+            <textarea v-model.trim="receiveForm.substitution_reason" rows="3" required placeholder="例如：原廠改送可通用的 B 料件"></textarea>
+          </label>
+          <label v-if="receivingRequest.work_order_line_item_id" class="check-row">
+            <input v-model="receiveForm.replace_work_order_line_item" type="checkbox" />
+            同步將來源工單明細改為實收料件
+          </label>
+          <label v-if="receiveForm.replace_work_order_line_item">
+            工單新單價
+            <input v-model.number="receiveForm.replacement_unit_price" type="number" min="0" required />
+          </label>
+          <p class="muted-hint">若清單沒有這個料件，請先到「庫存管理 / 零件列表」新增。</p>
+        </template>
         <label>
           操作者
           <input v-model.trim="receiveForm.actor" />
@@ -393,6 +425,11 @@ const orderForm = reactive({
 
 const receiveForm = reactive({
   quantity: 1,
+  is_substitution: false,
+  received_product_id: null,
+  replace_work_order_line_item: false,
+  replacement_unit_price: 0,
+  substitution_reason: '',
   actor: '',
   note: ''
 });
@@ -417,6 +454,10 @@ const counts = computed(() => {
   }
   return result;
 });
+
+const substituteItems = computed(() => inventoryItems.value.filter(item =>
+  item.id !== receivingRequest.value?.product_id && ['PART', 'BOTH'].includes(item.inventory_type)
+));
 
 const fetchRequests = async () => {
   loading.value = true;
@@ -549,13 +590,41 @@ const submitOrder = async () => {
   }
 };
 
-const openReceiveForm = (request) => {
+const openReceiveForm = async (request) => {
   receivingRequest.value = request;
   const remaining = Math.max(1, (request.requested_quantity || 0) - (request.arrived_quantity || 0));
   receiveForm.quantity = remaining;
+  receiveForm.is_substitution = false;
+  receiveForm.received_product_id = request.product_id;
+  receiveForm.replace_work_order_line_item = false;
+  receiveForm.replacement_unit_price = request.product?.price || 0;
+  receiveForm.substitution_reason = '';
   receiveForm.actor = '';
   receiveForm.note = '';
+  try {
+    inventoryItems.value = await getInventoryItems({ type: 'all' });
+  } catch (error) {
+    receivingRequest.value = null;
+    alert(error.response?.data?.detail || '載入庫存品項失敗');
+  }
 };
+
+const setReceiveMode = (isSubstitution) => {
+  receiveForm.is_substitution = isSubstitution;
+  receiveForm.received_product_id = isSubstitution ? null : receivingRequest.value?.product_id;
+  receiveForm.replace_work_order_line_item = isSubstitution && Boolean(receivingRequest.value?.work_order_line_item_id);
+  receiveForm.substitution_reason = '';
+  receiveForm.replacement_unit_price = 0;
+};
+
+watch(
+  () => receiveForm.received_product_id,
+  productId => {
+    if (!receiveForm.is_substitution) return;
+    const product = inventoryItems.value.find(item => item.id === productId);
+    if (product) receiveForm.replacement_unit_price = Number(product.price || 0);
+  }
+);
 
 const closeReceiveForm = () => {
   receivingRequest.value = null;
@@ -567,6 +636,10 @@ const submitReceive = async () => {
   try {
     await receivePurchaseRequest(receivingRequest.value.id, {
       quantity: receiveForm.quantity,
+      received_product_id: receiveForm.is_substitution ? receiveForm.received_product_id : null,
+      replace_work_order_line_item: receiveForm.is_substitution && receiveForm.replace_work_order_line_item,
+      replacement_unit_price: receiveForm.replace_work_order_line_item ? receiveForm.replacement_unit_price : null,
+      substitution_reason: receiveForm.is_substitution ? receiveForm.substitution_reason : null,
       actor: receiveForm.actor || null,
       note: receiveForm.note || null
     });
@@ -772,6 +845,41 @@ onMounted(fetchRequests);
     color: #fca5a5;
     background: rgba(#fca5a5, 0.14);
   }
+}
+
+.receive-mode {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 1rem;
+
+  button {
+    border: 1px solid $medium-grey;
+    padding: 0.65rem;
+    color: $text-primary;
+    background: $background-color;
+    cursor: pointer;
+
+    &.active {
+      border-color: $primary-light;
+      color: $background-color;
+      background: $primary-light;
+    }
+  }
+}
+
+.check-row {
+  flex-direction: row !important;
+  align-items: center;
+
+  input {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.muted-hint {
+  color: $text-secondary;
+  font-size: 0.86rem;
 }
 
 .modal-overlay {

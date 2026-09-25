@@ -10,6 +10,7 @@ from schemas.product import ProductCategory
 class InventoryProduct(BaseModel):
     id: int
     name: str
+    price: int = 0
     category: Optional[str] = None
     category_info: Optional[ProductCategory] = None
     inventory_type: InventoryType

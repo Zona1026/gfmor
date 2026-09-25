@@ -148,10 +148,13 @@ def _create_work_order_refund(db: Session, refund):
     db.flush()
 
     refunded_total = _refund_total(db, models.AccountingSourceType.WORK_ORDER, work_order.id)
-    if refunded_total >= (work_order.paid_amount or work_order.total_amount or 0):
+    net_paid = max(0, (work_order.paid_amount or 0) - refunded_total)
+    if net_paid <= 0:
         work_order.payment_status = models.WorkOrderPaymentStatus.REFUNDED
-    elif refunded_total > 0:
+    elif net_paid < (work_order.total_amount or 0):
         work_order.payment_status = models.WorkOrderPaymentStatus.PARTIALLY_PAID
+    else:
+        work_order.payment_status = models.WorkOrderPaymentStatus.PAID
     membership_service.sync_work_order_membership_consumption(db, work_order)
     return record
 

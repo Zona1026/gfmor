@@ -196,6 +196,49 @@ def confirm_work_order_supervisor_review(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="找不到該工單")
     return db_work_order
 
+
+@router.post("/{work_order_id}/reopen", response_model=work_order_schema.WorkOrder, summary="退回已審核工單修改")
+def reopen_work_order(
+    work_order_id: int,
+    reopen: work_order_schema.WorkOrderReopenCreate,
+    admin=Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    actor = reopen.actor or admin["username"] or admin["role"]
+    try:
+        db_work_order = crud.reopen_work_order(db, work_order_id, reopen, actor=actor)
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    if db_work_order is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="找不到該工單")
+    return db_work_order
+
+
+@router.post(
+    "/{work_order_id}/revisions/{revision_id}/refund",
+    response_model=work_order_schema.WorkOrder,
+    summary="完成工單修改差額退款",
+)
+def complete_work_order_revision_refund(
+    work_order_id: int,
+    revision_id: int,
+    refund: work_order_schema.WorkOrderRevisionRefundCreate,
+    admin=Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    actor = refund.actor or admin["username"] or admin["role"]
+    try:
+        db_work_order = crud.complete_work_order_revision_refund(
+            db, work_order_id, revision_id, refund, actor=actor
+        )
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    if db_work_order is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="找不到修改紀錄")
+    return db_work_order
+
 @router.post("/{work_order_id}/line-items", response_model=work_order_schema.WorkOrder, summary="追加工單明細")
 def add_work_order_line_item(
     work_order_id: int,

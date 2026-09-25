@@ -17,7 +17,7 @@ def purchase_request_options():
         joinedload(models.PurchaseRequest.product),
         joinedload(models.PurchaseRequest.work_order),
         joinedload(models.PurchaseRequest.work_order_line_item),
-        joinedload(models.PurchaseRequest.receipts),
+        joinedload(models.PurchaseRequest.receipts).joinedload(models.PurchaseReceipt.received_product),
         joinedload(models.PurchaseRequest.assignments),
     ]
 
@@ -237,31 +237,60 @@ def order_purchase_request(db: Session, request, update):
 def receive_purchase_request(db: Session, request, receipt):
     if request.status == models.PurchaseRequestStatus.CANCELED:
         raise ValueError("Canceled purchase request cannot receive items.")
-    product = request.product
-    if not product:
+    ordered_product = request.product
+    if not ordered_product:
         raise ValueError("Purchase request product not found.")
+    received_product = ordered_product
+    if receipt.received_product_id:
+        received_product = db.query(models.Product).filter(models.Product.id == receipt.received_product_id).first()
+        if not received_product:
+            raise ValueError("找不到實際收到的庫存品項。")
+
+    is_substitution = received_product.id != ordered_product.id
+    substitution_reason = (receipt.substitution_reason or "").strip()
+    if is_substitution and not substitution_reason:
+        raise ValueError("收到替代料件時必須填寫替代原因。")
+    if receipt.replace_work_order_line_item and not is_substitution:
+        raise ValueError("原品項到貨不需要更換工單明細。")
+    if receipt.replace_work_order_line_item and not request.work_order_line_item:
+        raise ValueError("此採購單沒有可更換的來源工單明細。")
 
     inventory_service.receive_inventory(
         db,
-        product,
+        received_product,
         receipt.quantity,
         inventory_service.SOURCE_PURCHASE_REQUEST,
         request.id,
         actor=receipt.actor,
-        reason=f"Purchase request #{request.id} received",
+        reason=(
+            f"Purchase request #{request.id} substitute received for {ordered_product.name}"
+            if is_substitution
+            else f"Purchase request #{request.id} received"
+        ),
     )
     db_receipt = models.PurchaseReceipt(
         purchase_request_id=request.id,
+        received_product_id=received_product.id,
         quantity=receipt.quantity,
         actor=receipt.actor,
         note=receipt.note,
+        substitution_reason=substitution_reason or None,
     )
     db.add(db_receipt)
     request.arrived_quantity = (request.arrived_quantity or 0) + receipt.quantity
 
     auto_assign_quantity = min(receipt.quantity, max(0, (request.requested_quantity or 0) - (request.assigned_quantity or 0)))
     line_item = request.work_order_line_item
-    if auto_assign_quantity > 0 and _can_assign_to_line_item(request, line_item):
+    if receipt.replace_work_order_line_item:
+        _replace_line_item_with_received_product(
+            db,
+            request,
+            line_item,
+            received_product,
+            auto_assign_quantity,
+            receipt,
+        )
+    elif auto_assign_quantity > 0 and _can_assign_to_line_item(request, line_item):
         assign_arrived_quantity(
             db,
             request,
@@ -274,6 +303,65 @@ def receive_purchase_request(db: Session, request, receipt):
 
     _sync_status(request)
     return request
+
+
+def _replace_line_item_with_received_product(db, request, line_item, received_product, quantity, receipt):
+    work_order = line_item.work_order
+    if not work_order or work_order.status == models.WorkOrderStatus.CANCELED:
+        raise ValueError("來源工單不存在或已取消。")
+    active_revision = next((item for item in work_order.revisions if item.closed_at is None), None)
+    if not active_revision or work_order.supervisor_reviewed_at:
+        raise ValueError("請先由最高級管理員將已審核工單退回修改，再登記替代料件。")
+    if line_item.inventory_deducted or (line_item.inventory_consumed_quantity or 0) > 0:
+        raise ValueError("此工單明細已扣庫存，不能直接更換料件。")
+
+    same_substitute_product = line_item.product_id == received_product.id
+    if not same_substitute_product:
+        inventory_service.release_work_order_line_item(db, line_item)
+        line_item.product_id = received_product.id
+        line_item.product = received_product
+        line_item.name = received_product.name
+    if receipt.replacement_unit_price is not None:
+        line_item.unit_price = receipt.replacement_unit_price
+
+    current_reserved = inventory_service.work_order_line_item_reserved_quantity(db, line_item)
+    remaining_need = max(
+        0,
+        (line_item.quantity or 0)
+        - (line_item.inventory_consumed_quantity or 0)
+        - current_reserved,
+    )
+    assign_quantity = min(quantity, remaining_need)
+    if assign_quantity > 0:
+        inventory_service.reserve_work_order_line_item(
+            db,
+            line_item,
+            current_reserved + assign_quantity,
+            actor=receipt.actor,
+        )
+        request.assigned_quantity = (request.assigned_quantity or 0) + assign_quantity
+        db.add(models.PurchaseAssignment(
+            purchase_request_id=request.id,
+            work_order_id=work_order.id,
+            work_order_line_item_id=line_item.id,
+            quantity=assign_quantity,
+            actor=receipt.actor,
+            note=f"替代料件：{request.item_name} -> {received_product.name}",
+        ))
+
+    subtotal = 0
+    discount = 0
+    for item in work_order.line_items:
+        amount = max(0, item.quantity or 0) * max(0, item.unit_price or 0)
+        if item.type == models.WorkOrderLineItemType.DISCOUNT:
+            discount += amount
+        else:
+            subtotal += amount
+    work_order.total_amount = max(0, subtotal - discount)
+    refunded = sum(record.amount or 0 for record in work_order.refund_records)
+    net_paid = max(0, (work_order.paid_amount or 0) - refunded)
+    active_revision.refund_due_amount = max(0, net_paid - work_order.total_amount)
+    active_revision.refund_status = "PENDING" if active_revision.refund_due_amount else "NONE"
 
 
 def _can_assign_to_line_item(request, line_item):

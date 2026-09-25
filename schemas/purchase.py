@@ -10,6 +10,7 @@ class PurchaseProductSummary(BaseModel):
     id: int
     name: str
     category: Optional[str] = None
+    price: int = 0
 
     class Config:
         from_attributes = True
@@ -41,9 +42,12 @@ class PurchaseLineItemSummary(BaseModel):
 class PurchaseReceipt(BaseModel):
     id: int
     purchase_request_id: int
+    received_product_id: Optional[int] = None
     quantity: int
     actor: Optional[str] = None
     note: Optional[str] = None
+    substitution_reason: Optional[str] = None
+    received_product: Optional[PurchaseProductSummary] = None
     received_at: datetime
 
     class Config:
@@ -114,6 +118,10 @@ class PurchaseOrderUpdate(BaseModel):
 
 class PurchaseReceiveCreate(BaseModel):
     quantity: int = Field(gt=0)
+    received_product_id: Optional[int] = Field(default=None, gt=0)
+    replace_work_order_line_item: bool = False
+    replacement_unit_price: Optional[int] = Field(default=None, ge=0)
+    substitution_reason: Optional[str] = None
     actor: Optional[str] = None
     note: Optional[str] = None
 
