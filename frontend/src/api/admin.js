@@ -38,6 +38,10 @@ export const createWorkOrder = async (data) => {
   return await api.post('/work-orders/', data);
 };
 
+export const createHistoricalWorkOrder = async (data) => {
+  return await api.post('/work-orders/historical', data, adminAuthConfig());
+};
+
 export const updateWorkOrder = async (id, data) => {
   return await api.put(`/work-orders/${id}`, data, adminAuthConfig());
 };

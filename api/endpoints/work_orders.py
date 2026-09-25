@@ -65,6 +65,35 @@ def create_work_order(
         # 我們在這裡捕捉這個錯誤，並回傳一個 HTTP 400 錯誤給客戶端。
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
+
+@router.post(
+    "/historical",
+    response_model=work_order_schema.WorkOrder,
+    status_code=status.HTTP_201_CREATED,
+    summary="補登歷史工單",
+)
+def create_historical_work_order(
+    work_order: work_order_schema.HistoricalWorkOrderCreate,
+    admin=Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    actor = admin["username"] or admin["role"]
+    try:
+        return crud.create_historical_work_order(db, work_order, actor=actor)
+    except crud.DuplicateHistoricalWorkOrderError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "HISTORICAL_WORK_ORDER_DUPLICATE",
+                "message": str(exc),
+                "work_order_ids": exc.work_order_ids,
+            },
+        )
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
 @router.get("/", response_model=List[work_order_schema.WorkOrder], summary="讀取工單列表")
 def read_work_orders(
     skip: int = 0,

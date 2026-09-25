@@ -289,6 +289,17 @@ class WorkOrderCreate(WorkOrderBase):
     items: List[WorkOrderItemCreate] = Field(default_factory=list)
 
 
+class HistoricalWorkOrderCreate(WorkOrderBase):
+    line_items: List[WorkOrderLineItemCreate] = Field(min_length=1)
+    completed_date: date
+    paid_date: date
+    payment_method: str = Field(min_length=1)
+    payment_note: Optional[str] = None
+    award_points: bool = True
+    backfill_reason: str = Field(min_length=1)
+    confirm_duplicate: bool = False
+
+
 class WorkOrderUpdate(BaseModel):
     status: Optional[WorkOrderStatus] = None
     payment_status: Optional[WorkOrderPaymentStatus] = None
@@ -347,6 +358,11 @@ class WorkOrder(BaseModel):
     deleted_at: Optional[datetime] = None
     deleted_by: Optional[str] = None
     delete_reason: Optional[str] = None
+    is_historical_backfill: bool = False
+    inventory_tracking_exempt: bool = False
+    backfilled_at: Optional[datetime] = None
+    backfilled_by: Optional[str] = None
+    backfill_reason: Optional[str] = None
     items: List[WorkOrderItem] = Field(default_factory=list)
     line_items: List[WorkOrderLineItem] = Field(default_factory=list)
     payments: List[WorkOrderPayment] = Field(default_factory=list)

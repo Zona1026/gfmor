@@ -5,7 +5,10 @@
         <h2>工單管理</h2>
         <p>以車牌快速找單，並管理報價、施工、收款與主管審核。</p>
       </div>
-      <button v-if="canCreateWorkOrder" class="btn btn-primary" @click="openCreateModal">新增工單</button>
+      <div class="header-actions">
+        <button v-if="canReviewApprovals" class="btn btn-outline" @click="openHistoricalCreateModal">補登歷史工單</button>
+        <button v-if="canCreateWorkOrder" class="btn btn-primary" @click="openCreateModal">新增工單</button>
+      </div>
     </div>
 
     <div class="filter-bar">
@@ -107,7 +110,10 @@
     <div v-if="showCreateModal && canCreateWorkOrder" class="modal-overlay" @click.self="closeCreateModal">
       <div class="modal-content large">
         <div class="modal-header">
-          <h3>新增工單</h3>
+          <div>
+            <h3>{{ createMode === 'historical' ? '補登歷史工單' : '新增工單' }}</h3>
+            <p v-if="createMode === 'historical'">補登完成紀錄，不調整目前庫存；點數自完工日起算。</p>
+          </div>
           <button class="icon-btn" @click="closeCreateModal">×</button>
         </div>
 
@@ -208,7 +214,7 @@
                 預約日
                 <input v-model="createForm.scheduled_at" type="datetime-local" />
               </label>
-              <label>
+              <label v-if="createMode === 'normal'">
                 完工日
                 <input type="text" value="完工後自動記錄" disabled />
               </label>
@@ -219,6 +225,41 @@
               <label v-if="createSource === 'guest' && createForm.vehicle_is_new">
                 購車日期
                 <input v-model="createForm.vehicle_purchase_date" type="date" />
+              </label>
+            </div>
+            <div v-if="createMode === 'historical'" class="historical-fields">
+              <div class="form-grid">
+                <label>
+                  <span class="field-label">完工日 <span class="required-mark">*</span></span>
+                  <input v-model="createForm.completed_date" type="date" :max="todayDateString()" required />
+                </label>
+                <label>
+                  <span class="field-label">付款日 <span class="required-mark">*</span></span>
+                  <input v-model="createForm.paid_date" type="date" :max="todayDateString()" required />
+                </label>
+                <label>
+                  <span class="field-label">付款方式 <span class="required-mark">*</span></span>
+                  <select v-model="createForm.payment_method" required>
+                    <option value="" disabled>請選擇付款方式</option>
+                    <option v-for="method in paymentMethodOptions" :key="method" :value="method">{{ method }}</option>
+                  </select>
+                </label>
+                <label class="historical-point-toggle">
+                  補發點數
+                  <span>
+                    <input
+                      v-model="createForm.award_points"
+                      type="checkbox"
+                      :disabled="createSource !== 'member'"
+                      @change="handleHistoricalAwardPointsChange"
+                    />
+                    依完工日發放與計算效期
+                  </span>
+                </label>
+              </div>
+              <label>
+                <span class="field-label">補登原因 <span class="required-mark">*</span></span>
+                <textarea v-model.trim="createForm.backfill_reason" rows="2" placeholder="例如：系統轉換期間漏登" required></textarea>
               </label>
             </div>
             <label>
@@ -289,7 +330,9 @@
 
           <div class="form-actions">
             <button type="button" class="btn btn-outline" @click="closeCreateModal">取消</button>
-            <button type="submit" class="btn btn-primary" :disabled="saving">建立工單</button>
+            <button type="submit" class="btn btn-primary" :disabled="saving">
+              {{ createMode === 'historical' ? '確認補登' : '建立工單' }}
+            </button>
           </div>
         </form>
       </div>
@@ -299,7 +342,10 @@
       <div class="modal-content xlarge">
         <div class="modal-header">
           <div>
-            <h3>工單 #{{ selectedWorkOrder.id }}</h3>
+            <h3>
+              工單 #{{ selectedWorkOrder.id }}
+              <span v-if="selectedWorkOrder.is_historical_backfill" class="historical-tag">歷史補登</span>
+            </h3>
             <p>{{ selectedWorkOrder.customer_name }} / {{ selectedWorkOrder.vehicle_license_plate }}</p>
           </div>
           <div class="modal-actions">
@@ -326,6 +372,12 @@
         <div class="detail-grid">
           <section class="form-section">
             <h4>基本資料</h4>
+            <div v-if="selectedWorkOrder.is_historical_backfill" class="backfill-audit">
+              <strong>補登紀錄</strong>
+              <span>補登人：{{ selectedWorkOrder.backfilled_by || '-' }}</span>
+              <span>補登原因：{{ selectedWorkOrder.backfill_reason || '-' }}</span>
+              <span>此工單未異動目前庫存，點數以完工日為發放基準。</span>
+            </div>
             <div class="form-grid compact-basic-grid">
               <label>
                 服務類型
@@ -654,6 +706,7 @@ import {
   addWorkOrderPayment,
   completeWorkOrderRevisionRefund,
   confirmWorkOrderReview,
+  createHistoricalWorkOrder,
   createWorkOrderRefund,
   createWorkOrder,
   deleteWorkOrder,
@@ -695,6 +748,7 @@ const canUseCriticalWorkOrder = computed(() => workOrderManagerRoles.includes(ad
 const canReviewApprovals = computed(() => adminUser.value?.role === '最高級');
 
 const showCreateModal = ref(false);
+const createMode = ref('normal');
 const createSource = ref('guest');
 const memberSearch = ref('');
 const memberResults = ref([]);
@@ -860,6 +914,12 @@ function defaultCreateForm() {
     responsible_staff: defaultResponsibleStaff,
     scheduled_at: '',
     ordered_date: todayDateString(),
+    completed_date: todayDateString(),
+    paid_date: todayDateString(),
+    payment_method: '',
+    payment_note: '',
+    award_points: true,
+    backfill_reason: '',
     notes: ''
   };
 }
@@ -975,6 +1035,17 @@ const fetchStaffAdmins = async () => {
 };
 
 const openCreateModal = () => {
+  createMode.value = 'normal';
+  showCreateModal.value = true;
+  fetchProducts();
+  fetchStaffAdmins();
+};
+
+const openHistoricalCreateModal = () => {
+  createMode.value = 'historical';
+  createSource.value = 'member';
+  createForm.value = defaultCreateForm();
+  createLineItems.value = [{ ...defaultLineItem(), counts_toward_membership: true }];
   showCreateModal.value = true;
   fetchProducts();
   fetchStaffAdmins();
@@ -982,6 +1053,7 @@ const openCreateModal = () => {
 
 const closeCreateModal = () => {
   showCreateModal.value = false;
+  createMode.value = 'normal';
   createSource.value = 'guest';
   createForm.value = defaultCreateForm();
   createLineItems.value = [defaultLineItem()];
@@ -1062,7 +1134,16 @@ const applySelectedMemberMotor = () => {
 };
 
 const addCreateLineItem = () => {
-  createLineItems.value.push(defaultLineItem());
+  createLineItems.value.push({
+    ...defaultLineItem(),
+    counts_toward_membership: createMode.value === 'historical' && createForm.value.award_points
+  });
+};
+
+const handleHistoricalAwardPointsChange = () => {
+  for (const item of createLineItems.value) {
+    item.counts_toward_membership = createForm.value.award_points;
+  }
 };
 
 const removeCreateLineItem = (index) => {
@@ -1175,6 +1256,14 @@ const validateCreateRequiredFields = () => {
   if (!hasText(createForm.value.vehicle_model)) return '車型為必填';
   if (!hasMileageValue(createForm.value.vehicle_mileage)) return '里程為必填';
   if (!hasText(createForm.value.responsible_staff)) return '負責人為必填';
+  if (createMode.value === 'historical') {
+    if (!hasText(createForm.value.ordered_date)) return '訂購日為必填';
+    if (!hasText(createForm.value.completed_date)) return '完工日為必填';
+    if (!hasText(createForm.value.paid_date)) return '付款日為必填';
+    if (!hasText(createForm.value.payment_method)) return '付款方式為必填';
+    if (!hasText(createForm.value.backfill_reason)) return '補登原因為必填';
+    if (createForm.value.ordered_date > createForm.value.completed_date) return '訂購日不可晚於完工日';
+  }
   return '';
 };
 
@@ -1205,7 +1294,20 @@ const submitCreateWorkOrder = async () => {
       delete payload.vehicle_is_new;
       delete payload.vehicle_purchase_date;
     }
-    const created = await createWorkOrder(payload);
+    let created;
+    if (createMode.value === 'historical') {
+      try {
+        created = await createHistoricalWorkOrder(payload);
+      } catch (error) {
+        const detail = error.response?.data?.detail;
+        if (error.response?.status !== 409 || detail?.code !== 'HISTORICAL_WORK_ORDER_DUPLICATE') throw error;
+        const confirmed = window.confirm(`${detail.message}\n\n確定仍要補登嗎？這可能造成重複消費與點數紀錄。`);
+        if (!confirmed) return;
+        created = await createHistoricalWorkOrder({ ...payload, confirm_duplicate: true });
+      }
+    } else {
+      created = await createWorkOrder(payload);
+    }
     closeCreateModal();
     await fetchWorkOrders();
     await openDetail(created.id);
@@ -1496,6 +1598,7 @@ watch(
   color: $text-primary;
 
   .section-header,
+  .header-actions,
   .toolbar,
   .filter-bar,
   .search-box,
@@ -2022,6 +2125,54 @@ watch(
 
     strong { color: #ffb74d; }
     span { margin-top: 0.25rem; color: $text-secondary; font-size: 0.85rem; }
+  }
+
+  .header-actions {
+    justify-content: flex-end;
+  }
+
+  .historical-fields,
+  .backfill-audit {
+    display: grid;
+    gap: 0.8rem;
+  }
+
+  .historical-fields {
+    padding-top: 0.9rem;
+    border-top: 1px solid $medium-grey;
+  }
+
+  .historical-point-toggle span {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 42px;
+  }
+
+  .historical-point-toggle input {
+    width: auto;
+  }
+
+  .historical-tag {
+    display: inline-block;
+    margin-left: 0.45rem;
+    padding: 0.2rem 0.45rem;
+    border: 1px solid #64b5f6;
+    border-radius: $border-radius;
+    color: #90caf9;
+    font-size: 0.75rem;
+    vertical-align: middle;
+  }
+
+  .backfill-audit {
+    padding: 0.75rem;
+    border-left: 3px solid #64b5f6;
+    background: rgba(#64b5f6, 0.08);
+    color: $text-secondary;
+
+    strong {
+      color: $text-primary;
+    }
   }
 
   .refund-actions {

@@ -353,6 +353,7 @@ def delete_product(db: Session, product_id: int):
 # =================================================================
 
 from schemas.work_order import (
+    HistoricalWorkOrderCreate,
     WorkOrderApprovalReview,
     WorkOrderCreate,
     WorkOrderDeleteCreate,
@@ -360,7 +361,7 @@ from schemas.work_order import (
     WorkOrderPaymentCreate,
     WorkOrderUpdate,
 )
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 
 HIGH_QUOTE_APPROVAL_THRESHOLD = 30000
 APPROVAL_GATED_STATUSES = [
@@ -996,6 +997,110 @@ def create_work_order(db: Session, work_order: WorkOrderCreate):
     _sync_payment_status(db_work_order)
     _sync_work_order_approvals(db_work_order)
     db.add(db_work_order)
+    db.commit()
+    return get_work_order(db, db_work_order.id)
+
+
+class DuplicateHistoricalWorkOrderError(ValueError):
+    def __init__(self, work_order_ids):
+        self.work_order_ids = work_order_ids
+        joined_ids = "、".join(f"#{work_order_id}" for work_order_id in work_order_ids)
+        super().__init__(f"可能重複補登，請確認既有工單 {joined_ids}")
+
+
+def _taipei_date_to_utc(value: date) -> datetime:
+    taipei_value = datetime.combine(value, time(hour=12), tzinfo=TAIPEI_TZ)
+    return taipei_value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def _historical_duplicate_ids(db: Session, work_order, completed_date: date):
+    query = db.query(models.WorkOrder.id).filter(
+        models.WorkOrder.deleted_at.is_(None),
+        models.WorkOrder.total_amount == work_order.total_amount,
+        models.WorkOrder.consumption_date == completed_date,
+    )
+    identity_filters = []
+    if work_order.google_id:
+        identity_filters.append(models.WorkOrder.google_id == work_order.google_id)
+    if work_order.vehicle_license_plate:
+        identity_filters.append(models.WorkOrder.vehicle_license_plate == work_order.vehicle_license_plate)
+    if not identity_filters:
+        return []
+    return [row.id for row in query.filter(or_(*identity_filters)).limit(5).all()]
+
+
+def create_historical_work_order(
+    db: Session,
+    work_order: HistoricalWorkOrderCreate,
+    actor: str,
+):
+    """Create an already completed work order without changing current inventory."""
+    today = datetime.now(TAIPEI_TZ).date()
+    ordered_date = work_order.ordered_date
+    if not ordered_date:
+        raise ValueError("訂購日為必填")
+    if work_order.completed_date > today:
+        raise ValueError("完工日不可晚於今天")
+    if ordered_date > work_order.completed_date:
+        raise ValueError("訂購日不可晚於完工日")
+    if work_order.paid_date > today:
+        raise ValueError("付款日不可晚於今天")
+    payment_method = work_order.payment_method.strip()
+    if not payment_method:
+        raise ValueError("付款方式為必填")
+    backfill_reason = work_order.backfill_reason.strip()
+    if not backfill_reason:
+        raise ValueError("補登原因為必填")
+
+    line_items = [_build_line_item(db, item) for item in work_order.line_items]
+    if not work_order.award_points:
+        for line_item in line_items:
+            line_item.counts_toward_membership = False
+
+    completed_at = _taipei_date_to_utc(work_order.completed_date)
+    db_work_order = models.WorkOrder(
+        service_type=work_order.service_type or models.WorkOrderServiceType.MAINTENANCE,
+        problem_description=work_order.problem_description,
+        inspection_result=work_order.inspection_result,
+        responsible_staff=work_order.responsible_staff,
+        scheduled_at=work_order.scheduled_at,
+        ordered_date=ordered_date,
+        consumption_date=work_order.completed_date,
+        notes=work_order.notes,
+        status=models.WorkOrderStatus.COMPLETED,
+        payment_status=models.WorkOrderPaymentStatus.PAID,
+        completed_at=completed_at,
+        supervisor_reviewed_at=completed_at,
+        supervisor_reviewed_by=actor,
+        is_historical_backfill=True,
+        inventory_tracking_exempt=True,
+        backfilled_at=datetime.utcnow(),
+        backfilled_by=actor,
+        backfill_reason=backfill_reason,
+        line_items=line_items,
+    )
+    _hydrate_direct_customer(db, db_work_order, work_order)
+    _recalculate_work_order_total(db_work_order)
+    if db_work_order.total_amount <= 0:
+        raise ValueError("歷史工單總金額必須大於 0")
+
+    duplicate_ids = _historical_duplicate_ids(db, db_work_order, work_order.completed_date)
+    if duplicate_ids and not work_order.confirm_duplicate:
+        raise DuplicateHistoricalWorkOrderError(duplicate_ids)
+
+    db.add(db_work_order)
+    db.flush()
+    payment = models.WorkOrderPayment(
+        amount=db_work_order.total_amount,
+        method=payment_method,
+        paid_at=_taipei_date_to_utc(work_order.paid_date),
+        note=work_order.payment_note,
+    )
+    db_work_order.payments.append(payment)
+    db.flush()
+    accounting_service.record_work_order_payment(db, db_work_order, payment)
+    _sync_payment_status(db_work_order)
+    membership_service.sync_work_order_membership_consumption(db, db_work_order)
     db.commit()
     return get_work_order(db, db_work_order.id)
 

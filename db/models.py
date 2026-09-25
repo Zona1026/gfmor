@@ -549,6 +549,11 @@ class WorkOrder(Base):
     deleted_at = Column(DateTime, nullable=True)
     deleted_by = Column(String(50), nullable=True)
     delete_reason = Column(Text, nullable=True)
+    is_historical_backfill = Column(Boolean, nullable=False, default=False)
+    inventory_tracking_exempt = Column(Boolean, nullable=False, default=False)
+    backfilled_at = Column(DateTime, nullable=True)
+    backfilled_by = Column(String(50), nullable=True)
+    backfill_reason = Column(Text, nullable=True)
 
     # 建立與 Booking (預約) 的一對一關聯
     # work_order 透過 booking_id 找到對應的 booking 紀錄
