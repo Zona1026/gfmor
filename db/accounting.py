@@ -4,6 +4,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from db import models
+from db import inventory as inventory_service
 from db import membership as membership_service
 
 
@@ -129,8 +130,22 @@ def _create_work_order_refund(db: Session, refund):
     work_order = db.query(models.WorkOrder).filter(models.WorkOrder.id == refund.source_id).first()
     if not work_order:
         raise ValueError("Work order not found.")
-    if refund.amount > max(work_order.paid_amount or 0, work_order.total_amount or 0):
-        raise ValueError("Refund amount exceeds work order amount.")
+
+    refund_type = (refund.refund_type or "PARTIAL").upper()
+    inventory_action = (refund.inventory_action or "NO_CHANGE").upper()
+    if refund_type not in {"PARTIAL", "PRICE_DIFFERENCE", "FULL"}:
+        raise ValueError("不支援的退款類型。")
+    if inventory_action not in {"NO_CHANGE", "RESTOCK_ALL"}:
+        raise ValueError("不支援的庫存處理方式。")
+
+    refunded_before = _refund_total(db, models.AccountingSourceType.WORK_ORDER, work_order.id)
+    refundable_amount = max(0, (work_order.paid_amount or 0) - refunded_before)
+    if refund.amount > refundable_amount:
+        raise ValueError("退款金額超過目前可退款金額。")
+    if refund_type == "FULL" and refund.amount != refundable_amount:
+        raise ValueError("整單退款金額必須等於目前可退款金額。")
+    if inventory_action == "RESTOCK_ALL" and refund_type != "FULL":
+        raise ValueError("只有整單退款可以回補全部已扣庫存。")
 
     record = models.RefundRecord(
         source_type=models.AccountingSourceType.WORK_ORDER,
@@ -140,12 +155,18 @@ def _create_work_order_refund(db: Session, refund):
         customer_phone=work_order.customer_phone,
         amount=refund.amount,
         method=refund.method,
+        refund_type=refund_type,
+        inventory_action=inventory_action,
         reason=refund.reason,
         actor=refund.actor,
         refunded_at=datetime.utcnow(),
     )
     db.add(record)
+    work_order.refund_records.append(record)
     db.flush()
+
+    if inventory_action == "RESTOCK_ALL":
+        _restore_work_order_inventory(db, work_order, record, refund.actor)
 
     refunded_total = _refund_total(db, models.AccountingSourceType.WORK_ORDER, work_order.id)
     net_paid = max(0, (work_order.paid_amount or 0) - refunded_total)
@@ -155,8 +176,29 @@ def _create_work_order_refund(db: Session, refund):
         work_order.payment_status = models.WorkOrderPaymentStatus.PARTIALLY_PAID
     else:
         work_order.payment_status = models.WorkOrderPaymentStatus.PAID
+    if refund_type == "FULL":
+        work_order.status = models.WorkOrderStatus.CANCELED
     membership_service.sync_work_order_membership_consumption(db, work_order)
     return record
+
+
+def _restore_work_order_inventory(db: Session, work_order, refund_record, actor: str = None):
+    for line_item in work_order.line_items:
+        consumed = line_item.inventory_consumed_quantity or 0
+        if consumed <= 0 or not line_item.product:
+            continue
+        inventory_service.restore_inventory(
+            db,
+            line_item.product,
+            consumed,
+            source_type="work_order_refund",
+            source_id=refund_record.id,
+            actor=actor,
+            reason=f"工單 #{work_order.id} 整單退款回補：{line_item.name}",
+        )
+        line_item.inventory_consumed_quantity = 0
+        line_item.inventory_deducted = 0
+        inventory_service.release_work_order_line_item(db, line_item)
 
 
 def _create_shop_order_refund(db: Session, refund):
@@ -165,8 +207,10 @@ def _create_shop_order_refund(db: Session, refund):
         raise ValueError("Shop order not found.")
     if order.source != "online":
         raise ValueError("Only online shop orders can be refunded here.")
-    if refund.amount > (order.total_amount or 0):
-        raise ValueError("Refund amount exceeds order amount.")
+    refunded_before = _refund_total(db, models.AccountingSourceType.SHOP_ORDER, order.id)
+    refundable_amount = max(0, (order.total_amount or 0) - refunded_before)
+    if refund.amount > refundable_amount:
+        raise ValueError("Refund amount exceeds refundable order amount.")
 
     record = models.RefundRecord(
         source_type=models.AccountingSourceType.SHOP_ORDER,
@@ -176,6 +220,8 @@ def _create_shop_order_refund(db: Session, refund):
         customer_phone=order.recipient_phone,
         amount=refund.amount,
         method=refund.method,
+        refund_type=(refund.refund_type or "PARTIAL").upper(),
+        inventory_action="NO_CHANGE",
         reason=refund.reason,
         actor=refund.actor,
         refunded_at=datetime.utcnow(),

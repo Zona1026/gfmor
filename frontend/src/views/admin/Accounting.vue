@@ -61,7 +61,6 @@
         <label>
           來源
           <select v-model="refundForm.source_type">
-            <option value="WORK_ORDER">工單</option>
             <option value="SHOP_ORDER">商城訂單</option>
           </select>
         </label>
@@ -89,6 +88,7 @@
           新增退款
         </button>
       </form>
+      <div v-if="canCreateRefund" class="permission-note">工單退款請至「工單管理」的工單詳情操作。</div>
       <div v-if="canCreateRefund" class="lookup-state">
         <span v-if="refundLookup.loading">查詢單據中...</span>
         <span v-else-if="refundLookup.error" class="error-text">{{ refundLookup.error }}</span>
@@ -106,6 +106,8 @@
             <th>單號</th>
             <th>客戶</th>
             <th>退款金額</th>
+            <th>退款類型</th>
+            <th>庫存處理</th>
             <th>方式</th>
             <th>原因</th>
             <th>退款時間</th>
@@ -117,6 +119,8 @@
             <td>#{{ record.source_id }}</td>
             <td>{{ record.customer_name || '-' }}</td>
             <td class="amount negative">NT$ {{ formatNumber(record.amount) }}</td>
+            <td>{{ refundTypeMap[record.refund_type] || record.refund_type }}</td>
+            <td>{{ inventoryActionMap[record.inventory_action] || record.inventory_action }}</td>
             <td>{{ record.method || '-' }}</td>
             <td>{{ record.reason || '-' }}</td>
             <td>{{ formatTaipeiDateTime(record.refunded_at) }}</td>
@@ -315,6 +319,17 @@ const payableStatusMap = {
   CANCELED: '已取消'
 };
 
+const refundTypeMap = {
+  PARTIAL: '部分退款',
+  PRICE_DIFFERENCE: '退差價',
+  FULL: '整單退款'
+};
+
+const inventoryActionMap = {
+  NO_CHANGE: '不調整',
+  RESTOCK_ALL: '全部回補'
+};
+
 const activeTab = ref('receipts');
 const loading = ref(false);
 const saving = ref(false);
@@ -324,7 +339,7 @@ const shopReceivables = ref([]);
 const payables = ref([]);
 
 const refundForm = reactive({
-  source_type: 'WORK_ORDER',
+  source_type: 'SHOP_ORDER',
   source_id: null,
   amount: null,
   method: '',

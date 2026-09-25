@@ -396,6 +396,7 @@ def _work_order_options():
         joinedload(models.WorkOrder.line_items).joinedload(models.WorkOrderLineItem.purchase_requests),
         joinedload(models.WorkOrder.line_items).joinedload(models.WorkOrderLineItem.purchase_requests).joinedload(models.PurchaseRequest.product),
         joinedload(models.WorkOrder.payments),
+        joinedload(models.WorkOrder.refund_records),
         joinedload(models.WorkOrder.approvals),
         joinedload(models.WorkOrder.revisions),
     )
@@ -433,11 +434,11 @@ def _recalculate_work_order_total(db_work_order):
 
 
 def _sync_payment_status(db_work_order):
-    if db_work_order.payment_status == models.WorkOrderPaymentStatus.REFUNDED:
-        return
-    paid_amount = db_work_order.paid_amount
+    paid_amount = db_work_order.net_paid_amount
     total_amount = db_work_order.total_amount or 0
-    if paid_amount <= 0:
+    if paid_amount <= 0 and db_work_order.paid_amount > 0:
+        db_work_order.payment_status = models.WorkOrderPaymentStatus.REFUNDED
+    elif paid_amount <= 0:
         db_work_order.payment_status = models.WorkOrderPaymentStatus.UNPAID
     elif paid_amount < total_amount:
         db_work_order.payment_status = models.WorkOrderPaymentStatus.PARTIALLY_PAID
@@ -1196,6 +1197,8 @@ def add_work_order_payment(db: Session, work_order_id: int, payment: WorkOrderPa
     db_work_order = get_work_order(db, work_order_id)
     if not db_work_order:
         return None
+    if db_work_order.status == models.WorkOrderStatus.CANCELED:
+        raise ValueError("已取消的工單不可新增付款")
     if payment.amount <= 0:
         raise ValueError("付款金額需大於 0")
     payment_data = _schema_dict(payment, exclude_unset=True)
@@ -1391,6 +1394,8 @@ def complete_work_order_revision_refund(db: Session, work_order_id: int, revisio
             source_id=work_order_id,
             amount=revision.refund_due_amount,
             method=refund.method,
+            refund_type="PRICE_DIFFERENCE",
+            inventory_action="NO_CHANGE",
             reason=refund.note or f"工單退回修改差額：{revision.reason}",
             actor=actor or refund.actor,
         ),

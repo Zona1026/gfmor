@@ -6,7 +6,9 @@ from typing import List
 
 # 引入資料庫 CRUD 函式、schemas 和資料庫 session 管理
 from api.dependencies.admin_auth import require_admin, require_manager_admin, require_self_or_admin, require_super_admin
+from db import accounting as accounting_service
 from db import crud, models
+from schemas import accounting as accounting_schema
 from schemas import work_order as work_order_schema
 from db.database import SessionLocal
 
@@ -238,6 +240,39 @@ def complete_work_order_revision_refund(
     if db_work_order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="找不到修改紀錄")
     return db_work_order
+
+
+@router.post(
+    "/{work_order_id}/refunds",
+    response_model=work_order_schema.WorkOrder,
+    summary="建立工單退款",
+)
+def create_work_order_refund(
+    work_order_id: int,
+    refund: work_order_schema.WorkOrderRefundCreate,
+    admin=Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    actor = refund.actor or admin["username"] or admin["role"]
+    try:
+        accounting_service.create_refund(
+            db,
+            accounting_schema.RefundCreate(
+                source_type=models.AccountingSourceType.WORK_ORDER,
+                source_id=work_order_id,
+                amount=refund.amount,
+                method=refund.method,
+                refund_type=refund.refund_type,
+                inventory_action=refund.inventory_action,
+                reason=refund.reason,
+                actor=actor,
+            ),
+        )
+        db.commit()
+        return crud.get_work_order(db, work_order_id)
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 @router.post("/{work_order_id}/line-items", response_model=work_order_schema.WorkOrder, summary="追加工單明細")
 def add_work_order_line_item(

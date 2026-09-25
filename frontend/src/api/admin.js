@@ -209,6 +209,10 @@ export const getProducts = async () => {
   return await api.get('/products/');
 };
 
+export const createWorkOrderRefund = async (workOrderId, data) => {
+  return await api.post(`/work-orders/${workOrderId}/refunds`, data, adminAuthConfig());
+};
+
 export const getPaginatedProducts = async (params = {}) => {
   return await api.get('/products/paginated', { params });
 };

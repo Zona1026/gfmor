@@ -36,6 +36,8 @@ class RefundRecord(BaseModel):
     customer_phone: Optional[str] = None
     amount: int
     method: Optional[str] = None
+    refund_type: str = "PARTIAL"
+    inventory_action: str = "NO_CHANGE"
     reason: Optional[str] = None
     actor: Optional[str] = None
     refunded_at: datetime
@@ -50,6 +52,8 @@ class RefundCreate(BaseModel):
     source_id: int
     amount: int = Field(gt=0)
     method: Optional[str] = None
+    refund_type: str = "PARTIAL"
+    inventory_action: str = "NO_CHANGE"
     reason: Optional[str] = None
     actor: Optional[str] = None
 

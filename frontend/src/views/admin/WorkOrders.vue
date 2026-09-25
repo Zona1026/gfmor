@@ -390,6 +390,8 @@
               <div><dt>付款狀態</dt><dd>{{ paymentStatusMap[selectedWorkOrder.payment_status] }}</dd></div>
               <div><dt>總金額</dt><dd>NT$ {{ selectedWorkOrder.total_amount?.toLocaleString() || 0 }}</dd></div>
               <div><dt>已收款</dt><dd>NT$ {{ selectedWorkOrder.paid_amount?.toLocaleString() || 0 }}</dd></div>
+              <div v-if="selectedWorkOrder.refunded_amount"><dt>已退款</dt><dd>NT$ {{ selectedWorkOrder.refunded_amount.toLocaleString() }}</dd></div>
+              <div v-if="selectedWorkOrder.refunded_amount"><dt>實收淨額</dt><dd>NT$ {{ selectedWorkOrder.net_paid_amount.toLocaleString() }}</dd></div>
               <div><dt>待收尾款</dt><dd>NT$ {{ selectedWorkOrder.balance_amount?.toLocaleString() || 0 }}</dd></div>
               <div><dt>可列入會員累積</dt><dd>NT$ {{ selectedWorkOrder.membership_eligible_amount?.toLocaleString() || 0 }}</dd></div>
             </dl>
@@ -402,7 +404,11 @@
                 完成退款
               </button>
             </div>
-            <div v-if="canManageWorkOrderPayments" class="payment-form">
+            <div v-if="canReviewApprovals && selectedWorkOrder.refundable_amount > 0 && !pendingRefundRevision" class="refund-actions">
+              <button class="btn btn-outline" type="button" @click="openGeneralRefundModal">建立退款</button>
+              <span>目前可退款 NT$ {{ selectedWorkOrder.refundable_amount.toLocaleString() }}</span>
+            </div>
+            <div v-if="canManageWorkOrderPayments && selectedWorkOrder.status !== 'CANCELED'" class="payment-form">
               <input v-model.number="paymentForm.amount" type="number" min="1" placeholder="付款金額" />
               <select v-model="paymentForm.method">
                 <option value="" disabled>付款方式</option>
@@ -419,6 +425,20 @@
                   <td>{{ formatTaipeiDateTime(payment.paid_at) }}</td>
                   <td>{{ payment.method || '-' }}</td>
                   <td>NT$ {{ payment.amount?.toLocaleString() }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <table v-if="selectedWorkOrder.refund_records?.length" class="mini-table refund-history">
+              <thead>
+                <tr><th>退款時間</th><th>類型</th><th>方式</th><th>金額</th><th>經手人</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="refund in selectedWorkOrder.refund_records" :key="refund.id">
+                  <td>{{ formatTaipeiDateTime(refund.refunded_at) }}</td>
+                  <td>{{ refundTypeMap[refund.refund_type] || refund.refund_type }}</td>
+                  <td>{{ refund.method || '-' }}</td>
+                  <td>NT$ {{ refund.amount?.toLocaleString() }}</td>
+                  <td>{{ refund.actor || '-' }}</td>
                 </tr>
               </tbody>
             </table>
@@ -588,15 +608,38 @@
     <div v-if="showRefundModal" class="modal-overlay confirm-overlay" @click.self="closeRefundModal">
       <div class="modal-content confirm-modal">
         <div class="modal-header">
-          <div><h3>完成差額退款</h3><p>退款完成後會寫入帳務退款紀錄。</p></div>
+          <div>
+            <h3>{{ refundModalMode === 'revision' ? '完成差額退款' : '建立退款' }}</h3>
+            <p>退款會保留原付款，並新增獨立的帳務與點數異動紀錄。</p>
+          </div>
           <button class="icon-btn" type="button" @click="closeRefundModal">×</button>
         </div>
-        <label>退款金額<input :value="pendingRefundRevision?.refund_due_amount || 0" disabled /></label>
+        <label v-if="refundModalMode === 'general'">
+          退款類型
+          <select v-model="refundForm.refund_type" @change="handleRefundTypeChange">
+            <option value="PRICE_DIFFERENCE">退差價 / 部分退款</option>
+            <option value="FULL">整單退款</option>
+          </select>
+        </label>
+        <label>
+          退款金額
+          <input v-model.number="refundForm.amount" type="number" min="1" :max="selectedWorkOrder?.refundable_amount || 0" :disabled="refundAmountLocked" />
+        </label>
         <label>退款方式<select v-model="refundForm.method"><option value="" disabled>請選擇</option><option v-for="method in paymentMethodOptions" :key="method" :value="method">{{ method }}</option></select></label>
-        <label>備註<textarea v-model.trim="refundForm.note" rows="3"></textarea></label>
+        <label v-if="refundForm.refund_type === 'FULL'">
+          庫存處理
+          <select v-model="refundForm.inventory_action">
+            <option value="NO_CHANGE">不調整庫存</option>
+            <option value="RESTOCK_ALL">回補全部已扣庫存</option>
+          </select>
+        </label>
+        <div v-if="refundForm.refund_type === 'FULL'" class="warning-text">
+          整單退款完成後工單會改為已取消；選擇回補庫存時，系統會把這張工單已扣除的所有庫存加回。
+        </div>
+        <label>退款原因<textarea v-model.trim="refundForm.reason" rows="3" placeholder="請記錄退款原因與客戶溝通結果"></textarea></label>
         <div class="form-actions modal-footer-actions">
           <button class="btn btn-outline" type="button" @click="closeRefundModal">取消</button>
-          <button class="btn btn-primary" type="button" :disabled="saving || !refundForm.method" @click="submitRevisionRefund">確認已退款</button>
+          <button class="btn btn-primary" type="button" :disabled="saving || !canSubmitRefund" @click="submitRefund">確認已退款</button>
         </div>
       </div>
     </div>
@@ -611,6 +654,7 @@ import {
   addWorkOrderPayment,
   completeWorkOrderRevisionRefund,
   confirmWorkOrderReview,
+  createWorkOrderRefund,
   createWorkOrder,
   deleteWorkOrder,
   getGuestCustomers,
@@ -669,7 +713,8 @@ const deleteForm = ref({ reason: '' });
 const showReopenModal = ref(false);
 const reopenForm = ref({ reason: '' });
 const showRefundModal = ref(false);
-const refundForm = ref({ method: '', note: '' });
+const refundModalMode = ref('general');
+const refundForm = ref(defaultRefundForm());
 const updatingFulfillmentItemId = ref(null);
 const reviewingWorkOrder = ref(false);
 
@@ -695,6 +740,12 @@ const paymentStatusMap = {
   PARTIALLY_PAID: '部分付款',
   PAID: '已付款',
   REFUNDED: '已退款'
+};
+
+const refundTypeMap = {
+  PARTIAL: '部分退款',
+  PRICE_DIFFERENCE: '退差價',
+  FULL: '整單退款'
 };
 
 const lineItemTypeMap = {
@@ -772,6 +823,13 @@ const supervisorReviewLocked = computed(() => Boolean(selectedWorkOrder.value?.s
 const hasPaymentRecord = computed(() => Number(selectedWorkOrder.value?.paid_amount || 0) > 0);
 const activeRevision = computed(() => (selectedWorkOrder.value?.revisions || []).find(item => !item.closed_at) || null);
 const pendingRefundRevision = computed(() => (selectedWorkOrder.value?.revisions || []).find(item => item.refund_status === 'PENDING') || null);
+const refundAmountLocked = computed(() => refundModalMode.value === 'revision' || refundForm.value.refund_type === 'FULL');
+const canSubmitRefund = computed(() => Boolean(
+  refundForm.value.method &&
+  refundForm.value.reason &&
+  Number(refundForm.value.amount) > 0 &&
+  Number(refundForm.value.amount) <= Number(selectedWorkOrder.value?.refundable_amount || 0)
+));
 const lineItemEditingLocked = computed(() => supervisorReviewLocked.value || (hasPaymentRecord.value && !activeRevision.value));
 const membershipSelectionLocked = computed(() => supervisorReviewLocked.value);
 const responsibleStaffOptions = computed(() => {
@@ -816,6 +874,16 @@ function defaultLineItem() {
     unit_price: 0,
     is_confirmed: 1,
     counts_toward_membership: false
+  };
+}
+
+function defaultRefundForm() {
+  return {
+    refund_type: 'PRICE_DIFFERENCE',
+    amount: null,
+    method: '',
+    inventory_action: 'NO_CHANGE',
+    reason: ''
   };
 }
 
@@ -1294,28 +1362,54 @@ const submitReopen = async () => {
 };
 
 const openRefundModal = () => {
-  refundForm.value = { method: paymentForm.value.method || '', note: '' };
+  refundModalMode.value = 'revision';
+  refundForm.value = {
+    ...defaultRefundForm(),
+    amount: pendingRefundRevision.value?.refund_due_amount || null,
+    method: paymentForm.value.method || '',
+    reason: pendingRefundRevision.value ? `工單修改差額退款：${pendingRefundRevision.value.reason}` : ''
+  };
   showRefundModal.value = true;
+};
+
+const openGeneralRefundModal = () => {
+  refundModalMode.value = 'general';
+  refundForm.value = defaultRefundForm();
+  showRefundModal.value = true;
+};
+
+const handleRefundTypeChange = () => {
+  if (refundForm.value.refund_type === 'FULL') {
+    refundForm.value.amount = selectedWorkOrder.value?.refundable_amount || null;
+  } else {
+    refundForm.value.amount = null;
+    refundForm.value.inventory_action = 'NO_CHANGE';
+  }
 };
 
 const closeRefundModal = () => {
   showRefundModal.value = false;
-  refundForm.value = { method: '', note: '' };
+  refundForm.value = defaultRefundForm();
 };
 
-const submitRevisionRefund = async () => {
-  if (!selectedWorkOrder.value || !pendingRefundRevision.value || !refundForm.value.method) return;
+const submitRefund = async () => {
+  if (!selectedWorkOrder.value || !canSubmitRefund.value) return;
   saving.value = true;
   try {
-    selectedWorkOrder.value = await completeWorkOrderRevisionRefund(
-      selectedWorkOrder.value.id,
-      pendingRefundRevision.value.id,
-      {
-        method: refundForm.value.method,
-        note: refundForm.value.note || null,
-        actor: adminUser.value?.username || adminUser.value?.full_name || '最高級管理員'
-      }
-    );
+    const actor = adminUser.value?.username || adminUser.value?.full_name || '最高級管理員';
+    if (refundModalMode.value === 'revision') {
+      if (!pendingRefundRevision.value) return;
+      selectedWorkOrder.value = await completeWorkOrderRevisionRefund(
+        selectedWorkOrder.value.id,
+        pendingRefundRevision.value.id,
+        { method: refundForm.value.method, note: refundForm.value.reason, actor }
+      );
+    } else {
+      selectedWorkOrder.value = await createWorkOrderRefund(selectedWorkOrder.value.id, {
+        ...refundForm.value,
+        actor
+      });
+    }
     closeRefundModal();
     await fetchWorkOrders();
   } catch (error) {
@@ -1409,7 +1503,8 @@ watch(
   .approval-actions,
   .modal-actions,
   .section-title-row,
-  .payment-form {
+  .payment-form,
+  .refund-actions {
     display: flex;
     gap: 0.7rem;
     flex-wrap: wrap;
@@ -1927,6 +2022,21 @@ watch(
 
     strong { color: #ffb74d; }
     span { margin-top: 0.25rem; color: $text-secondary; font-size: 0.85rem; }
+  }
+
+  .refund-actions {
+    align-items: center;
+    justify-content: space-between;
+    margin: 0.8rem 0;
+
+    span {
+      color: $text-secondary;
+      font-size: 0.85rem;
+    }
+  }
+
+  .refund-history {
+    margin-top: 0.85rem;
   }
 
   .line-status-table {

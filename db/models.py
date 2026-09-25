@@ -565,7 +565,11 @@ class WorkOrder(Base):
     approvals = relationship("WorkOrderApproval", back_populates="work_order", cascade="all, delete-orphan")
     purchase_requests = relationship("PurchaseRequest", back_populates="work_order")
     payment_records = relationship("PaymentRecord", back_populates="work_order")
-    refund_records = relationship("RefundRecord", back_populates="work_order")
+    refund_records = relationship(
+        "RefundRecord",
+        back_populates="work_order",
+        order_by="RefundRecord.refunded_at.desc()",
+    )
     point_transactions = relationship("PointTransaction", back_populates="work_order")
     revisions = relationship(
         "WorkOrderRevision",
@@ -579,8 +583,20 @@ class WorkOrder(Base):
         return sum(payment.amount or 0 for payment in self.payments)
 
     @property
+    def refunded_amount(self):
+        return sum(refund.amount or 0 for refund in self.refund_records)
+
+    @property
+    def net_paid_amount(self):
+        return max(0, self.paid_amount - self.refunded_amount)
+
+    @property
+    def refundable_amount(self):
+        return self.net_paid_amount
+
+    @property
     def balance_amount(self):
-        return max(0, (self.total_amount or 0) - self.paid_amount)
+        return max(0, (self.total_amount or 0) - self.net_paid_amount)
 
     @property
     def membership_eligible_amount(self):
@@ -855,6 +871,8 @@ class RefundRecord(Base):
     customer_phone = Column(String(20), nullable=True)
     amount = Column(Integer, nullable=False)
     method = Column(String(50), nullable=True)
+    refund_type = Column(String(30), nullable=False, default="PARTIAL", server_default="PARTIAL")
+    inventory_action = Column(String(30), nullable=False, default="NO_CHANGE", server_default="NO_CHANGE")
     reason = Column(Text, nullable=True)
     actor = Column(String(50), nullable=True)
     refunded_at = Column(DateTime, nullable=False, server_default=func.now())

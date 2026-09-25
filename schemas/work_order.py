@@ -204,6 +204,29 @@ class WorkOrderRevisionRefundCreate(BaseModel):
     actor: Optional[str] = None
 
 
+class WorkOrderRefundCreate(BaseModel):
+    refund_type: Literal["PRICE_DIFFERENCE", "FULL"]
+    amount: int = Field(gt=0)
+    method: str = Field(min_length=1)
+    inventory_action: Literal["NO_CHANGE", "RESTOCK_ALL"] = "NO_CHANGE"
+    reason: str = Field(min_length=1)
+    actor: Optional[str] = None
+
+
+class WorkOrderRefundRecord(BaseModel):
+    id: int
+    amount: int
+    method: Optional[str] = None
+    refund_type: str = "PARTIAL"
+    inventory_action: str = "NO_CHANGE"
+    reason: Optional[str] = None
+    actor: Optional[str] = None
+    refunded_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class WorkOrderRevision(BaseModel):
     id: int
     work_order_id: int
@@ -312,6 +335,9 @@ class WorkOrder(BaseModel):
     membership_eligible_amount: int = 0
     membership_consumption_amount: int = 0
     paid_amount: int = 0
+    refunded_amount: int = 0
+    net_paid_amount: int = 0
+    refundable_amount: int = 0
     balance_amount: int = 0
     notes: Optional[str] = None
     created_at: datetime
@@ -324,6 +350,7 @@ class WorkOrder(BaseModel):
     items: List[WorkOrderItem] = Field(default_factory=list)
     line_items: List[WorkOrderLineItem] = Field(default_factory=list)
     payments: List[WorkOrderPayment] = Field(default_factory=list)
+    refund_records: List[WorkOrderRefundRecord] = Field(default_factory=list)
     approvals: List[WorkOrderApproval] = Field(default_factory=list)
     revisions: List[WorkOrderRevision] = Field(default_factory=list)
     approval_status: Optional[WorkOrderApprovalStatus] = None
