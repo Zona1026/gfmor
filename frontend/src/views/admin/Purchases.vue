@@ -186,8 +186,12 @@
               <tr v-for="receipt in selectedRequest.receipts" :key="receipt.id">
                 <td>{{ formatDateTime(receipt.received_at) }}</td>
                 <td>
-                  {{ receipt.received_product?.name || selectedRequest.product?.name || '-' }}
-                  <small v-if="receipt.received_product_id && receipt.received_product_id !== selectedRequest.product_id">替代品</small>
+                  {{ receipt.received_item_name || receipt.received_product?.name || selectedRequest.product?.name || '-' }}
+                  <small v-if="receipt.is_one_time_substitute">一次性替代料件</small>
+                  <small v-else-if="receipt.received_product_id && receipt.received_product_id !== selectedRequest.product_id">庫存替代料件</small>
+                  <small v-if="receipt.unit_cost != null || receipt.replacement_unit_price != null">
+                    成本 NT$ {{ Number(receipt.unit_cost || 0).toLocaleString() }} / 售價 NT$ {{ Number(receipt.replacement_unit_price || 0).toLocaleString() }}
+                  </small>
                 </td>
                 <td>{{ receipt.quantity }}</td>
                 <td>{{ receipt.actor || '-' }}</td>
@@ -296,7 +300,20 @@
           <button type="button" :class="{ active: receiveForm.is_substitution }" @click="setReceiveMode(true)">替代料件到貨</button>
         </div>
         <template v-if="receiveForm.is_substitution">
-          <label>
+          <div class="receive-mode substitute-source-mode" role="group" aria-label="替代料件來源">
+            <button
+              type="button"
+              :class="{ active: receiveForm.substitute_source === 'ONE_TIME' }"
+              :disabled="!receivingRequest.work_order_line_item_id"
+              @click="setSubstituteSource('ONE_TIME')"
+            >一次性料件</button>
+            <button type="button" :class="{ active: receiveForm.substitute_source === 'INVENTORY' }" @click="setSubstituteSource('INVENTORY')">庫存料件</button>
+          </div>
+          <label v-if="receiveForm.substitute_source === 'ONE_TIME'">
+            實收料件名稱 / 料號
+            <input v-model.trim="receiveForm.received_item_name" required placeholder="例如：原廠通用 B 料件" />
+          </label>
+          <label v-else>
             實際收到的料件
             <select v-model.number="receiveForm.received_product_id" required>
               <option :value="null" disabled>請選擇替代料件</option>
@@ -305,19 +322,24 @@
               </option>
             </select>
           </label>
+          <label v-if="receiveForm.substitute_source === 'ONE_TIME'">
+            進貨成本
+            <input v-model.number="receiveForm.unit_cost" type="number" min="0" required />
+          </label>
           <label>
             替代原因
             <textarea v-model.trim="receiveForm.substitution_reason" rows="3" required placeholder="例如：原廠改送可通用的 B 料件"></textarea>
           </label>
-          <label v-if="receivingRequest.work_order_line_item_id" class="check-row">
+          <p v-if="receiveForm.substitute_source === 'ONE_TIME'" class="muted-hint">此料件會直接配置到來源工單，不建立商品，也不增加一般庫存。</p>
+          <label v-else-if="receivingRequest.work_order_line_item_id" class="check-row">
             <input v-model="receiveForm.replace_work_order_line_item" type="checkbox" />
             同步將來源工單明細改為實收料件
           </label>
-          <label v-if="receiveForm.replace_work_order_line_item">
+          <label v-if="receiveForm.substitute_source === 'ONE_TIME' || receiveForm.replace_work_order_line_item">
             替代料件售價
             <input v-model.number="receiveForm.replacement_unit_price" type="number" min="0" required />
           </label>
-          <p class="muted-hint">若清單沒有這個料件，請先到「庫存管理 / 零件列表」新增。</p>
+          <p v-if="receiveForm.substitute_source === 'INVENTORY'" class="muted-hint">只有會持續使用或剩餘需入庫的料件，才需要選擇庫存料件。</p>
         </template>
         <label>
           操作者
@@ -426,7 +448,10 @@ const orderForm = reactive({
 const receiveForm = reactive({
   quantity: 1,
   is_substitution: false,
+  substitute_source: 'ONE_TIME',
   received_product_id: null,
+  received_item_name: '',
+  unit_cost: 0,
   replace_work_order_line_item: false,
   replacement_unit_price: 0,
   substitution_reason: '',
@@ -595,7 +620,10 @@ const openReceiveForm = async (request) => {
   const remaining = Math.max(1, (request.requested_quantity || 0) - (request.arrived_quantity || 0));
   receiveForm.quantity = remaining;
   receiveForm.is_substitution = false;
+  receiveForm.substitute_source = 'ONE_TIME';
   receiveForm.received_product_id = request.product_id;
+  receiveForm.received_item_name = '';
+  receiveForm.unit_cost = 0;
   receiveForm.replace_work_order_line_item = false;
   receiveForm.replacement_unit_price = request.product?.price || 0;
   receiveForm.substitution_reason = '';
@@ -611,9 +639,26 @@ const openReceiveForm = async (request) => {
 
 const setReceiveMode = (isSubstitution) => {
   receiveForm.is_substitution = isSubstitution;
+  receiveForm.substitute_source = isSubstitution && !receivingRequest.value?.work_order_line_item_id
+    ? 'INVENTORY'
+    : 'ONE_TIME';
   receiveForm.received_product_id = isSubstitution ? null : receivingRequest.value?.product_id;
+  receiveForm.received_item_name = '';
+  receiveForm.unit_cost = 0;
   receiveForm.replace_work_order_line_item = isSubstitution && Boolean(receivingRequest.value?.work_order_line_item_id);
   receiveForm.substitution_reason = '';
+  receiveForm.replacement_unit_price = 0;
+};
+
+const setSubstituteSource = (source) => {
+  if (source === 'ONE_TIME' && !receivingRequest.value?.work_order_line_item_id) return;
+  receiveForm.substitute_source = source;
+  receiveForm.received_product_id = null;
+  receiveForm.received_item_name = '';
+  receiveForm.unit_cost = 0;
+  receiveForm.replace_work_order_line_item = source === 'ONE_TIME'
+    ? true
+    : Boolean(receivingRequest.value?.work_order_line_item_id);
   receiveForm.replacement_unit_price = 0;
 };
 
@@ -636,9 +681,12 @@ const submitReceive = async () => {
   try {
     await receivePurchaseRequest(receivingRequest.value.id, {
       quantity: receiveForm.quantity,
-      received_product_id: receiveForm.is_substitution ? receiveForm.received_product_id : null,
-      replace_work_order_line_item: receiveForm.is_substitution && receiveForm.replace_work_order_line_item,
-      replacement_unit_price: receiveForm.replace_work_order_line_item ? receiveForm.replacement_unit_price : null,
+      received_product_id: receiveForm.is_substitution && receiveForm.substitute_source === 'INVENTORY' ? receiveForm.received_product_id : null,
+      is_one_time_substitute: receiveForm.is_substitution && receiveForm.substitute_source === 'ONE_TIME',
+      received_item_name: receiveForm.is_substitution && receiveForm.substitute_source === 'ONE_TIME' ? receiveForm.received_item_name : null,
+      unit_cost: receiveForm.is_substitution && receiveForm.substitute_source === 'ONE_TIME' ? receiveForm.unit_cost : null,
+      replace_work_order_line_item: receiveForm.is_substitution && (receiveForm.substitute_source === 'ONE_TIME' || receiveForm.replace_work_order_line_item),
+      replacement_unit_price: receiveForm.is_substitution && (receiveForm.substitute_source === 'ONE_TIME' || receiveForm.replace_work_order_line_item) ? receiveForm.replacement_unit_price : null,
       substitution_reason: receiveForm.is_substitution ? receiveForm.substitution_reason : null,
       actor: receiveForm.actor || null,
       note: receiveForm.note || null
@@ -863,6 +911,11 @@ onMounted(fetchRequests);
       border-color: $primary-light;
       color: $background-color;
       background: $primary-light;
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
     }
   }
 }

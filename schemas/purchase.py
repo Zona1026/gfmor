@@ -43,6 +43,10 @@ class PurchaseReceipt(BaseModel):
     id: int
     purchase_request_id: int
     received_product_id: Optional[int] = None
+    is_one_time_substitute: bool = False
+    received_item_name: Optional[str] = None
+    unit_cost: Optional[int] = None
+    replacement_unit_price: Optional[int] = None
     quantity: int
     actor: Optional[str] = None
     note: Optional[str] = None
@@ -119,6 +123,9 @@ class PurchaseOrderUpdate(BaseModel):
 class PurchaseReceiveCreate(BaseModel):
     quantity: int = Field(gt=0)
     received_product_id: Optional[int] = Field(default=None, gt=0)
+    is_one_time_substitute: bool = False
+    received_item_name: Optional[str] = Field(default=None, max_length=100)
+    unit_cost: Optional[int] = Field(default=None, ge=0)
     replace_work_order_line_item: bool = False
     replacement_unit_price: Optional[int] = Field(default=None, ge=0)
     substitution_reason: Optional[str] = None

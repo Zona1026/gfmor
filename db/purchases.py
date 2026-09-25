@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy.orm import Session, joinedload
 
 from db import inventory as inventory_service
@@ -240,37 +242,61 @@ def receive_purchase_request(db: Session, request, receipt):
     ordered_product = request.product
     if not ordered_product:
         raise ValueError("Purchase request product not found.")
-    received_product = ordered_product
-    if receipt.received_product_id:
+    is_one_time_substitute = bool(receipt.is_one_time_substitute)
+    received_product = None if is_one_time_substitute else ordered_product
+    if is_one_time_substitute and receipt.received_product_id:
+        raise ValueError("一次性替代料件不可綁定庫存品項。")
+    if not is_one_time_substitute and receipt.received_product_id:
         received_product = db.query(models.Product).filter(models.Product.id == receipt.received_product_id).first()
         if not received_product:
             raise ValueError("找不到實際收到的庫存品項。")
 
-    is_substitution = received_product.id != ordered_product.id
+    received_item_name = (receipt.received_item_name or "").strip()
+    is_substitution = is_one_time_substitute or received_product.id != ordered_product.id
     substitution_reason = (receipt.substitution_reason or "").strip()
     if is_substitution and not substitution_reason:
         raise ValueError("收到替代料件時必須填寫替代原因。")
+    if is_one_time_substitute and not received_item_name:
+        raise ValueError("一次性替代料件必須填寫實收料件名稱或料號。")
+    if is_one_time_substitute and not request.work_order_line_item:
+        raise ValueError("一次性替代料件只能直接配置到有來源明細的工單。")
+    if is_one_time_substitute and not receipt.replace_work_order_line_item:
+        raise ValueError("一次性替代料件必須同步更換來源工單明細。")
+    if is_one_time_substitute and receipt.replacement_unit_price is None:
+        raise ValueError("一次性替代料件必須填寫客戶售價。")
     if receipt.replace_work_order_line_item and not is_substitution:
         raise ValueError("原品項到貨不需要更換工單明細。")
     if receipt.replace_work_order_line_item and not request.work_order_line_item:
         raise ValueError("此採購單沒有可更換的來源工單明細。")
 
-    inventory_service.receive_inventory(
-        db,
-        received_product,
+    auto_assign_quantity = min(
         receipt.quantity,
-        inventory_service.SOURCE_PURCHASE_REQUEST,
-        request.id,
-        actor=receipt.actor,
-        reason=(
-            f"Purchase request #{request.id} substitute received for {ordered_product.name}"
-            if is_substitution
-            else f"Purchase request #{request.id} received"
-        ),
+        max(0, (request.requested_quantity or 0) - (request.assigned_quantity or 0)),
     )
+    if is_one_time_substitute and auto_assign_quantity != receipt.quantity:
+        raise ValueError("一次性替代料件必須全部配置到來源工單；多餘數量請改以庫存料件到貨。")
+
+    if not is_one_time_substitute:
+        inventory_service.receive_inventory(
+            db,
+            received_product,
+            receipt.quantity,
+            inventory_service.SOURCE_PURCHASE_REQUEST,
+            request.id,
+            actor=receipt.actor,
+            reason=(
+                f"Purchase request #{request.id} substitute received for {ordered_product.name}"
+                if is_substitution
+                else f"Purchase request #{request.id} received"
+            ),
+        )
     db_receipt = models.PurchaseReceipt(
         purchase_request_id=request.id,
-        received_product_id=received_product.id,
+        received_product_id=received_product.id if received_product else None,
+        is_one_time_substitute=is_one_time_substitute,
+        received_item_name=received_item_name or (received_product.name if received_product else None),
+        unit_cost=receipt.unit_cost,
+        replacement_unit_price=receipt.replacement_unit_price,
         quantity=receipt.quantity,
         actor=receipt.actor,
         note=receipt.note,
@@ -279,9 +305,17 @@ def receive_purchase_request(db: Session, request, receipt):
     db.add(db_receipt)
     request.arrived_quantity = (request.arrived_quantity or 0) + receipt.quantity
 
-    auto_assign_quantity = min(receipt.quantity, max(0, (request.requested_quantity or 0) - (request.assigned_quantity or 0)))
     line_item = request.work_order_line_item
-    if receipt.replace_work_order_line_item:
+    if is_one_time_substitute:
+        _replace_line_item_with_one_time_item(
+            db,
+            request,
+            line_item,
+            auto_assign_quantity,
+            receipt,
+            received_item_name,
+        )
+    elif receipt.replace_work_order_line_item:
         _replace_line_item_with_received_product(
             db,
             request,
@@ -305,8 +339,9 @@ def receive_purchase_request(db: Session, request, receipt):
     return request
 
 
-def _replace_line_item_with_received_product(db, request, line_item, received_product, quantity, receipt):
-    work_order = line_item.work_order
+def _validate_line_item_replacement(work_order, line_item):
+    if not line_item:
+        raise ValueError("此採購單沒有可更換的來源工單明細。")
     if not work_order or work_order.status == models.WorkOrderStatus.CANCELED:
         raise ValueError("來源工單不存在或已取消。")
     active_revision = next((item for item in work_order.revisions if item.closed_at is None), None)
@@ -314,6 +349,56 @@ def _replace_line_item_with_received_product(db, request, line_item, received_pr
         raise ValueError("請先由最高級管理員將已審核工單退回修改，再登記替代料件。")
     if line_item.inventory_deducted or (line_item.inventory_consumed_quantity or 0) > 0:
         raise ValueError("此工單明細已扣庫存，不能直接更換料件。")
+    return active_revision
+
+
+def _recalculate_replacement_total(work_order, active_revision):
+    subtotal = 0
+    discount = 0
+    for item in work_order.line_items:
+        amount = max(0, item.quantity or 0) * max(0, item.unit_price or 0)
+        if item.type == models.WorkOrderLineItemType.DISCOUNT:
+            discount += amount
+        else:
+            subtotal += amount
+    work_order.total_amount = max(0, subtotal - discount)
+    refunded = sum(record.amount or 0 for record in work_order.refund_records)
+    net_paid = max(0, (work_order.paid_amount or 0) - refunded)
+    active_revision.refund_due_amount = max(0, net_paid - work_order.total_amount)
+    active_revision.refund_status = "PENDING" if active_revision.refund_due_amount else "NONE"
+
+
+def _replace_line_item_with_one_time_item(db, request, line_item, quantity, receipt, received_item_name):
+    work_order = line_item.work_order if line_item else None
+    active_revision = _validate_line_item_replacement(work_order, line_item)
+    inventory_service.release_work_order_line_item(db, line_item)
+    line_item.product_id = None
+    line_item.product = None
+    line_item.name = received_item_name
+    line_item.unit_price = receipt.replacement_unit_price
+    line_item.inventory_reserved_quantity = 0
+    line_item.inventory_consumed_quantity = 0
+    line_item.inventory_deducted = 0
+    line_item.fulfillment_status = "ARRIVED"
+    line_item.fulfillment_status_updated_at = datetime.utcnow()
+
+    if quantity > 0:
+        request.assigned_quantity = (request.assigned_quantity or 0) + quantity
+        db.add(models.PurchaseAssignment(
+            purchase_request_id=request.id,
+            work_order_id=work_order.id,
+            work_order_line_item_id=line_item.id,
+            quantity=quantity,
+            actor=receipt.actor,
+            note=f"一次性替代料件：{request.item_name} -> {received_item_name}",
+        ))
+
+    _recalculate_replacement_total(work_order, active_revision)
+
+
+def _replace_line_item_with_received_product(db, request, line_item, received_product, quantity, receipt):
+    work_order = line_item.work_order if line_item else None
+    active_revision = _validate_line_item_replacement(work_order, line_item)
 
     same_substitute_product = line_item.product_id == received_product.id
     if not same_substitute_product:
@@ -349,19 +434,7 @@ def _replace_line_item_with_received_product(db, request, line_item, received_pr
             note=f"替代料件：{request.item_name} -> {received_product.name}",
         ))
 
-    subtotal = 0
-    discount = 0
-    for item in work_order.line_items:
-        amount = max(0, item.quantity or 0) * max(0, item.unit_price or 0)
-        if item.type == models.WorkOrderLineItemType.DISCOUNT:
-            discount += amount
-        else:
-            subtotal += amount
-    work_order.total_amount = max(0, subtotal - discount)
-    refunded = sum(record.amount or 0 for record in work_order.refund_records)
-    net_paid = max(0, (work_order.paid_amount or 0) - refunded)
-    active_revision.refund_due_amount = max(0, net_paid - work_order.total_amount)
-    active_revision.refund_status = "PENDING" if active_revision.refund_due_amount else "NONE"
+    _recalculate_replacement_total(work_order, active_revision)
 
 
 def _can_assign_to_line_item(request, line_item):
