@@ -45,7 +45,7 @@
             <td>{{ record.customer_name || '-' }}</td>
             <td class="amount">NT$ {{ formatNumber(record.amount) }}</td>
             <td>{{ record.method || '-' }}</td>
-            <td>{{ formatDateTime(record.paid_at) }}</td>
+            <td>{{ formatTaipeiDateTime(record.paid_at) }}</td>
             <td>{{ record.actor || '-' }}</td>
           </tr>
         </tbody>
@@ -119,7 +119,7 @@
             <td class="amount negative">NT$ {{ formatNumber(record.amount) }}</td>
             <td>{{ record.method || '-' }}</td>
             <td>{{ record.reason || '-' }}</td>
-            <td>{{ formatDateTime(record.refunded_at) }}</td>
+            <td>{{ formatTaipeiDateTime(record.refunded_at) }}</td>
           </tr>
         </tbody>
       </table>
@@ -251,7 +251,7 @@
             <td>{{ payment.supplier_name }}</td>
             <td class="amount">NT$ {{ formatNumber(payment.amount) }}</td>
             <td>{{ payment.method || '-' }}</td>
-            <td>{{ formatDateTime(payment.paid_at) }}</td>
+            <td>{{ formatTaipeiDateTime(payment.paid_at) }}</td>
             <td>{{ payment.actor || '-' }}</td>
           </tr>
         </tbody>
@@ -277,6 +277,7 @@ import {
   updateOrderPaymentStatus
 } from '../../api/admin';
 import { useAuthStore } from '../../store/auth';
+import { formatTaipeiDateTime } from '../../utils/dateTime';
 
 const authStore = useAuthStore();
 const { adminUser } = storeToRefs(authStore);

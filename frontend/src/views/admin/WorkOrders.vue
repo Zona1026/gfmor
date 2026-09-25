@@ -387,7 +387,7 @@
               </thead>
               <tbody>
                 <tr v-for="payment in selectedWorkOrder.payments" :key="payment.id">
-                  <td>{{ formatDateTime(payment.paid_at) }}</td>
+                  <td>{{ formatTaipeiDateTime(payment.paid_at) }}</td>
                   <td>{{ payment.method || '-' }}</td>
                   <td>NT$ {{ payment.amount?.toLocaleString() }}</td>
                 </tr>
@@ -562,6 +562,7 @@ import {
   updateWorkOrderLineItemFulfillmentStatus
 } from '../../api/admin';
 import { useAuthStore } from '../../store/auth';
+import { formatTaipeiDateTime } from '../../utils/dateTime';
 
 const route = useRoute();
 const router = useRouter();
