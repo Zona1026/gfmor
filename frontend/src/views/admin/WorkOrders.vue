@@ -387,12 +387,11 @@
           <section class="form-section">
             <h4>金額與付款</h4>
             <dl class="money-summary">
+              <div><dt>付款狀態</dt><dd>{{ paymentStatusMap[selectedWorkOrder.payment_status] }}</dd></div>
               <div><dt>總金額</dt><dd>NT$ {{ selectedWorkOrder.total_amount?.toLocaleString() || 0 }}</dd></div>
               <div><dt>已收款</dt><dd>NT$ {{ selectedWorkOrder.paid_amount?.toLocaleString() || 0 }}</dd></div>
-              <div><dt>待收款</dt><dd>NT$ {{ selectedWorkOrder.balance_amount?.toLocaleString() || 0 }}</dd></div>
-              <div><dt>付款狀態</dt><dd>{{ paymentStatusMap[selectedWorkOrder.payment_status] }}</dd></div>
+              <div><dt>待收尾款</dt><dd>NT$ {{ selectedWorkOrder.balance_amount?.toLocaleString() || 0 }}</dd></div>
               <div><dt>可列入會員累積</dt><dd>NT$ {{ selectedWorkOrder.membership_eligible_amount?.toLocaleString() || 0 }}</dd></div>
-              <div><dt>已計入會員累積</dt><dd>NT$ {{ selectedWorkOrder.membership_consumption_amount?.toLocaleString() || 0 }}</dd></div>
             </dl>
             <div v-if="pendingRefundRevision" class="refund-alert">
               <div>
