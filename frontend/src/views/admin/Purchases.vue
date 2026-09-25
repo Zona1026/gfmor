@@ -314,14 +314,14 @@
             同步將來源工單明細改為實收料件
           </label>
           <label v-if="receiveForm.replace_work_order_line_item">
-            工單新單價
+            替代料件工單單價（客戶計價）
             <input v-model.number="receiveForm.replacement_unit_price" type="number" min="0" required />
           </label>
           <p class="muted-hint">若清單沒有這個料件，請先到「庫存管理 / 零件列表」新增。</p>
         </template>
         <label>
           操作者
-          <input v-model.trim="receiveForm.actor" />
+          <input v-model.trim="receiveForm.actor" readonly />
         </label>
         <label>
           備註
@@ -599,7 +599,7 @@ const openReceiveForm = async (request) => {
   receiveForm.replace_work_order_line_item = false;
   receiveForm.replacement_unit_price = request.product?.price || 0;
   receiveForm.substitution_reason = '';
-  receiveForm.actor = '';
+  receiveForm.actor = adminUser.value?.full_name || adminUser.value?.username || '';
   receiveForm.note = '';
   try {
     inventoryItems.value = await getInventoryItems({ type: 'all' });

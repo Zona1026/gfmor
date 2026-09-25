@@ -82,8 +82,12 @@ def receive_purchase_request(
     admin=Depends(require_super_admin),
 ):
     request = _request_or_404(db, purchase_request_id)
-    if not receipt.actor:
-        receipt.actor = admin["username"]
+    admin_record = db.query(models.Admin).filter(models.Admin.username == admin["username"]).first()
+    receipt.actor = (
+        admin_record.full_name
+        if admin_record and admin_record.full_name
+        else admin["username"] or admin["role"]
+    )
     try:
         purchase_service.receive_purchase_request(db, request, receipt)
         db.commit()
