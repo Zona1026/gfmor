@@ -36,8 +36,8 @@ const item = ref(null);
 const loading = ref(false);
 
 const categoryMap = {
-  'level-1': '大改 (5-10萬)',
-  'level-2': '爆改 (10-30萬)',
+  'level-1': 'VIP (5-10萬)',
+  'level-2': 'VIP+ (10-30萬)',
   'level-3': 'VVIP (30-50萬)',
   'level-4': 'SVIP (50萬+)'
 };

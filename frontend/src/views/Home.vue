@@ -133,10 +133,10 @@ onUnmounted(() => { if (autoplayTimer) clearInterval(autoplayTimer); });
 
 // 作品集分類
 const portfolioCategories = ref([
-  { id: 'level-1', name: '大改車主作品集', description: '( 消費5-10萬 )' },
-  { id: 'level-2', name: '爆改車主作品集', description: '( 消費10-30萬 )' },
-  { id: 'level-3', name: '爆改車主之VVIP作品集', description: '( 消費30-50萬 )' },
-  { id: 'level-4', name: '爆改車主之SVIP作品集', description: '( 消費50萬以上 )' }
+  { id: 'level-1', name: 'VIP', description: '( 消費5-10萬 )' },
+  { id: 'level-2', name: 'VIP+', description: '( 消費10-30萬 )' },
+  { id: 'level-3', name: 'VVIP', description: '( 消費30-50萬 )' },
+  { id: 'level-4', name: 'SVIP', description: '( 消費50萬以上 )' }
 ]);
 
 // 營業時間資料

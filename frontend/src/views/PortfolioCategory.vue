@@ -30,10 +30,10 @@ import api from '../api/index';
 const route = useRoute();
 
 const categoryMap = {
-  'level-1': { name: '大改車主作品集', desc: '消費 5-10 萬' },
-  'level-2': { name: '爆改車主作品集', desc: '消費 10-30 萬' },
-  'level-3': { name: '爆改車主之VVIP作品集', desc: '消費 30-50 萬' },
-  'level-4': { name: '爆改車主之SVIP作品集', desc: '消費 50 萬以上' }
+  'level-1': { name: 'VIP Portfolio', desc: '消費 5-10 萬' },
+  'level-2': { name: 'VIP+ Portfolio', desc: '消費 10-30 萬' },
+  'level-3': { name: 'VVIP Portfolio', desc: '消費 30-50 萬' },
+  'level-4': { name: 'SVIP Portfolio', desc: '消費 50 萬以上' }
 };
 
 const items = ref([]);

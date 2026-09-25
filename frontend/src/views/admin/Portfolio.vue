@@ -98,8 +98,8 @@ const { adminUser } = storeToRefs(authStore);
 const canManagePortfolio = computed(() => adminUser.value?.role === '最高級');
 
 const categories = [
-  { id: 'level-1', label: '大改 (5-10萬)' },
-  { id: 'level-2', label: '爆改 (10-30萬)' },
+  { id: 'level-1', label: 'VIP (5-10萬)' },
+  { id: 'level-2', label: 'VIP+ (10-30萬)' },
   { id: 'level-3', label: 'VVIP (30-50萬)' },
   { id: 'level-4', label: 'SVIP (50萬+)' }
 ];
