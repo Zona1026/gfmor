@@ -49,6 +49,23 @@ def get_purchase_request(db: Session, purchase_request_id: int):
     )
 
 
+def create_manual_purchase_request(db: Session, product, data):
+    request = models.PurchaseRequest(
+        product_id=product.id,
+        item_name=product.name,
+        requested_quantity=data.quantity,
+        ordered_quantity=data.quantity,
+        status=models.PurchaseRequestStatus.ORDERED,
+        supplier_name=data.supplier_name,
+        expected_arrival_date=data.expected_arrival_date,
+        responsible_staff=data.responsible_staff,
+        note=data.note,
+    )
+    db.add(request)
+    db.flush()
+    return request
+
+
 def _status_filter(status: str):
     if not status:
         return None

@@ -5,7 +5,12 @@
         <h2>採購 / 叫貨管理</h2>
         <p>工單缺料、待到貨與到貨分配</p>
       </div>
-      <button class="btn btn-outline" type="button" @click="fetchRequests">重新整理</button>
+      <div class="header-actions">
+        <button v-if="canManagePurchases" class="btn btn-primary" type="button" @click="openCreateForm">
+          ＋ 新增採購單
+        </button>
+        <button class="btn btn-outline" type="button" @click="fetchRequests">重新整理</button>
+      </div>
     </div>
 
     <div class="tabs">
@@ -92,6 +97,48 @@
       <div v-else class="empty-state">目前沒有資料</div>
     </div>
 
+    <div v-if="showCreateForm" class="modal-overlay" @click.self="closeCreateForm">
+      <form class="modal-content small" @submit.prevent="submitCreate">
+        <div class="modal-header">
+          <h3>新增採購單</h3>
+          <button class="icon-btn" type="button" aria-label="關閉" @click="closeCreateForm">×</button>
+        </div>
+        <label>
+          採購品項
+          <select v-model="createForm.product_id" required>
+            <option value="" disabled>請選擇商品或零件</option>
+            <option v-for="item in inventoryItems" :key="item.id" :value="String(item.id)">
+              {{ item.name }}（{{ inventoryTypeLabel(item.inventory_type) }}）
+            </option>
+          </select>
+        </label>
+        <label>
+          採購數量
+          <input v-model.number="createForm.quantity" type="number" min="1" required />
+        </label>
+        <label>
+          供應商
+          <input v-model.trim="createForm.supplier_name" />
+        </label>
+        <label>
+          預計到貨日
+          <input v-model="createForm.expected_arrival_date" type="date" />
+        </label>
+        <label>
+          負責人
+          <input v-model.trim="createForm.responsible_staff" />
+        </label>
+        <label>
+          備註
+          <textarea v-model.trim="createForm.note" rows="3"></textarea>
+        </label>
+        <div class="form-actions">
+          <button class="btn btn-outline" type="button" @click="closeCreateForm">取消</button>
+          <button class="btn btn-primary" type="submit" :disabled="saving">{{ saving ? '新增中...' : '確認新增' }}</button>
+        </div>
+      </form>
+    </div>
+
     <div v-if="selectedRequest" class="modal-overlay" @click.self="closeDetail">
       <div class="modal-content">
         <div class="modal-header">
@@ -120,11 +167,11 @@
           <section class="detail-panel">
             <h4>對應工單</h4>
             <dl>
-              <div><dt>工單</dt><dd>#{{ selectedRequest.work_order_id || '-' }}</dd></div>
+              <div><dt>工單</dt><dd>{{ selectedRequest.work_order_id ? `#${selectedRequest.work_order_id}` : '未綁定' }}</dd></div>
               <div><dt>客戶</dt><dd>{{ selectedRequest.customer_name || '-' }}</dd></div>
               <div><dt>電話</dt><dd>{{ selectedRequest.customer_phone || '-' }}</dd></div>
               <div><dt>車牌 / 設備</dt><dd>{{ selectedRequest.vehicle_license_plate || '-' }}</dd></div>
-              <div><dt>明細</dt><dd>#{{ selectedRequest.work_order_line_item_id || '-' }}</dd></div>
+              <div><dt>明細</dt><dd>{{ selectedRequest.work_order_line_item_id ? `#${selectedRequest.work_order_line_item_id}` : '未綁定' }}</dd></div>
             </dl>
           </section>
         </div>
@@ -264,6 +311,8 @@ import { useRoute } from 'vue-router';
 import {
   assignPurchaseRequest,
   cancelPurchaseRequest,
+  createPurchaseRequest,
+  getInventoryItems,
   getPurchaseRequest,
   getPurchaseRequests,
   orderPurchaseRequest,
@@ -321,6 +370,18 @@ const activeTab = ref(route.query.status || 'pending-order');
 const selectedRequest = ref(null);
 const orderingRequest = ref(null);
 const receivingRequest = ref(null);
+const showCreateForm = ref(false);
+const inventoryItems = ref([]);
+
+const defaultCreateForm = () => ({
+  product_id: '',
+  quantity: 1,
+  supplier_name: '',
+  expected_arrival_date: '',
+  responsible_staff: '',
+  note: ''
+});
+const createForm = reactive(defaultCreateForm());
 
 const orderForm = reactive({
   supplier_name: '',
@@ -370,9 +431,9 @@ const fetchRequests = async () => {
 };
 
 const customerRef = (request) => {
+  if (!request.work_order_id) return '庫存補貨 / 未綁工單';
   const customer = request.customer_name || '-';
-  const workOrder = request.work_order_id ? `工單 #${request.work_order_id}` : '未分配工單';
-  return `${customer} / ${workOrder}`;
+  return `${customer} / 工單 #${request.work_order_id}`;
 };
 
 const formatDate = (value) => {
@@ -387,6 +448,49 @@ const formatDateTime = (value) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
   return `${formatDate(value)} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+};
+
+const inventoryTypeLabel = (type) => {
+  const labels = { SHOP: '商品', PART: '零件', BOTH: '共用' };
+  return labels[type] || type;
+};
+
+const openCreateForm = async () => {
+  Object.assign(createForm, defaultCreateForm());
+  showCreateForm.value = true;
+  if (!inventoryItems.value.length) {
+    try {
+      inventoryItems.value = await getInventoryItems({ type: 'all' });
+    } catch (error) {
+      alert(error.response?.data?.detail || '載入庫存品項失敗');
+      showCreateForm.value = false;
+    }
+  }
+};
+
+const closeCreateForm = () => {
+  showCreateForm.value = false;
+};
+
+const submitCreate = async () => {
+  saving.value = true;
+  try {
+    await createPurchaseRequest({
+      product_id: Number(createForm.product_id),
+      quantity: createForm.quantity,
+      supplier_name: createForm.supplier_name || null,
+      expected_arrival_date: createForm.expected_arrival_date ? `${createForm.expected_arrival_date}T00:00:00` : null,
+      responsible_staff: createForm.responsible_staff || null,
+      note: createForm.note || null
+    });
+    activeTab.value = 'awaiting-arrival';
+    closeCreateForm();
+    await fetchRequests();
+  } catch (error) {
+    alert(error.response?.data?.detail || '新增採購單失敗');
+  } finally {
+    saving.value = false;
+  }
 };
 
 const canReceive = (request) => canUseCriticalPurchase.value && ['ORDERED', 'PARTIAL_ARRIVED', 'ARRIVED_PENDING_ASSIGNMENT'].includes(request.status);
@@ -521,6 +625,7 @@ onMounted(fetchRequests);
 }
 
 .section-header,
+.header-actions,
 .tabs,
 .modal-header,
 .form-actions {
@@ -771,6 +876,7 @@ onMounted(fetchRequests);
 }
 
 input,
+select,
 textarea {
   border: 1px solid $medium-grey;
   border-radius: 6px;
@@ -789,7 +895,7 @@ textarea {
 
 @media (max-width: 760px) {
   .section-header,
-  .modal-header,
+  .header-actions,
   .form-actions {
     align-items: stretch;
     flex-direction: column;

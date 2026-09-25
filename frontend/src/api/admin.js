@@ -262,6 +262,10 @@ export const getPurchaseRequests = async (params = {}) => {
   return await api.get('/admin/purchases/', { params });
 };
 
+export const createPurchaseRequest = async (data) => {
+  return await api.post('/admin/purchases/', data);
+};
+
 export const getPurchaseRequest = async (id) => {
   return await api.get(`/admin/purchases/${id}`);
 };

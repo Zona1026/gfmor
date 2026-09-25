@@ -95,6 +95,15 @@ class PurchaseRequest(BaseModel):
         from_attributes = True
 
 
+class PurchaseRequestCreate(BaseModel):
+    product_id: int = Field(gt=0)
+    quantity: int = Field(gt=0)
+    supplier_name: Optional[str] = None
+    expected_arrival_date: Optional[datetime] = None
+    responsible_staff: Optional[str] = None
+    note: Optional[str] = None
+
+
 class PurchaseOrderUpdate(BaseModel):
     supplier_name: Optional[str] = None
     expected_arrival_date: Optional[datetime] = None

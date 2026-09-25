@@ -33,6 +33,21 @@ def read_purchase_requests(
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@router.post("/", response_model=purchase_schema.PurchaseRequest, status_code=status.HTTP_201_CREATED)
+def create_purchase_request(
+    payload: purchase_schema.PurchaseRequestCreate,
+    admin=Depends(require_manager_admin),
+    db: Session = Depends(get_db),
+):
+    product = db.query(models.Product).filter(models.Product.id == payload.product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="找不到指定的庫存品項")
+
+    request = purchase_service.create_manual_purchase_request(db, product, payload)
+    db.commit()
+    return purchase_service.get_purchase_request(db, request.id)
+
+
 @router.get("/{purchase_request_id}", response_model=purchase_schema.PurchaseRequest)
 def read_purchase_request(
     purchase_request_id: int,
