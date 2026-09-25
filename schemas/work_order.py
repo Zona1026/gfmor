@@ -255,6 +255,7 @@ class WorkOrderBase(BaseModel):
     inspection_result: Optional[str] = None
     responsible_staff: Optional[str] = None
     scheduled_at: Optional[datetime] = None
+    ordered_date: Optional[date] = None
     consumption_date: Optional[date] = None
     notes: Optional[str] = None
 
@@ -273,8 +274,7 @@ class WorkOrderUpdate(BaseModel):
     inspection_result: Optional[str] = None
     responsible_staff: Optional[str] = None
     scheduled_at: Optional[datetime] = None
-    consumption_date: Optional[date] = None
-    completed_at: Optional[datetime] = None
+    ordered_date: Optional[date] = None
     notes: Optional[str] = None
     line_items: Optional[List[WorkOrderLineItemUpdate]] = None
 
@@ -306,6 +306,7 @@ class WorkOrder(BaseModel):
     payment_status: WorkOrderPaymentStatus
     responsible_staff: Optional[str] = None
     scheduled_at: Optional[datetime] = None
+    ordered_date: date
     consumption_date: date
     total_amount: int
     membership_eligible_amount: int = 0

@@ -198,7 +198,7 @@
                 <tr v-for="record in sortedMaintenanceRecords" :key="record.id">
                   <td data-label="工單">
                     <strong>#{{ record.id }}</strong>
-                    <small>{{ formatConsumptionDate(record.consumption_date || record.created_at) }}</small>
+                    <small>完工 {{ formatConsumptionDate(record.completed_at || record.consumption_date || record.created_at) }}</small>
                   </td>
                   <td data-label="項目">{{ serviceTypeMap[record.service_type] || record.service_type }}</td>
                   <td data-label="商品明細">{{ workOrderItemNames(record) }}</td>
@@ -255,7 +255,7 @@
           </header>
 
           <dl class="record-summary">
-            <div><dt>消費日期</dt><dd>{{ formatConsumptionDate(selectedMaintenanceRecord.consumption_date || selectedMaintenanceRecord.created_at) }}</dd></div>
+            <div><dt>完工日</dt><dd>{{ formatConsumptionDate(selectedMaintenanceRecord.completed_at || selectedMaintenanceRecord.consumption_date || selectedMaintenanceRecord.created_at) }}</dd></div>
             <div><dt>工單狀態</dt><dd>{{ workOrderStatusMap[selectedMaintenanceRecord.status] || selectedMaintenanceRecord.status }}</dd></div>
             <div><dt>付款狀態</dt><dd>{{ paymentStatusMap[selectedMaintenanceRecord.payment_status] || selectedMaintenanceRecord.payment_status }}</dd></div>
             <div><dt>里程</dt><dd>{{ selectedMaintenanceRecord.vehicle_mileage ? `${formatNumber(selectedMaintenanceRecord.vehicle_mileage)} km` : '未記錄' }}</dd></div>

@@ -314,7 +314,7 @@
             同步將來源工單明細改為實收料件
           </label>
           <label v-if="receiveForm.replace_work_order_line_item">
-            替代料件工單單價（客戶計價）
+            替代料件售價
             <input v-model.number="receiveForm.replacement_unit_price" type="number" min="0" required />
           </label>
           <p class="muted-hint">若清單沒有這個料件，請先到「庫存管理 / 零件列表」新增。</p>

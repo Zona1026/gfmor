@@ -65,8 +65,9 @@
             <th>工單狀態</th>
             <th>付款狀態</th>
             <th>負責人</th>
-            <th>預約時間</th>
-            <th>消費日期</th>
+            <th>訂購日</th>
+            <th>預約日</th>
+            <th>完工日</th>
             <th>總金額</th>
           </tr>
         </thead>
@@ -93,8 +94,9 @@
               </span>
             </td>
             <td>{{ workOrder.responsible_staff || '-' }}</td>
+            <td>{{ formatDate(workOrder.ordered_date) }}</td>
             <td>{{ formatDateTime(workOrder.scheduled_at || workOrder.booking?.booking_time) }}</td>
-            <td>{{ formatDate(workOrder.consumption_date) }}</td>
+            <td>{{ formatDate(workOrder.completed_at) }}</td>
             <td class="amount">NT$ {{ workOrder.total_amount?.toLocaleString() || 0 }}</td>
           </tr>
         </tbody>
@@ -166,7 +168,7 @@
 
           <section class="form-section">
             <h4>基本資料</h4>
-            <div class="form-grid">
+            <div class="form-grid compact-basic-grid">
               <label>
                 <span class="field-label">車牌 <span class="required-mark">*</span></span>
                 <input v-model.trim="createForm.vehicle_license_plate" required />
@@ -199,12 +201,16 @@
                 </select>
               </label>
               <label>
-                預約時間
+                訂購日
+                <input v-model="createForm.ordered_date" type="date" required />
+              </label>
+              <label>
+                預約日
                 <input v-model="createForm.scheduled_at" type="datetime-local" />
               </label>
               <label>
-                消費日期
-                <input v-model="createForm.consumption_date" type="date" required />
+                完工日
+                <input type="text" value="完工後自動記錄" disabled />
               </label>
               <label v-if="createSource === 'guest'" class="new-vehicle-field">
                 新車
@@ -320,7 +326,7 @@
         <div class="detail-grid">
           <section class="form-section">
             <h4>基本資料</h4>
-            <div class="form-grid">
+            <div class="form-grid compact-basic-grid">
               <label>
                 服務類型
                 <select v-model="detailForm.service_type" :disabled="!canEditWorkOrder">
@@ -349,12 +355,16 @@
                 </select>
               </label>
               <label>
-                預約時間
+                訂購日
+                <input v-model="detailForm.ordered_date" type="date" required :disabled="!canEditWorkOrder" />
+              </label>
+              <label>
+                預約日
                 <input v-model="detailForm.scheduled_at" type="datetime-local" :disabled="!canEditWorkOrder" />
               </label>
               <label>
-                消費日期
-                <input v-model="detailForm.consumption_date" type="date" required :disabled="!canEditWorkOrder" />
+                完工日
+                <input :value="formatDate(selectedWorkOrder.completed_at)" type="text" disabled />
               </label>
             </div>
             <label>
@@ -792,7 +802,7 @@ function defaultCreateForm() {
     problem_description: '',
     responsible_staff: defaultResponsibleStaff,
     scheduled_at: '',
-    consumption_date: todayDateString(),
+    ordered_date: todayDateString(),
     notes: ''
   };
 }
@@ -1150,7 +1160,7 @@ const openDetail = async (id) => {
       inspection_result: selectedWorkOrder.value.inspection_result || '',
       responsible_staff: selectedWorkOrder.value.responsible_staff || defaultResponsibleStaff,
       scheduled_at: toDatetimeLocal(selectedWorkOrder.value.scheduled_at),
-      consumption_date: selectedWorkOrder.value.consumption_date || '',
+      ordered_date: selectedWorkOrder.value.ordered_date || selectedWorkOrder.value.consumption_date || '',
       notes: selectedWorkOrder.value.notes || ''
     };
     detailLineItems.value = (selectedWorkOrder.value.line_items || []).map(item => ({ ...item }));
@@ -1728,6 +1738,10 @@ watch(
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.8rem;
+  }
+
+  .compact-basic-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .form-row {

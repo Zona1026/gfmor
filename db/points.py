@@ -123,12 +123,14 @@ def get_order_point_entitlement(db: Session, order_id: int) -> int:
 
 
 def _work_order_point_date(work_order: models.WorkOrder) -> datetime:
+    if work_order.completed_at:
+        return work_order.completed_at
     value = work_order.consumption_date
     if isinstance(value, datetime):
         return value
     if isinstance(value, date):
         return datetime.combine(value, time.min)
-    return work_order.completed_at or work_order.created_at or datetime.utcnow()
+    return work_order.created_at or datetime.utcnow()
 
 
 def calculate_work_order_points(

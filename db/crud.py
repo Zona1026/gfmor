@@ -360,7 +360,7 @@ from schemas.work_order import (
     WorkOrderPaymentCreate,
     WorkOrderUpdate,
 )
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 HIGH_QUOTE_APPROVAL_THRESHOLD = 30000
 APPROVAL_GATED_STATUSES = [
@@ -368,6 +368,19 @@ APPROVAL_GATED_STATUSES = [
     models.WorkOrderStatus.AWAITING_PAYMENT,
     models.WorkOrderStatus.COMPLETED,
 ]
+TAIPEI_TZ = timezone(timedelta(hours=8))
+
+
+def _taipei_date(value: datetime) -> date:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(TAIPEI_TZ).date()
+
+
+def _mark_work_order_completed(work_order, completed_at: datetime = None):
+    completed_at = completed_at or work_order.completed_at or datetime.utcnow()
+    work_order.completed_at = completed_at
+    work_order.consumption_date = _taipei_date(completed_at)
 
 
 def _work_order_options():
@@ -958,6 +971,7 @@ def create_work_order(db: Session, work_order: WorkOrderCreate):
     if work_order.items:
         line_items.extend(_legacy_items_to_line_items(db, work_order.items))
 
+    ordered_date = work_order.ordered_date or work_order.consumption_date or datetime.now(TAIPEI_TZ).date()
     db_work_order = models.WorkOrder(
         booking_id=work_order.booking_id,
         service_type=work_order.service_type or models.WorkOrderServiceType.MAINTENANCE,
@@ -965,7 +979,8 @@ def create_work_order(db: Session, work_order: WorkOrderCreate):
         inspection_result=work_order.inspection_result,
         responsible_staff=work_order.responsible_staff,
         scheduled_at=work_order.scheduled_at,
-        consumption_date=work_order.consumption_date or datetime.now().date(),
+        ordered_date=ordered_date,
+        consumption_date=work_order.consumption_date or ordered_date,
         notes=work_order.notes,
         line_items=line_items,
     )
@@ -994,8 +1009,8 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
     update_data = _schema_dict(work_order_update, exclude_unset=True)
     line_items_data = update_data.pop("line_items", None)
 
-    if "consumption_date" in update_data and update_data["consumption_date"] is None:
-        raise ValueError("消費日期不可為空")
+    if "ordered_date" in update_data and update_data["ordered_date"] is None:
+        raise ValueError("訂購日不可為空")
 
     if line_items_data is not None:
         if db_work_order.supervisor_reviewed_at:
@@ -1090,7 +1105,7 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
             if target_status == models.WorkOrderStatus.COMPLETED and not _inventory_fully_consumed(db_work_order):
                 raise ValueError("工單仍有零件 / 耗材尚未完成主管確認扣庫存，不能結案。")
             if target_status == models.WorkOrderStatus.COMPLETED and not db_work_order.completed_at:
-                db_work_order.completed_at = datetime.utcnow()
+                _mark_work_order_completed(db_work_order)
         setattr(db_work_order, key, value)
 
     _recalculate_work_order_total(db_work_order)
@@ -1197,7 +1212,7 @@ def add_work_order_payment(db: Session, work_order_id: int, payment: WorkOrderPa
         and _inventory_fully_consumed(db_work_order)
     ):
         db_work_order.status = models.WorkOrderStatus.COMPLETED
-        db_work_order.completed_at = db_work_order.completed_at or datetime.utcnow()
+        _mark_work_order_completed(db_work_order)
     elif (
         db_work_order.payment_status == models.WorkOrderPaymentStatus.PAID
         and db_work_order.status == models.WorkOrderStatus.AWAITING_PAYMENT
@@ -1243,7 +1258,7 @@ def review_work_order_approval(
                 and _inventory_fully_consumed(db_approval.work_order)
             ):
                 db_approval.work_order.status = models.WorkOrderStatus.COMPLETED
-                db_approval.work_order.completed_at = db_approval.work_order.completed_at or datetime.utcnow()
+                _mark_work_order_completed(db_approval.work_order)
 
         membership_service.sync_work_order_membership_consumption(db, db_approval.work_order)
 
@@ -1281,7 +1296,7 @@ def confirm_work_order_supervisor_review(db: Session, work_order_id: int, review
             and _inventory_fully_consumed(db_work_order)
         ):
             db_work_order.status = models.WorkOrderStatus.COMPLETED
-            db_work_order.completed_at = db_work_order.completed_at or reviewed_at
+            _mark_work_order_completed(db_work_order, reviewed_at)
 
     if db_work_order.status == models.WorkOrderStatus.SUPERVISOR_APPROVAL_PENDING:
         db_work_order.status = models.WorkOrderStatus.IN_PROGRESS

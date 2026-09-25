@@ -533,6 +533,7 @@ class WorkOrder(Base):
     payment_status = Column(Enum(WorkOrderPaymentStatus), nullable=False, default=WorkOrderPaymentStatus.UNPAID)
     responsible_staff = Column(String(50), nullable=True)
     scheduled_at = Column(DateTime, nullable=True)
+    ordered_date = Column(Date, nullable=False)
     consumption_date = Column(Date, nullable=False)
     # 這張工單的總金額，包含所有商品和服務
     total_amount = Column(Integer, nullable=False, default=0)
