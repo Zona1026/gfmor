@@ -376,7 +376,7 @@
               <div><dt>可列入會員累積</dt><dd>NT$ {{ selectedWorkOrder.membership_eligible_amount?.toLocaleString() || 0 }}</dd></div>
               <div><dt>已計入會員累積</dt><dd>NT$ {{ selectedWorkOrder.membership_consumption_amount?.toLocaleString() || 0 }}</dd></div>
             </dl>
-            <div v-if="canEditWorkOrder" class="payment-form">
+            <div v-if="canManageWorkOrderPayments" class="payment-form">
               <input v-model.number="paymentForm.amount" type="number" min="1" placeholder="付款金額" />
               <select v-model="paymentForm.method">
                 <option value="" disabled>付款方式</option>
@@ -581,12 +581,14 @@ const serviceTypeFilter = ref('');
 const statusFilter = ref('');
 const searchKeyword = ref('');
 const filterDate = ref('');
-const workOrderEditorRoles = ['最高級', '管理層'];
+const workOrderEditorRoles = ['最高級', '管理層', '一般'];
+const workOrderManagerRoles = ['最高級', '管理層'];
 const defaultResponsibleStaff = '火腿';
 const paymentMethodOptions = ['現金', '轉帳', 'Linepay'];
 const canCreateWorkOrder = computed(() => ['最高級', '管理層', '一般'].includes(adminUser.value?.role));
 const canEditWorkOrder = computed(() => workOrderEditorRoles.includes(adminUser.value?.role));
-const canUseCriticalWorkOrder = computed(() => canEditWorkOrder.value);
+const canManageWorkOrderPayments = computed(() => workOrderManagerRoles.includes(adminUser.value?.role));
+const canUseCriticalWorkOrder = computed(() => workOrderManagerRoles.includes(adminUser.value?.role));
 const canReviewApprovals = computed(() => adminUser.value?.role === '最高級');
 
 const showCreateModal = ref(false);

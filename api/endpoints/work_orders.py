@@ -256,7 +256,7 @@ def add_work_order_payment(
 def update_work_order(
     work_order_id: int, 
     work_order: work_order_schema.WorkOrderUpdate, 
-    admin=Depends(require_manager_admin),
+    admin=Depends(require_admin),
     db: Session = Depends(get_db)
 ):
     """
