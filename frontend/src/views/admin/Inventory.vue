@@ -244,12 +244,17 @@
             </label>
             <label>
               分類
-              <select v-model="createForm.category_id">
-                <option value="">未分類</option>
-                <option v-for="category in activeCategories" :key="category.id" :value="String(category.id)">
-                  {{ category.name }}
-                </option>
-              </select>
+              <span class="category-control">
+                <select v-model="createForm.category_id">
+                  <option value="">未分類</option>
+                  <option v-for="category in activeCategories" :key="category.id" :value="String(category.id)">
+                    {{ category.name }}
+                  </option>
+                </select>
+                <button class="btn btn-outline" type="button" @click="showCategoryForm = !showCategoryForm">
+                  ＋ 新增分類
+                </button>
+              </span>
             </label>
             <label>
               售價
@@ -271,6 +276,15 @@
               低庫存門檻
               <input v-model.number="createForm.low_stock_threshold" type="number" min="0" required />
             </label>
+          </div>
+          <div v-if="showCategoryForm" class="category-create-row">
+            <label>
+              新分類名稱
+              <input v-model.trim="newCategoryName" type="text" placeholder="例如：機油、煞車零件" @keyup.enter.prevent="submitCreateCategory" />
+            </label>
+            <button class="btn btn-primary" type="button" :disabled="savingCategory || !newCategoryName" @click="submitCreateCategory">
+              {{ savingCategory ? '新增中...' : '建立分類' }}
+            </button>
           </div>
           <label>
             描述
@@ -300,6 +314,7 @@ import { useAuthStore } from '../../store/auth';
 import {
   adjustInventory,
   createProduct,
+  createProductCategory,
   getInventoryItems,
   getInventoryMovements,
   getInventoryReservations,
@@ -328,7 +343,10 @@ const loading = ref(false);
 const savingAdjustmentId = ref(null);
 const savingScrap = ref(false);
 const savingCreate = ref(false);
+const savingCategory = ref(false);
 const showCreateModal = ref(false);
+const showCategoryForm = ref(false);
+const newCategoryName = ref('');
 const createItemType = ref('SHOP');
 const selectedCreateFile = ref(null);
 const shopItems = ref([]);
@@ -553,16 +571,37 @@ function openCreateModal(inventoryType) {
   createItemType.value = inventoryType;
   Object.assign(createForm, defaultCreateForm(inventoryType));
   selectedCreateFile.value = null;
+  showCategoryForm.value = false;
+  newCategoryName.value = '';
   showCreateModal.value = true;
 }
 
 function closeCreateModal() {
   showCreateModal.value = false;
   selectedCreateFile.value = null;
+  showCategoryForm.value = false;
+  newCategoryName.value = '';
 }
 
 function onCreateFileChange(event) {
   selectedCreateFile.value = event.target.files?.[0] || null;
+}
+
+async function submitCreateCategory() {
+  const name = newCategoryName.value.trim();
+  if (!name) return;
+  savingCategory.value = true;
+  try {
+    const category = await createProductCategory({ name, sort_order: 0, is_active: 1 });
+    await fetchCategories();
+    createForm.category_id = String(category.id);
+    newCategoryName.value = '';
+    showCategoryForm.value = false;
+  } catch (error) {
+    alert(`新增分類失敗：${error.response?.data?.detail || error.message}`);
+  } finally {
+    savingCategory.value = false;
+  }
 }
 
 async function submitCreateItem() {
@@ -969,6 +1008,31 @@ textarea {
   gap: 16px;
 }
 
+.category-control,
+.category-create-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.category-control select,
+.category-create-row label {
+  flex: 1 1 auto;
+}
+
+.category-control .btn,
+.category-create-row .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.category-create-row {
+  border: 1px solid $medium-grey;
+  border-radius: $border-radius;
+  padding: 12px;
+  background: $background-color;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -993,6 +1057,12 @@ textarea {
 
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .category-control,
+  .category-create-row {
+    align-items: stretch;
+    flex-direction: column;
   }
 
 }
