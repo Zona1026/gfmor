@@ -1,6 +1,9 @@
 name: Release Version
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       bump:
@@ -39,12 +42,42 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      - name: Determine version increment
+        id: bump
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MANUAL_BUMP: ${{ inputs.bump }}
+          BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            BUMP="${MANUAL_BUMP}"
+          else
+            if [[ "${BEFORE_SHA}" =~ ^0+$ ]]; then
+              COMMITS="$(git log -1 --format=%B "${CURRENT_SHA}")"
+            else
+              COMMITS="$(git log --format=%B "${BEFORE_SHA}..${CURRENT_SHA}")"
+            fi
+
+            if grep -Eq '(^|[[:space:]])BREAKING CHANGE:|^[a-z]+(\([^)]*\))?!:' <<< "${COMMITS}"; then
+              BUMP="major"
+            elif grep -Eq '^feat(\([^)]*\))?:' <<< "${COMMITS}"; then
+              BUMP="minor"
+            else
+              BUMP="patch"
+            fi
+          fi
+
+          echo "bump=${BUMP}" >> "$GITHUB_OUTPUT"
+          echo "Selected ${BUMP} version increment."
+
       - name: Increment version
         id: version
         working-directory: frontend
         shell: bash
         run: |
-          npm version "${{ inputs.bump }}" --no-git-tag-version
+          npm version "${{ steps.bump.outputs.bump }}" --no-git-tag-version
           VERSION="$(node -p "require('./package.json').version")"
           TAG="v${VERSION}"
 
@@ -56,6 +89,9 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
+      - name: Synchronize backend version
+        run: python scripts/sync_version.py
+
       - name: Install dependencies
         working-directory: frontend
         run: npm ci
@@ -63,6 +99,9 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm run build
+
+      - name: Verify synchronized version
+        run: python scripts/sync_version.py --check
 
       - name: Commit and tag release
         env:
@@ -72,7 +111,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add frontend/package.json frontend/package-lock.json
+          git add frontend/package.json frontend/package-lock.json main.py
           git commit -m "chore(release): ${TAG}"
           git tag -a "${TAG}" -m "${TAG}"
           git push --atomic origin "HEAD:${DEFAULT_BRANCH}" "refs/tags/${TAG}"
@@ -91,4 +130,5 @@ jobs:
         shell: bash
         run: |
           echo "## Released ${TAG}" >> "$GITHUB_STEP_SUMMARY"
-          echo "The frontend build passed and the GitHub release was created." >> "$GITHUB_STEP_SUMMARY"
+          echo "Version increment: ${{ steps.bump.outputs.bump }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "The frontend build passed, versions were synchronized, and the GitHub release was created." >> "$GITHUB_STEP_SUMMARY"
