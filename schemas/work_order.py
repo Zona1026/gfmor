@@ -149,7 +149,7 @@ class WorkOrderLineItem(WorkOrderLineItemBase):
 
 
 class WorkOrderLineItemFulfillmentStatusUpdate(BaseModel):
-    status: Literal["RESERVED", "ORDERED", "ARRIVED"]
+    status: Literal["PENDING", "RESERVED", "ORDERED", "ARRIVED"]
 
 
 class WorkOrderPaymentCreate(BaseModel):

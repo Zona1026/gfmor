@@ -1327,7 +1327,7 @@ def update_work_order_line_item_fulfillment_status(
     if not db_line_item:
         return None
 
-    allowed_statuses = {"RESERVED", "ORDERED", "ARRIVED"}
+    allowed_statuses = {"PENDING", "RESERVED", "ORDERED", "ARRIVED"}
     if fulfillment_status not in allowed_statuses:
         raise ValueError("明細狀態不正確")
 

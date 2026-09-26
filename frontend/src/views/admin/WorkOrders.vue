@@ -656,7 +656,7 @@
                       </option>
                     </select>
                   </td>
-                  <td>{{ formatDateTime(item.fulfillment_status_updated_at || item.created_at) }}</td>
+                  <td>{{ formatTaipeiDateTime(item.fulfillment_status_updated_at || item.created_at) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -870,6 +870,7 @@ const lineItemTypeMap = {
 };
 
 const fulfillmentStatusMap = {
+  PENDING: '確認中',
   RESERVED: '已預留',
   ORDERED: '已叫貨',
   ARRIVED: '已到貨'
@@ -2499,10 +2500,16 @@ watch(
 
   .line-status-table {
     min-width: 820px;
+    table-layout: fixed;
+
+    th:nth-child(1),
+    td:nth-child(1) {
+      width: 15%;
+    }
 
     th:nth-child(2),
     td:nth-child(2) {
-      width: 28%;
+      width: 17%;
       white-space: normal;
     }
 
@@ -2512,8 +2519,20 @@ watch(
       white-space: normal;
     }
 
+    th:nth-child(4),
+    td:nth-child(4) {
+      width: 18%;
+    }
+
+    th:nth-child(5),
+    td:nth-child(5) {
+      width: 24%;
+    }
+
     select {
-      min-width: 120px;
+      box-sizing: border-box;
+      width: 100%;
+      min-width: 0;
     }
   }
 
