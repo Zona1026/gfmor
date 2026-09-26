@@ -14,13 +14,79 @@
         :key="tab.key"
         type="button"
         :class="{ active: activeTab === tab.key }"
-        @click="activeTab = tab.key"
+        @click="setActiveTab(tab.key)"
       >
         {{ tab.label }}
       </button>
     </div>
 
     <div v-if="loading" class="loading">載入中...</div>
+
+    <section v-else-if="activeTab === 'daily'" class="panel report-panel">
+      <div class="panel-title report-heading">
+        <div>
+          <h3>日報表</h3>
+          <p>彙整單日收款、退款與應付付款。</p>
+        </div>
+        <label class="report-period-control">
+          報表日期
+          <input v-model="selectedDailyDate" type="date" />
+        </label>
+      </div>
+      <div class="report-summary-grid">
+        <div class="report-summary-item income"><span>收款</span><strong>NT$ {{ formatNumber(dailySummary.income) }}</strong></div>
+        <div class="report-summary-item refund"><span>退款</span><strong>NT$ {{ formatNumber(dailySummary.refunds) }}</strong></div>
+        <div class="report-summary-item expense"><span>應付付款</span><strong>NT$ {{ formatNumber(dailySummary.expenses) }}</strong></div>
+        <div class="report-summary-item net"><span>當日淨額</span><strong>NT$ {{ formatNumber(dailySummary.net) }}</strong></div>
+      </div>
+      <table v-if="dailyTransactions.length" class="accounting-table report-table">
+        <thead><tr><th>時間</th><th>類型</th><th>來源</th><th>操作者</th><th>金額</th></tr></thead>
+        <tbody>
+          <tr v-for="record in dailyTransactions" :key="record.key">
+            <td>{{ formatTaipeiDateTime(record.occurredAt) }}</td>
+            <td>{{ record.typeLabel }}</td>
+            <td>{{ record.sourceLabel }}</td>
+            <td>{{ record.actor || '-' }}</td>
+            <td class="amount" :class="{ negative: record.direction === 'out' }">
+              {{ record.direction === 'out' ? '-' : '' }}NT$ {{ formatNumber(record.amount) }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-else class="empty-state">這一天沒有帳務紀錄。</div>
+    </section>
+
+    <section v-else-if="activeTab === 'monthly'" class="panel report-panel">
+      <div class="panel-title report-heading">
+        <div>
+          <h3>月報表</h3>
+          <p>按日彙整指定月份的收入與支出。</p>
+        </div>
+        <label class="report-period-control">
+          報表月份
+          <input v-model="selectedMonth" type="month" />
+        </label>
+      </div>
+      <div class="report-summary-grid">
+        <div class="report-summary-item income"><span>收款</span><strong>NT$ {{ formatNumber(monthlySummary.income) }}</strong></div>
+        <div class="report-summary-item refund"><span>退款</span><strong>NT$ {{ formatNumber(monthlySummary.refunds) }}</strong></div>
+        <div class="report-summary-item expense"><span>應付付款</span><strong>NT$ {{ formatNumber(monthlySummary.expenses) }}</strong></div>
+        <div class="report-summary-item net"><span>當月淨額</span><strong>NT$ {{ formatNumber(monthlySummary.net) }}</strong></div>
+      </div>
+      <table v-if="monthlyDailyRows.length" class="accounting-table report-table">
+        <thead><tr><th>日期</th><th>收款</th><th>退款</th><th>應付付款</th><th>淨額</th></tr></thead>
+        <tbody>
+          <tr v-for="row in monthlyDailyRows" :key="row.date">
+            <td>{{ row.date.replaceAll('-', '/') }}</td>
+            <td class="amount">NT$ {{ formatNumber(row.income) }}</td>
+            <td class="amount negative">NT$ {{ formatNumber(row.refunds) }}</td>
+            <td class="amount negative">NT$ {{ formatNumber(row.expenses) }}</td>
+            <td class="amount" :class="{ negative: row.net < 0 }">NT$ {{ formatNumber(row.net) }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-else class="empty-state">這個月份沒有帳務紀錄。</div>
+    </section>
 
     <section v-else-if="activeTab === 'receipts'" class="panel">
       <div class="panel-title">
@@ -267,6 +333,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import {
   addPayablePayment,
@@ -284,11 +351,15 @@ import { useAuthStore } from '../../store/auth';
 import { formatTaipeiDateTime } from '../../utils/dateTime';
 
 const authStore = useAuthStore();
+const route = useRoute();
+const router = useRouter();
 const { adminUser } = storeToRefs(authStore);
 const canCreateRefund = computed(() => adminUser.value?.role === '最高級');
 const canManageAccounting = computed(() => adminUser.value?.role === '最高級');
 
 const tabs = [
+  { key: 'daily', label: '日報表' },
+  { key: 'monthly', label: '月報表' },
   { key: 'receipts', label: '收款紀錄' },
   { key: 'refunds', label: '退款紀錄' },
   { key: 'shop', label: '商城待收款' },
@@ -330,13 +401,24 @@ const inventoryActionMap = {
   RESTOCK_ALL: '全部回補'
 };
 
-const activeTab = ref('receipts');
+const reportTabs = ['daily', 'monthly'];
+const initialReportTab = reportTabs.includes(route.query.report) ? route.query.report : 'receipts';
+const activeTab = ref(initialReportTab);
 const loading = ref(false);
 const saving = ref(false);
 const receipts = ref([]);
 const refunds = ref([]);
 const shopReceivables = ref([]);
 const payables = ref([]);
+const taipeiDateFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Taipei',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit'
+});
+const currentTaipeiDate = taipeiDateFormatter.format(new Date());
+const selectedDailyDate = ref(currentTaipeiDate);
+const selectedMonth = ref(currentTaipeiDate.slice(0, 7));
 
 const refundForm = reactive({
   source_type: 'SHOP_ORDER',
@@ -368,6 +450,90 @@ const payablePayments = computed(() => {
     supplier_name: payable.supplier_name
   }))).sort((a, b) => new Date(b.paid_at || 0) - new Date(a.paid_at || 0));
 });
+
+const toTaipeiDateKey = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : taipeiDateFormatter.format(date);
+};
+
+const accountingTransactions = computed(() => {
+  const receiptRows = receipts.value.map(record => ({
+    key: `receipt-${record.id}`,
+    occurredAt: record.paid_at,
+    type: 'income',
+    typeLabel: '收款',
+    sourceLabel: `${sourceMap[record.source_type] || record.source_type} #${record.source_id}`,
+    actor: record.actor,
+    amount: Number(record.amount || 0),
+    direction: 'in'
+  }));
+  const refundRows = refunds.value.map(record => ({
+    key: `refund-${record.id}`,
+    occurredAt: record.refunded_at,
+    type: 'refund',
+    typeLabel: '退款',
+    sourceLabel: `${sourceMap[record.source_type] || record.source_type} #${record.source_id}`,
+    actor: record.actor,
+    amount: Number(record.amount || 0),
+    direction: 'out'
+  }));
+  const payableRows = payablePayments.value.map(record => ({
+    key: `payable-payment-${record.rowKey}`,
+    occurredAt: record.paid_at,
+    type: 'expense',
+    typeLabel: '應付付款',
+    sourceLabel: `${record.supplier_name || '供應商'} / 應付 #${record.payable_id}`,
+    actor: record.actor,
+    amount: Number(record.amount || 0),
+    direction: 'out'
+  }));
+
+  return [...receiptRows, ...refundRows, ...payableRows]
+    .filter(record => record.occurredAt)
+    .sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt));
+});
+
+const summarizeTransactions = (records) => {
+  const summary = records.reduce((total, record) => {
+    total[record.type] += record.amount;
+    return total;
+  }, { income: 0, refund: 0, expense: 0 });
+  return {
+    income: summary.income,
+    refunds: summary.refund,
+    expenses: summary.expense,
+    net: summary.income - summary.refund - summary.expense
+  };
+};
+
+const dailyTransactions = computed(() => accountingTransactions.value.filter(record => {
+  return toTaipeiDateKey(record.occurredAt) === selectedDailyDate.value;
+}));
+const dailySummary = computed(() => summarizeTransactions(dailyTransactions.value));
+const monthlyTransactions = computed(() => accountingTransactions.value.filter(record => {
+  return toTaipeiDateKey(record.occurredAt).startsWith(selectedMonth.value);
+}));
+const monthlySummary = computed(() => summarizeTransactions(monthlyTransactions.value));
+const monthlyDailyRows = computed(() => {
+  const grouped = new Map();
+  monthlyTransactions.value.forEach(record => {
+    const date = toTaipeiDateKey(record.occurredAt);
+    if (!grouped.has(date)) grouped.set(date, []);
+    grouped.get(date).push(record);
+  });
+  return [...grouped.entries()]
+    .map(([date, records]) => ({ date, ...summarizeTransactions(records) }))
+    .sort((a, b) => b.date.localeCompare(a.date));
+});
+
+const setActiveTab = (tab) => {
+  activeTab.value = tab;
+  const query = { ...route.query };
+  if (reportTabs.includes(tab)) query.report = tab;
+  else delete query.report;
+  router.replace({ path: route.path, query });
+};
 
 const decorateShopReceivables = (items) => {
   return items.map(order => ({
@@ -588,6 +754,13 @@ watch(
   }
 );
 
+watch(
+  () => route.query.report,
+  (report) => {
+    if (reportTabs.includes(report)) activeTab.value = report;
+  }
+);
+
 onMounted(fetchAll);
 </script>
 
@@ -611,6 +784,64 @@ onMounted(fetchAll);
 .section-header,
 .panel-title {
   justify-content: space-between;
+}
+
+.report-heading {
+  align-items: flex-end;
+
+  p {
+    margin: 0.35rem 0 0;
+    color: $text-secondary;
+  }
+}
+
+.report-period-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 180px;
+  color: $text-secondary;
+  font-size: 0.9rem;
+}
+
+.report-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.report-summary-item {
+  min-width: 0;
+  padding: 0.9rem;
+  border: 1px solid $medium-grey;
+  border-radius: 6px;
+  background: $background-color;
+
+  span,
+  strong {
+    display: block;
+  }
+
+  span {
+    margin-bottom: 0.35rem;
+    color: $text-secondary;
+    font-size: 0.82rem;
+  }
+
+  strong {
+    color: $text-primary;
+    font-size: 1.05rem;
+  }
+
+  &.income strong { color: #86efac; }
+  &.refund strong,
+  &.expense strong { color: #fca5a5; }
+  &.net strong { color: $primary-light; }
+}
+
+.report-table {
+  min-width: 680px;
 }
 
 .section-header {
@@ -828,6 +1059,10 @@ select {
   .inline-form {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .report-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>
