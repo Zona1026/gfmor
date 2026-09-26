@@ -29,6 +29,7 @@ def read_user_point_summary(
 
 def _point_history_items(transaction):
     if transaction.work_order:
+        is_redemption = transaction.type == models.PointTransactionType.REDEEM
         return [
             PointHistoryItem(
                 id=f"work-order-item-{item.id}",
@@ -36,7 +37,7 @@ def _point_history_items(transaction):
                 quantity=item.quantity or 1,
             )
             for item in transaction.work_order.line_items
-            if item.counts_toward_membership
+            if ((item.points_redeemed or 0) > 0 if is_redemption else item.counts_toward_membership)
         ]
 
     if transaction.order:

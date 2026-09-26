@@ -105,6 +105,7 @@ class WorkOrderLineItemBase(BaseModel):
     unit_price: int = 0
     is_confirmed: int = 1
     counts_toward_membership: bool = False
+    points_redeemed: int = Field(default=0, ge=0)
 
 
 class WorkOrderLineItemCreate(WorkOrderLineItemBase):
@@ -304,6 +305,13 @@ class WorkOrderUpdate(BaseModel):
     status: Optional[WorkOrderStatus] = None
     payment_status: Optional[WorkOrderPaymentStatus] = None
     service_type: Optional[WorkOrderServiceType] = None
+    motor_id: Optional[int] = None
+    guest_motor_id: Optional[int] = None
+    vehicle_license_plate: Optional[str] = None
+    vehicle_brand: Optional[str] = None
+    vehicle_model: Optional[str] = None
+    vehicle_vin: Optional[str] = None
+    vehicle_mileage: Optional[int] = Field(default=None, ge=0)
     problem_description: Optional[str] = None
     inspection_result: Optional[str] = None
     responsible_staff: Optional[str] = None

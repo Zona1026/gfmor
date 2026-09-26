@@ -401,3 +401,154 @@ def get_user_point_summary(db: Session, google_id: str) -> Dict[str, int]:
         "expiring_soon_points": max(0, expiring_soon),
         "expiring_soon_days": settings["expiring_soon_days"],
     }
+
+
+def _consume_user_points(db: Session, google_id: str, points: int) -> None:
+    remaining = points
+    now = datetime.utcnow()
+    earn_rows = (
+        db.query(models.PointTransaction)
+        .filter(
+            models.PointTransaction.google_id == google_id,
+            models.PointTransaction.type == models.PointTransactionType.EARN,
+            models.PointTransaction.remaining_points > 0,
+            models.PointTransaction.expires_at > now,
+        )
+        .order_by(models.PointTransaction.expires_at.asc(), models.PointTransaction.id.asc())
+        .with_for_update()
+        .all()
+    )
+    for row in earn_rows:
+        if remaining <= 0:
+            break
+        consumed = min(row.remaining_points, remaining)
+        row.remaining_points -= consumed
+        remaining -= consumed
+    if remaining > 0:
+        raise ValueError("可使用點數不足")
+
+
+def _restore_user_points(db: Session, google_id: str, points: int) -> None:
+    remaining = points
+    now = datetime.utcnow()
+    settings = get_point_settings(db)
+    earn_rows = (
+        db.query(models.PointTransaction)
+        .filter(
+            models.PointTransaction.google_id == google_id,
+            models.PointTransaction.type == models.PointTransactionType.EARN,
+        )
+        .order_by(models.PointTransaction.expires_at.asc(), models.PointTransaction.id.asc())
+        .with_for_update()
+        .all()
+    )
+    for row in earn_rows:
+        if remaining <= 0:
+            break
+        restorable = max(0, (row.points or 0) - (row.remaining_points or 0))
+        restored = min(restorable, remaining)
+        row.remaining_points += restored
+        if restored > 0 and row.expires_at and row.expires_at <= now:
+            row.expires_at = add_months(now, settings["validity_months"])
+        remaining -= restored
+    if remaining > 0:
+        raise ValueError("點數回補失敗，請確認會員點數紀錄")
+
+
+def sync_work_order_point_redemption(
+    db: Session,
+    work_order: models.WorkOrder,
+    desired_points: Optional[int] = None,
+) -> int:
+    if desired_points is None and any(
+        (item.points_redeemed or 0) > 0
+        and item.type != models.WorkOrderLineItemType.PART
+        for item in work_order.line_items
+    ):
+        raise ValueError("只有零件 / 耗材明細可使用點數")
+
+    desired = max(
+        0,
+        int(
+            desired_points
+            if desired_points is not None
+            else sum((item.points_redeemed or 0) for item in work_order.line_items)
+        ),
+    )
+    redemption_rows = (
+        db.query(models.PointTransaction)
+        .filter(
+            models.PointTransaction.work_order_id == work_order.id,
+            models.PointTransaction.type == models.PointTransactionType.REDEEM,
+        )
+        .order_by(models.PointTransaction.id.asc())
+        .all()
+    )
+    current = max(0, -sum((row.points or 0) for row in redemption_rows))
+    if desired == 0 and current == 0:
+        return 0
+
+    if not work_order.google_id:
+        if desired > 0:
+            raise ValueError("散客無會員點數可使用")
+        return -current
+
+    user = (
+        db.query(models.User)
+        .filter(models.User.google_id == work_order.google_id)
+        .with_for_update()
+        .first()
+    )
+    if not user:
+        raise ValueError("找不到工單會員")
+
+    redemption_rows = (
+        db.query(models.PointTransaction)
+        .filter(
+            models.PointTransaction.work_order_id == work_order.id,
+            models.PointTransaction.type == models.PointTransactionType.REDEEM,
+        )
+        .order_by(models.PointTransaction.id.asc())
+        .with_for_update()
+        .populate_existing()
+        .all()
+    )
+    current = max(0, -sum((row.points or 0) for row in redemption_rows))
+
+    expire_points(db, google_id=work_order.google_id)
+    db.flush()
+    point_rows = (
+        db.query(models.PointTransaction)
+        .filter(models.PointTransaction.google_id == work_order.google_id)
+        .with_for_update()
+        .all()
+    )
+    balance = sum((row.points or 0) for row in point_rows)
+    if desired > max(0, balance + current):
+        raise ValueError("使用點數超過會員現有點數")
+
+    delta = desired - current
+    if delta > 0:
+        _consume_user_points(db, work_order.google_id, delta)
+    elif delta < 0:
+        _restore_user_points(db, work_order.google_id, abs(delta))
+
+    if desired <= 0:
+        for row in redemption_rows:
+            db.delete(row)
+        return -current
+
+    primary = redemption_rows[0] if redemption_rows else models.PointTransaction(
+        google_id=work_order.google_id,
+        work_order_id=work_order.id,
+        type=models.PointTransactionType.REDEEM,
+        remaining_points=0,
+        issued_at=datetime.utcnow(),
+    )
+    primary.points = -desired
+    primary.issued_at = datetime.utcnow()
+    primary.note = f"Work order #{work_order.id} redeemed points for items"
+    db.add(primary)
+    for row in redemption_rows[1:]:
+        db.delete(row)
+    return delta

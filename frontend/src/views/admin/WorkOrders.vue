@@ -309,7 +309,7 @@
                 </label>
                 <label class="membership-toggle">
                   <input v-model="item.counts_toward_membership" type="checkbox" />
-                  <span>列入會員累積</span>
+                  <span>累積消費</span>
                 </label>
                 <div class="line-total">
                   <span>小計</span>
@@ -346,7 +346,21 @@
               工單 #{{ selectedWorkOrder.id }}
               <span v-if="selectedWorkOrder.is_historical_backfill" class="historical-tag">歷史補登</span>
             </h3>
-            <p>{{ selectedWorkOrder.customer_name }} / {{ selectedWorkOrder.vehicle_license_plate }}</p>
+            <div class="work-order-customer-vehicle">
+              <span>{{ selectedWorkOrder.customer_name }} /</span>
+              <select
+                v-model.number="detailVehicleId"
+                aria-label="工單車輛"
+                required
+                :disabled="!canEditWorkOrder || supervisorReviewLocked"
+                @change="applyDetailVehicle"
+              >
+                <option :value="null" disabled>請選擇車輛</option>
+                <option v-for="vehicle in detailVehicleOptions" :key="vehicle.id" :value="vehicle.id">
+                  {{ vehicle.license_plate }} / {{ vehicle.brand || '-' }} {{ vehicle.model_name || '' }}
+                </option>
+              </select>
+            </div>
           </div>
           <div class="modal-actions">
             <button
@@ -407,6 +421,16 @@
                 </select>
               </label>
               <label>
+                里程數
+                <input
+                  v-model.number="detailForm.vehicle_mileage"
+                  type="number"
+                  min="0"
+                  required
+                  :disabled="!canEditWorkOrder || supervisorReviewLocked"
+                />
+              </label>
+              <label>
                 訂購日
                 <input v-model="detailForm.ordered_date" type="date" required :disabled="!canEditWorkOrder" />
               </label>
@@ -447,6 +471,11 @@
               <div><dt>待收尾款</dt><dd>NT$ {{ selectedWorkOrder.balance_amount?.toLocaleString() || 0 }}</dd></div>
               <div><dt>可列入會員累積</dt><dd>NT$ {{ selectedWorkOrder.membership_eligible_amount?.toLocaleString() || 0 }}</dd></div>
             </dl>
+            <div class="customer-point-balance">
+              <span>會員現有點數</span>
+              <strong v-if="selectedWorkOrder.google_id">{{ detailCustomerPoints.toLocaleString() }} 點</strong>
+              <strong v-else>散客無會員點數</strong>
+            </div>
             <div v-if="pendingRefundRevision" class="refund-alert">
               <div>
                 <strong>待退差額 NT$ {{ pendingRefundRevision.refund_due_amount.toLocaleString() }}</strong>
@@ -500,10 +529,13 @@
         <section class="form-section">
           <div class="section-title-row">
             <h4>施工 / 零件 / 工資 / 折扣明細</h4>
-            <button v-if="canEditWorkOrder" type="button" class="btn btn-outline" :disabled="lineItemEditingLocked || activeRevision" @click="addDetailLineItem">新增明細</button>
+            <div v-if="canEditWorkOrder" class="detail-section-actions">
+              <button type="button" class="btn btn-outline" :disabled="lineItemEditingLocked || activeRevision" @click="addDetailLineItem">新增明細</button>
+              <button type="button" class="btn btn-primary" :disabled="saving" @click="saveWorkOrder">儲存工單</button>
+            </div>
           </div>
           <div class="line-editor">
-            <div v-for="(item, index) in detailLineItems" :key="item.id || index" class="line-row">
+            <div v-for="(item, index) in detailLineItems" :key="item.id || index" class="line-row detail-line-row">
               <label class="line-field line-type">
                 <span>類型</span>
                 <select v-model="item.type" :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)">
@@ -538,12 +570,30 @@
                   type="checkbox"
                   :disabled="!canEditWorkOrder || membershipSelectionLocked"
                 />
-                <span>列入會員累積</span>
+                <span>累積消費</span>
+              </label>
+              <label class="points-redemption">
+                <input
+                  class="points-check"
+                  type="checkbox"
+                  :checked="Number(item.points_redeemed || 0) > 0"
+                  :disabled="!canEditWorkOrder || lineItemEditingLocked || !selectedWorkOrder.google_id || item.type !== 'PART'"
+                  @change="toggleLineItemPoints(item, $event.target.checked)"
+                />
+                <span>使用點數</span>
+                <input
+                  v-model.number="item.points_redeemed"
+                  class="points-input"
+                  type="number"
+                  min="1"
+                  :max="detailRedeemablePoints"
+                  :disabled="!canEditWorkOrder || lineItemEditingLocked || !selectedWorkOrder.google_id || item.type !== 'PART' || Number(item.points_redeemed || 0) <= 0"
+                />
+                <span>點</span>
               </label>
               <div class="line-total">
                 <span>小計</span>
                 <strong>NT$ {{ lineItemTotal(item).toLocaleString() }}</strong>
-                <small v-if="item.type === 'PART'">{{ inventoryStatusText(item) }}</small>
               </div>
               <button v-if="canEditWorkOrder" type="button" class="icon-btn danger" :disabled="lineItemEditingLocked || activeRevision || isLineItemInventoryLocked(item)" @click="removeDetailLineItem(index)">×</button>
             </div>
@@ -556,12 +606,12 @@
             <span>可列入會員累積</span>
             <strong>NT$ {{ detailMembershipTotal.toLocaleString() }}</strong>
           </div>
-          <div v-if="supervisorReviewLocked" class="muted-line">主管已審核，工單明細與會員累積資格已鎖定。</div>
-          <div v-else-if="hasPaymentRecord && !activeRevision" class="muted-line">已有付款紀錄，明細內容已鎖定；最高級管理員可先退回修改。</div>
-          <div v-else-if="activeRevision" class="warning-text">工單已退回修改。換料請從對應採購單登記替代料件；修改後需重新主管審核。</div>
-          <div v-if="canEditWorkOrder" class="form-actions">
-            <button class="btn btn-primary" @click="saveWorkOrder" :disabled="saving">儲存工單</button>
+          <div v-if="detailRedeemedPoints > 0" class="total-row points-total">
+            <span>本單使用點數</span>
+            <strong>{{ detailRedeemedPoints.toLocaleString() }} 點</strong>
           </div>
+          <div v-if="supervisorReviewLocked" class="muted-line">主管已審核，工單明細與會員累積資格已鎖定。</div>
+          <div v-else-if="activeRevision" class="warning-text">工單已退回修改。換料請從對應採購單登記替代料件；修改後需重新主管審核。</div>
         </section>
 
         <section class="form-section">
@@ -583,12 +633,13 @@
           <div v-if="selectedWorkOrder.line_items?.length" class="line-status-table-wrap">
             <table class="mini-table line-status-table">
               <thead>
-                <tr><th>類型</th><th>名稱</th><th>狀態</th><th>最後更新時間</th></tr>
+                <tr><th>類型</th><th>名稱</th><th>庫存數量</th><th>狀態</th><th>最後更新時間</th></tr>
               </thead>
               <tbody>
                 <tr v-for="item in selectedWorkOrder.line_items" :key="item.id">
                   <td>{{ lineItemTypeMap[item.type] || item.type }}</td>
                   <td>{{ item.name }}</td>
+                  <td>{{ item.type === 'PART' ? inventoryStatusText(item) : '-' }}</td>
                   <td>
                     <select
                       :value="item.fulfillment_status || ''"
@@ -710,6 +761,7 @@ import {
   createWorkOrderRefund,
   createWorkOrder,
   deleteWorkOrder,
+  getCustomerDetail,
   getGuestCustomers,
   getProducts,
   getStaffAdmins,
@@ -756,11 +808,15 @@ const selectedMemberMotorKey = ref('');
 const guestSearch = ref('');
 const guestResults = ref([]);
 const createForm = ref(defaultCreateForm());
-const createLineItems = ref([defaultLineItem()]);
+const createLineItems = ref([defaultLineItem(), defaultLineItem()]);
 
 const selectedWorkOrder = ref(null);
 const detailForm = ref({});
 const detailLineItems = ref([]);
+const detailVehicleOptions = ref([]);
+const detailVehicleId = ref(null);
+const detailCustomerPoints = ref(0);
+const originalDetailRedeemedPoints = ref(0);
 const paymentForm = ref({ amount: null, method: '', note: '' });
 const showDeleteModal = ref(false);
 const deleteForm = ref({ reason: '' });
@@ -873,8 +929,15 @@ const createTotal = computed(() => calculateTotal(createLineItems.value));
 const detailTotal = computed(() => calculateTotal(detailLineItems.value));
 const createMembershipTotal = computed(() => calculateMembershipTotal(createLineItems.value));
 const detailMembershipTotal = computed(() => calculateMembershipTotal(detailLineItems.value));
+const detailRedeemedPoints = computed(() => detailLineItems.value.reduce(
+  (total, item) => total + Math.max(0, Number(item.points_redeemed) || 0),
+  0
+));
+const detailRedeemablePoints = computed(() => Math.max(
+  0,
+  Number(detailCustomerPoints.value || 0) + Number(originalDetailRedeemedPoints.value || 0)
+));
 const supervisorReviewLocked = computed(() => Boolean(selectedWorkOrder.value?.supervisor_reviewed_at));
-const hasPaymentRecord = computed(() => Number(selectedWorkOrder.value?.paid_amount || 0) > 0);
 const activeRevision = computed(() => (selectedWorkOrder.value?.revisions || []).find(item => !item.closed_at) || null);
 const pendingRefundRevision = computed(() => (selectedWorkOrder.value?.revisions || []).find(item => item.refund_status === 'PENDING') || null);
 const refundAmountLocked = computed(() => refundModalMode.value === 'revision' || refundForm.value.refund_type === 'FULL');
@@ -884,7 +947,7 @@ const canSubmitRefund = computed(() => Boolean(
   Number(refundForm.value.amount) > 0 &&
   Number(refundForm.value.amount) <= Number(selectedWorkOrder.value?.refundable_amount || 0)
 ));
-const lineItemEditingLocked = computed(() => supervisorReviewLocked.value || (hasPaymentRecord.value && !activeRevision.value));
+const lineItemEditingLocked = computed(() => supervisorReviewLocked.value);
 const membershipSelectionLocked = computed(() => supervisorReviewLocked.value);
 const responsibleStaffOptions = computed(() => {
   const names = staffAdmins.value
@@ -933,7 +996,8 @@ function defaultLineItem() {
     quantity: 1,
     unit_price: 0,
     is_confirmed: 1,
-    counts_toward_membership: false
+    counts_toward_membership: false,
+    points_redeemed: 0
   };
 }
 
@@ -1045,7 +1109,10 @@ const openHistoricalCreateModal = () => {
   createMode.value = 'historical';
   createSource.value = 'member';
   createForm.value = defaultCreateForm();
-  createLineItems.value = [{ ...defaultLineItem(), counts_toward_membership: true }];
+  createLineItems.value = [
+    { ...defaultLineItem(), counts_toward_membership: true },
+    { ...defaultLineItem(), counts_toward_membership: true }
+  ];
   showCreateModal.value = true;
   fetchProducts();
   fetchStaffAdmins();
@@ -1056,7 +1123,7 @@ const closeCreateModal = () => {
   createMode.value = 'normal';
   createSource.value = 'guest';
   createForm.value = defaultCreateForm();
-  createLineItems.value = [defaultLineItem()];
+  createLineItems.value = [defaultLineItem(), defaultLineItem()];
   selectedMemberMotorKey.value = '';
   memberResults.value = [];
   guestResults.value = [];
@@ -1133,6 +1200,43 @@ const applySelectedMemberMotor = () => {
   createForm.value.vehicle_mileage = selected.motor.mileage ?? null;
 };
 
+const fetchDetailVehicleOptions = async (workOrder) => {
+  const customerType = workOrder.google_id ? 'member' : 'guest';
+  const customerId = workOrder.google_id || workOrder.guest_customer_id;
+  const selectedVehicleId = workOrder.motor_id || workOrder.guest_motor_id || null;
+  detailVehicleId.value = selectedVehicleId;
+  detailVehicleOptions.value = [];
+  detailCustomerPoints.value = 0;
+  if (!customerId) return;
+
+  try {
+    const customer = await getCustomerDetail(customerType, customerId);
+    detailCustomerPoints.value = workOrder.google_id ? Number(customer.current_points || 0) : 0;
+    detailVehicleOptions.value = (customer.vehicles || []).filter(vehicle =>
+      !vehicle.status || vehicle.id === selectedVehicleId
+    );
+  } catch (error) {
+    console.error('載入工單車輛清單失敗:', error);
+  }
+};
+
+const applyDetailVehicle = () => {
+  const vehicle = detailVehicleOptions.value.find(item => item.id === Number(detailVehicleId.value));
+  if (!vehicle || !selectedWorkOrder.value) return;
+  const isMember = Boolean(selectedWorkOrder.value.google_id);
+  detailForm.value.motor_id = isMember ? vehicle.id : null;
+  detailForm.value.guest_motor_id = isMember ? null : vehicle.id;
+  detailForm.value.vehicle_license_plate = vehicle.license_plate || '';
+  detailForm.value.vehicle_brand = vehicle.brand || '';
+  detailForm.value.vehicle_model = vehicle.model_name || '';
+  detailForm.value.vehicle_vin = vehicle.vin || '';
+  detailForm.value.vehicle_mileage = vehicle.mileage ?? null;
+};
+
+const toggleLineItemPoints = (item, checked) => {
+  item.points_redeemed = checked ? Math.max(1, Number(item.points_redeemed) || 0) : 0;
+};
+
 const addCreateLineItem = () => {
   createLineItems.value.push({
     ...defaultLineItem(),
@@ -1159,7 +1263,10 @@ const removeDetailLineItem = (index) => {
 };
 
 const handleLineTypeChange = (item) => {
-  if (item.type !== 'PART') item.product_id = null;
+  if (item.type !== 'PART') {
+    item.product_id = null;
+    item.points_redeemed = 0;
+  }
 };
 
 const applyProductToLine = (item) => {
@@ -1175,8 +1282,7 @@ const lineItemTotal = (item) => {
 
 const isLineItemInventoryLocked = (item) => {
   return Boolean(item.inventory_deducted)
-    || Number(item.inventory_consumed_quantity || 0) > 0
-    || Number(item.inventory_reserved_quantity || 0) > 0;
+    || Number(item.inventory_consumed_quantity || 0) > 0;
 };
 
 const inventoryStatusText = (item) => {
@@ -1228,7 +1334,8 @@ const cleanLineItem = (item) => ({
   quantity: Number(item.quantity),
   unit_price: Number(item.unit_price) || 0,
   is_confirmed: Number(item.is_confirmed ?? 1),
-  counts_toward_membership: Boolean(item.counts_toward_membership)
+  counts_toward_membership: Boolean(item.counts_toward_membership),
+  points_redeemed: item.type === 'PART' ? Math.max(0, Number(item.points_redeemed) || 0) : 0
 });
 
 const hasText = (value) => String(value ?? '').trim().length > 0;
@@ -1246,6 +1353,14 @@ const validateLineItems = (items) => {
     const quantity = Number(item.quantity);
     if (!Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity <= 0) {
       return `第 ${index + 1} 項明細：數量必須是大於 0 的整數`;
+    }
+
+    const pointsRedeemed = Number(item.points_redeemed || 0);
+    if (!Number.isFinite(pointsRedeemed) || !Number.isInteger(pointsRedeemed) || pointsRedeemed < 0) {
+      return `第 ${index + 1} 項明細：使用點數必須是 0 以上的整數`;
+    }
+    if (pointsRedeemed > 0 && item.type !== 'PART') {
+      return `第 ${index + 1} 項明細：只有零件 / 耗材可使用點數`;
     }
   }
   return '';
@@ -1320,11 +1435,22 @@ const submitCreateWorkOrder = async () => {
 
 const openDetail = async (id) => {
   try {
-    await Promise.all([fetchProducts(), fetchStaffAdmins()]);
     selectedWorkOrder.value = await getWorkOrder(id);
+    await Promise.all([
+      fetchProducts(),
+      fetchStaffAdmins(),
+      fetchDetailVehicleOptions(selectedWorkOrder.value)
+    ]);
     detailForm.value = {
       service_type: selectedWorkOrder.value.service_type,
       status: selectedWorkOrder.value.status,
+      motor_id: selectedWorkOrder.value.motor_id,
+      guest_motor_id: selectedWorkOrder.value.guest_motor_id,
+      vehicle_license_plate: selectedWorkOrder.value.vehicle_license_plate || '',
+      vehicle_brand: selectedWorkOrder.value.vehicle_brand || '',
+      vehicle_model: selectedWorkOrder.value.vehicle_model || '',
+      vehicle_vin: selectedWorkOrder.value.vehicle_vin || '',
+      vehicle_mileage: selectedWorkOrder.value.vehicle_mileage,
       problem_description: selectedWorkOrder.value.problem_description || '',
       inspection_result: selectedWorkOrder.value.inspection_result || '',
       responsible_staff: selectedWorkOrder.value.responsible_staff || defaultResponsibleStaff,
@@ -1333,6 +1459,10 @@ const openDetail = async (id) => {
       notes: selectedWorkOrder.value.notes || ''
     };
     detailLineItems.value = (selectedWorkOrder.value.line_items || []).map(item => ({ ...item }));
+    originalDetailRedeemedPoints.value = detailLineItems.value.reduce(
+      (total, item) => total + Number(item.points_redeemed || 0),
+      0
+    );
     paymentForm.value = { amount: selectedWorkOrder.value.balance_amount || null, method: '', note: '' };
   } catch (error) {
     if (error.response?.status === 401) {
@@ -1347,6 +1477,10 @@ const openDetail = async (id) => {
 
 const closeDetail = () => {
   selectedWorkOrder.value = null;
+  detailVehicleOptions.value = [];
+  detailVehicleId.value = null;
+  detailCustomerPoints.value = 0;
+  originalDetailRedeemedPoints.value = 0;
   closeDeleteModal();
   closeReopenModal();
   closeRefundModal();
@@ -1354,10 +1488,22 @@ const closeDetail = () => {
 
 const saveWorkOrder = async () => {
   if (!selectedWorkOrder.value) return;
+  if (!supervisorReviewLocked.value && detailVehicleOptions.value.length && !detailVehicleId.value) {
+    alert('請選擇車輛');
+    return;
+  }
+  if (!supervisorReviewLocked.value && !hasMileageValue(detailForm.value.vehicle_mileage)) {
+    alert('里程數必須是 0 以上的數值');
+    return;
+  }
   if (!membershipSelectionLocked.value) {
     const validationMessage = validateLineItems(detailLineItems.value);
     if (validationMessage) {
       alert(validationMessage);
+      return;
+    }
+    if (detailRedeemedPoints.value > detailRedeemablePoints.value) {
+      alert(`使用點數不可超過客人現有的 ${detailRedeemablePoints.value.toLocaleString()} 點`);
       return;
     }
   }
@@ -1365,13 +1511,28 @@ const saveWorkOrder = async () => {
   try {
     const payload = {
       ...detailForm.value,
+      vehicle_mileage: Number(detailForm.value.vehicle_mileage),
       scheduled_at: detailForm.value.scheduled_at || null
     };
+    if (supervisorReviewLocked.value) {
+      delete payload.vehicle_license_plate;
+      delete payload.vehicle_brand;
+      delete payload.vehicle_model;
+      delete payload.vehicle_vin;
+      delete payload.vehicle_mileage;
+      delete payload.motor_id;
+      delete payload.guest_motor_id;
+    }
     if (!membershipSelectionLocked.value) {
       payload.line_items = detailLineItems.value.map(cleanLineItem);
     }
     selectedWorkOrder.value = await updateWorkOrder(selectedWorkOrder.value.id, payload);
     detailLineItems.value = (selectedWorkOrder.value.line_items || []).map(item => ({ ...item }));
+    originalDetailRedeemedPoints.value = detailLineItems.value.reduce(
+      (total, item) => total + Number(item.points_redeemed || 0),
+      0
+    );
+    await fetchDetailVehicleOptions(selectedWorkOrder.value);
     await fetchWorkOrders();
     alert('工單已儲存');
   } catch (error) {
@@ -1906,6 +2067,21 @@ watch(
     }
   }
 
+  .work-order-customer-vehicle {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.3rem;
+    color: $text-secondary;
+
+    select {
+      min-width: 220px;
+      max-width: min(420px, 70vw);
+      padding: 0.3rem 0.45rem;
+    }
+  }
+
   .work-order-form,
   .detail-grid {
     display: grid;
@@ -1999,7 +2175,7 @@ watch(
 
   .line-row {
     display: grid;
-    grid-template-columns: 96px minmax(130px, 0.9fr) minmax(160px, 1.35fr) 68px 80px 132px 104px 36px;
+    grid-template-columns: 90px minmax(112px, 0.75fr) minmax(140px, 1.1fr) 62px 72px 122px 92px 36px;
     gap: 0.5rem;
     align-items: end;
     min-width: 0;
@@ -2055,6 +2231,9 @@ watch(
         display: block;
         color: $text-secondary;
         font-weight: 400;
+        line-height: 1.3;
+        overflow-wrap: anywhere;
+        white-space: normal;
       }
     }
 
@@ -2091,6 +2270,110 @@ watch(
       grid-column: 8;
       grid-row: 1;
     }
+
+    &.detail-line-row {
+      grid-template-columns: 84px minmax(100px, 0.65fr) minmax(120px, 1fr) 58px 68px 112px 164px 84px 36px;
+
+      .points-redemption { grid-column: 7; }
+      .line-total { grid-column: 8; }
+      > .icon-btn { grid-column: 9; }
+    }
+  }
+
+  .section-title-row {
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .detail-section-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    margin-left: auto;
+  }
+
+  .points-redemption {
+    min-height: 42px;
+    display: grid;
+    grid-template-columns: 18px 52px 46px 14px;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.45rem 0.5rem;
+    box-sizing: border-box;
+    border: 1px solid $medium-grey;
+    border-radius: $border-radius;
+    color: $text-primary;
+
+    .points-check {
+      width: 18px;
+      height: 18px;
+      accent-color: $primary-color;
+    }
+
+    .points-input {
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      padding: 0.3rem 0.35rem;
+      text-align: right;
+    }
+
+    span {
+      font-size: 0.75rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+  }
+
+  .line-price input[type='number'],
+  .points-input {
+    appearance: textfield;
+    -moz-appearance: textfield;
+
+    &::-webkit-inner-spin-button,
+    &::-webkit-outer-spin-button {
+      margin: 0;
+      -webkit-appearance: none;
+    }
+  }
+
+  .customer-point-balance {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 42px;
+    padding: 0.35rem 0;
+    border-top: 1px solid $medium-grey;
+    border-bottom: 1px solid $medium-grey;
+    color: $text-secondary;
+
+    strong {
+      color: #81c784;
+      font-size: 1.05rem;
+    }
+  }
+
+  .payment-form {
+    display: grid;
+    grid-template-columns: minmax(82px, 1fr) minmax(88px, 100px) auto;
+    align-items: center;
+    gap: 0.7rem;
+
+    input,
+    select {
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+
+    button {
+      white-space: nowrap;
+    }
+  }
+
+  .points-total strong {
+    color: #81c784;
   }
 
   .line-status-table-wrap {
@@ -2191,11 +2474,17 @@ watch(
   }
 
   .line-status-table {
-    min-width: 680px;
+    min-width: 820px;
 
     th:nth-child(2),
     td:nth-child(2) {
-      width: 42%;
+      width: 28%;
+      white-space: normal;
+    }
+
+    th:nth-child(3),
+    td:nth-child(3) {
+      width: 26%;
       white-space: normal;
     }
 
@@ -2230,6 +2519,40 @@ watch(
       > .icon-btn {
         grid-column: 12;
         grid-row: 2;
+        justify-self: end;
+      }
+
+      &.detail-line-row {
+        .membership-toggle { grid-column: 1 / span 3; }
+        .points-redemption {
+          grid-column: 4 / span 5;
+          grid-row: 2;
+        }
+        .line-total { grid-column: 9 / span 3; }
+      }
+    }
+  }
+
+  @container (max-width: 520px) {
+    .line-row,
+    .line-row.detail-line-row {
+      grid-template-columns: minmax(0, 1fr);
+
+      .line-type,
+      .line-product,
+      .line-name,
+      .line-quantity,
+      .line-price,
+      .membership-toggle,
+      .points-redemption,
+      .line-total,
+      > .icon-btn {
+        grid-column: 1;
+        grid-row: auto;
+        justify-self: stretch;
+      }
+
+      > .icon-btn {
         justify-self: end;
       }
     }
@@ -2302,6 +2625,10 @@ watch(
       grid-template-columns: 1fr;
       align-items: stretch;
 
+      &.detail-line-row {
+        grid-template-columns: 1fr;
+      }
+
       .line-type,
       .line-product,
       .line-name,
@@ -2312,12 +2639,17 @@ watch(
 
       .line-total,
       .membership-toggle,
+      .points-redemption,
       > .icon-btn {
         grid-column: auto;
         grid-row: auto;
       }
 
       .membership-toggle {
+        justify-self: stretch;
+      }
+
+      .points-redemption {
         justify-self: stretch;
       }
     }

@@ -714,6 +714,7 @@ class WorkOrderLineItem(Base):
     unit_price = Column(Integer, nullable=False, default=0)
     is_confirmed = Column(Integer, nullable=False, default=1)
     counts_toward_membership = Column(Boolean, nullable=False, default=False)
+    points_redeemed = Column(Integer, nullable=False, default=0)
     inventory_reserved_quantity = Column(Integer, nullable=False, default=0)
     inventory_consumed_quantity = Column(Integer, nullable=False, default=0)
     inventory_deducted = Column(Integer, nullable=False, default=0)

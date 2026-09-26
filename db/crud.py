@@ -618,6 +618,8 @@ def _build_line_item(db: Session, item_in: WorkOrderLineItemCreate):
         raise ValueError("工單明細數量需大於 0")
     if item_data.get("unit_price", 0) < 0:
         raise ValueError("工單明細單價不可小於 0")
+    if item_data.get("points_redeemed", 0) > 0 and item_type != models.WorkOrderLineItemType.PART:
+        raise ValueError("只有零件 / 耗材明細可使用點數")
 
     db_product = None
     if item_data.get("product_id"):
@@ -997,6 +999,8 @@ def create_work_order(db: Session, work_order: WorkOrderCreate):
     _sync_payment_status(db_work_order)
     _sync_work_order_approvals(db_work_order)
     db.add(db_work_order)
+    db.flush()
+    points_service.sync_work_order_point_redemption(db, db_work_order)
     db.commit()
     return get_work_order(db, db_work_order.id)
 
@@ -1053,6 +1057,8 @@ def create_historical_work_order(
         raise ValueError("補登原因為必填")
 
     line_items = [_build_line_item(db, item) for item in work_order.line_items]
+    if any((line_item.points_redeemed or 0) > 0 for line_item in line_items):
+        raise ValueError("歷史補登工單不可使用會員點數")
     if not work_order.award_points:
         for line_item in line_items:
             line_item.counts_toward_membership = False
@@ -1118,6 +1124,56 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
     if "ordered_date" in update_data and update_data["ordered_date"] is None:
         raise ValueError("訂購日不可為空")
 
+    vehicle_selection_fields = {"motor_id", "guest_motor_id"}
+    vehicle_fields = {
+        "vehicle_license_plate", "vehicle_brand", "vehicle_model",
+        "vehicle_vin", "vehicle_mileage",
+    }
+    if (vehicle_selection_fields | vehicle_fields).intersection(update_data):
+        if db_work_order.supervisor_reviewed_at:
+            raise ValueError("主管已審核，不能修改車輛資料")
+
+        selected_motor_id = update_data.get("motor_id")
+        selected_guest_motor_id = update_data.get("guest_motor_id")
+        if selected_motor_id and selected_guest_motor_id:
+            raise ValueError("工單不可同時選擇會員與散客車輛")
+        if selected_motor_id:
+            selected_motor = get_motor(db, motor_id=selected_motor_id)
+            if not selected_motor or selected_motor.google_id != db_work_order.google_id or selected_motor.status:
+                raise ValueError("選擇的車輛不屬於此工單會員")
+            update_data.update({
+                "guest_motor_id": None,
+                "vehicle_license_plate": selected_motor.license_plate,
+                "vehicle_brand": selected_motor.brand,
+                "vehicle_model": selected_motor.model_name,
+                "vehicle_vin": selected_motor.vin,
+                "vehicle_mileage": update_data.get("vehicle_mileage", selected_motor.mileage),
+            })
+        elif selected_guest_motor_id:
+            selected_guest_motor = get_guest_motor(db, guest_motor_id=selected_guest_motor_id)
+            if (
+                not selected_guest_motor
+                or selected_guest_motor.guest_customer_id != db_work_order.guest_customer_id
+                or selected_guest_motor.status
+            ):
+                raise ValueError("選擇的車輛不屬於此工單散客")
+            update_data.update({
+                "motor_id": None,
+                "vehicle_license_plate": selected_guest_motor.license_plate,
+                "vehicle_brand": selected_guest_motor.brand,
+                "vehicle_model": selected_guest_motor.model_name,
+                "vehicle_vin": selected_guest_motor.vin,
+                "vehicle_mileage": update_data.get("vehicle_mileage", selected_guest_motor.mileage),
+            })
+
+        if not str(update_data.get("vehicle_license_plate", db_work_order.vehicle_license_plate) or "").strip():
+            raise ValueError("車牌不可為空")
+        if not str(update_data.get("vehicle_model", db_work_order.vehicle_model) or "").strip():
+            raise ValueError("車型不可為空")
+        for field in vehicle_fields - {"vehicle_mileage"}:
+            if field in update_data:
+                update_data[field] = (update_data[field] or "").strip() or None
+
     if line_items_data is not None:
         if db_work_order.supervisor_reviewed_at:
             raise ValueError("主管已審核，不能修改工單明細或會員累積資格")
@@ -1137,32 +1193,9 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
                     inventory_service.release_work_order_line_item(db, existing_item)
                 for field in (
                     "type", "name", "description", "quantity", "unit_price",
-                    "is_confirmed", "counts_toward_membership",
+                    "is_confirmed", "counts_toward_membership", "points_redeemed",
                 ):
                     setattr(existing_item, field, item_data.get(field))
-        elif (db_work_order.paid_amount or 0) > 0:
-            incoming_ids = {item.get("id") for item in line_items_data}
-            if (
-                None in incoming_ids
-                or len(line_items_data) != len(existing_line_items)
-                or incoming_ids != set(existing_line_items)
-            ):
-                raise ValueError("已有付款紀錄，只能修改會員累積資格")
-
-            immutable_fields = ("type", "name", "description", "product_id", "quantity", "unit_price", "is_confirmed")
-            for item_data in line_items_data:
-                existing_item = existing_line_items[item_data["id"]]
-                for field in immutable_fields:
-                    incoming_value = item_data.get(field)
-                    existing_value = getattr(existing_item, field)
-                    if field == "name":
-                        incoming_value = (incoming_value or "").strip()
-                    elif field == "description":
-                        incoming_value = incoming_value or None
-                        existing_value = existing_value or None
-                    if incoming_value != existing_value:
-                        raise ValueError("已有付款紀錄，只能修改會員累積資格")
-                existing_item.counts_toward_membership = bool(item_data.get("counts_toward_membership"))
         else:
             if any(item.inventory_deducted or (item.inventory_consumed_quantity or 0) > 0 for item in db_work_order.line_items):
                 raise ValueError("已扣庫存的工單明細不可整批覆蓋，請用追加明細處理")
@@ -1181,6 +1214,8 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
             _recalculate_work_order_total(db_work_order)
             _sync_payment_status(db_work_order)
             _sync_work_order_approvals(db_work_order)
+
+        points_service.sync_work_order_point_redemption(db, db_work_order)
 
     for key, value in update_data.items():
         if key == "status":
@@ -1208,6 +1243,9 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
             if target_status == models.WorkOrderStatus.CANCELED:
                 _detach_work_order_purchase_requests(db, db_work_order)
                 _release_work_order_inventory(db, db_work_order)
+                for line_item in db_work_order.line_items:
+                    line_item.points_redeemed = 0
+                points_service.sync_work_order_point_redemption(db, db_work_order, desired_points=0)
             if target_status == models.WorkOrderStatus.COMPLETED and not _inventory_fully_consumed(db_work_order):
                 raise ValueError("工單仍有零件 / 耗材尚未完成主管確認扣庫存，不能結案。")
             if target_status == models.WorkOrderStatus.COMPLETED and not db_work_order.completed_at:
@@ -1243,6 +1281,9 @@ def soft_delete_work_order(db: Session, work_order_id: int, delete: WorkOrderDel
 
     _detach_work_order_purchase_requests(db, db_work_order)
     _release_work_order_inventory(db, db_work_order)
+    for line_item in db_work_order.line_items:
+        line_item.points_redeemed = 0
+    points_service.sync_work_order_point_redemption(db, db_work_order, desired_points=0)
     db_work_order.status = models.WorkOrderStatus.CANCELED
     db_work_order.deleted_at = datetime.utcnow()
     db_work_order.deleted_by = delete_data.get("actor")
@@ -1259,10 +1300,9 @@ def add_work_order_line_item(db: Session, work_order_id: int, item: WorkOrderLin
         return None
     if db_work_order.supervisor_reviewed_at:
         raise ValueError("主管已審核，不能新增工單明細")
-    if (db_work_order.paid_amount or 0) > 0:
-        raise ValueError("已有付款紀錄，不能新增工單明細")
     db_item = _build_line_item(db, item)
     db_work_order.line_items.append(db_item)
+    points_service.sync_work_order_point_redemption(db, db_work_order)
     _recalculate_work_order_total(db_work_order)
     _sync_payment_status(db_work_order)
     _sync_work_order_approvals(db_work_order)
