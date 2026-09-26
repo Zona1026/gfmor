@@ -56,8 +56,22 @@
           <div v-show="isShopManagementOpen" class="nav-submenu">
             <router-link to="/admin/purchases" active-class="active" @click="closeSidebar">採購 / 叫貨</router-link>
             <router-link to="/admin/accounting" active-class="active" @click="closeSidebar">帳務</router-link>
-            <router-link to="/admin/admins" active-class="active" @click="closeSidebar">系統與權限</router-link>
-            <router-link to="/admin/settings" active-class="active" @click="closeSidebar">全域系統設定</router-link>
+            <div class="nav-subgroup">
+              <button
+                type="button"
+                class="nav-group-toggle nav-subgroup-toggle"
+                :class="{ active: isSystemSettingsRoute }"
+                :aria-expanded="isSystemSettingsOpen"
+                @click="isSystemSettingsOpen = !isSystemSettingsOpen"
+              >
+                <span>系統與權限</span>
+                <span class="nav-group-chevron" aria-hidden="true">⌄</span>
+              </button>
+              <div v-show="isSystemSettingsOpen" class="nav-submenu nav-submenu--nested">
+                <router-link to="/admin/admins" active-class="active" @click="closeSidebar">管理員設定</router-link>
+                <router-link to="/admin/settings" active-class="active" @click="closeSidebar">系統設定</router-link>
+              </div>
+            </div>
           </div>
         </div>
         <router-link to="/admin/announcements" active-class="active" @click="closeSidebar">公告管理</router-link>
@@ -304,8 +318,10 @@ const { adminUser } = storeToRefs(authStore);
 const { settings } = storeToRefs(siteStore);
 
 const isSidebarOpen = ref(false);
-const shopManagementPaths = ['/admin/purchases', '/admin/accounting', '/admin/admins', '/admin/settings'];
+const systemSettingsPaths = ['/admin/admins', '/admin/settings'];
+const shopManagementPaths = ['/admin/purchases', '/admin/accounting', ...systemSettingsPaths];
 const isShopManagementOpen = ref(shopManagementPaths.includes(route.path));
+const isSystemSettingsOpen = ref(systemSettingsPaths.includes(route.path));
 const isInventoryOpen = ref(route.path.startsWith('/admin/inventory'));
 const allBookings = ref([]);
 const allOrders = ref([]);
@@ -329,6 +345,7 @@ const closeSidebar = () => {
 const routeTitle = computed(() => route.meta?.title || '後台管理');
 const appVersion = packageInfo.version;
 const isShopManagementRoute = computed(() => shopManagementPaths.includes(route.path));
+const isSystemSettingsRoute = computed(() => systemSettingsPaths.includes(route.path));
 const isInventoryRoute = computed(() => route.path.startsWith('/admin/inventory'));
 
 watch(() => route.path, (path) => {
@@ -337,6 +354,9 @@ watch(() => route.path, (path) => {
   }
   if (path.startsWith('/admin/inventory')) {
     isInventoryOpen.value = true;
+  }
+  if (systemSettingsPaths.includes(path)) {
+    isSystemSettingsOpen.value = true;
   }
 });
 
@@ -693,6 +713,28 @@ onMounted(() => {
           display: block;
           padding: 0.7rem 1.5rem 0.7rem 2.5rem;
           font-size: 0.9rem;
+        }
+      }
+
+      .nav-subgroup {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .nav-subgroup-toggle {
+        min-height: 44px;
+        padding: 0.7rem 1.5rem 0.7rem 2.5rem;
+        font-size: 0.9rem;
+        font-weight: 400;
+      }
+
+      .nav-submenu--nested {
+        padding: 0;
+        background: rgba(0, 0, 0, 0.12);
+
+        a {
+          padding-left: 3.5rem;
+          font-size: 0.86rem;
         }
       }
     }
