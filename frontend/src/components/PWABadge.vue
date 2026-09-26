@@ -11,23 +11,66 @@
 </template>
 
 <script setup>
+import { onBeforeUnmount } from 'vue'
 import { useRegisterSW } from 'virtual:pwa-register/vue'
+
+const UPDATE_INTERVAL_MS = 5 * 60 * 1000
+const UPDATE_THROTTLE_MS = 60 * 1000
+
+let registration
+let updateInterval
+let lastUpdateAt = 0
+
+const checkForUpdate = async () => {
+  if (!registration || !navigator.onLine) return
+
+  const now = Date.now()
+  if (now - lastUpdateAt < UPDATE_THROTTLE_MS) return
+
+  lastUpdateAt = now
+  try {
+    await registration.update()
+  } catch (error) {
+    console.warn('SW update check failed', error)
+  }
+}
+
+const checkWhenVisible = () => {
+  if (document.visibilityState === 'visible') checkForUpdate()
+}
 
 const {
   needRefresh,
   updateServiceWorker,
 } = useRegisterSW({
-  onRegistered(r) {
-    console.log('SW Registered: ', r)
+  onNeedReload() {
+    window.location.reload()
+  },
+  onRegisteredSW(_swUrl, currentRegistration) {
+    registration = currentRegistration
+    checkForUpdate()
+
+    if (!registration) return
+    updateInterval = window.setInterval(checkForUpdate, UPDATE_INTERVAL_MS)
+    window.addEventListener('focus', checkForUpdate)
+    window.addEventListener('online', checkForUpdate)
+    document.addEventListener('visibilitychange', checkWhenVisible)
   },
   onRegisterError(error) {
-    console.log('SW registration error', error)
+    console.warn('SW registration error', error)
   },
 })
 
 const close = () => {
   needRefresh.value = false
 }
+
+onBeforeUnmount(() => {
+  if (updateInterval) window.clearInterval(updateInterval)
+  window.removeEventListener('focus', checkForUpdate)
+  window.removeEventListener('online', checkForUpdate)
+  document.removeEventListener('visibilitychange', checkWhenVisible)
+})
 </script>
 
 <style scoped>

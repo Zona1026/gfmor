@@ -46,6 +46,15 @@ services:
       - key: VITE_API_URL
         value: "https://gfmotor-api.onrender.com/api"
     headers:
+      - path: /sw.js
+        name: Cache-Control
+        value: no-cache, no-store, must-revalidate
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache, no-store, must-revalidate
+      - path: /
+        name: Cache-Control
+        value: no-cache, no-store, must-revalidate
       - path: /*
         name: Cross-Origin-Opener-Policy
         value: same-origin-allow-popups
