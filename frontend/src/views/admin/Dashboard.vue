@@ -55,7 +55,30 @@
           </button>
           <div v-show="isShopManagementOpen" class="nav-submenu">
             <router-link to="/admin/purchases" active-class="active" @click="closeSidebar">採購 / 叫貨</router-link>
-            <router-link to="/admin/accounting" active-class="active" @click="closeSidebar">帳務</router-link>
+            <div class="nav-subgroup">
+              <button
+                type="button"
+                class="nav-group-toggle nav-subgroup-toggle"
+                :class="{ active: isAccountingRoute }"
+                :aria-expanded="isAccountingOpen"
+                @click="isAccountingOpen = !isAccountingOpen"
+              >
+                <span>帳務</span>
+                <span class="nav-group-chevron" aria-hidden="true">⌄</span>
+              </button>
+              <div v-show="isAccountingOpen" class="nav-submenu nav-submenu--nested">
+                <router-link
+                  :to="{ path: '/admin/accounting', query: { report: 'daily' } }"
+                  :class="{ active: route.query.report === 'daily' }"
+                  @click="closeSidebar"
+                >日報表</router-link>
+                <router-link
+                  :to="{ path: '/admin/accounting', query: { report: 'monthly' } }"
+                  :class="{ active: route.query.report === 'monthly' }"
+                  @click="closeSidebar"
+                >月報表</router-link>
+              </div>
+            </div>
             <div class="nav-subgroup">
               <button
                 type="button"
@@ -321,6 +344,7 @@ const isSidebarOpen = ref(false);
 const systemSettingsPaths = ['/admin/admins', '/admin/settings'];
 const shopManagementPaths = ['/admin/purchases', '/admin/accounting', ...systemSettingsPaths];
 const isShopManagementOpen = ref(shopManagementPaths.includes(route.path));
+const isAccountingOpen = ref(route.path === '/admin/accounting');
 const isSystemSettingsOpen = ref(systemSettingsPaths.includes(route.path));
 const isInventoryOpen = ref(route.path.startsWith('/admin/inventory'));
 const allBookings = ref([]);
@@ -345,6 +369,7 @@ const closeSidebar = () => {
 const routeTitle = computed(() => route.meta?.title || '後台管理');
 const appVersion = packageInfo.version;
 const isShopManagementRoute = computed(() => shopManagementPaths.includes(route.path));
+const isAccountingRoute = computed(() => route.path === '/admin/accounting');
 const isSystemSettingsRoute = computed(() => systemSettingsPaths.includes(route.path));
 const isInventoryRoute = computed(() => route.path.startsWith('/admin/inventory'));
 
@@ -357,6 +382,9 @@ watch(() => route.path, (path) => {
   }
   if (systemSettingsPaths.includes(path)) {
     isSystemSettingsOpen.value = true;
+  }
+  if (path === '/admin/accounting') {
+    isAccountingOpen.value = true;
   }
 });
 
