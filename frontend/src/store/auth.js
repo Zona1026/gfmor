@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
-export const ADMIN_IDLE_TIMEOUT_MS = 60 * 60 * 1000;
+export const ADMIN_IDLE_TIMEOUT_HOURS = 4;
+export const ADMIN_IDLE_TIMEOUT_MS = ADMIN_IDLE_TIMEOUT_HOURS * 60 * 60 * 1000;
 const ADMIN_LAST_ACTIVITY_KEY = 'adminLastActivityAt';
 
 const safeParse = (key) => {

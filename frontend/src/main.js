@@ -4,7 +4,7 @@ import router from './router'
 import App from './App.vue'
 import './assets/main.scss'
 import vue3GoogleLogin from 'vue3-google-login'
-import { useAuthStore } from './store/auth'
+import { ADMIN_IDLE_TIMEOUT_HOURS, useAuthStore } from './store/auth'
 
 const app = createApp(App)
 
@@ -29,20 +29,44 @@ app.use(vue3GoogleLogin, {
   clientId: '357528958616-1mbtrri5ii7irbqpftd8ml3qtdr7ho0u.apps.googleusercontent.com'
 })
 
-window.addEventListener('click', (event) => {
+const ADMIN_ACTIVITY_WRITE_INTERVAL_MS = 15 * 1000
+const ADMIN_ACTIVITY_EVENTS = ['pointerdown', 'keydown', 'input', 'scroll', 'touchstart']
+
+let lastAdminActivityWriteAt = 0
+let isHandlingAdminTimeout = false
+
+const handleAdminActivity = (event) => {
   const authStore = useAuthStore();
   if (!authStore.adminToken) return;
 
   if (authStore.isAdminSessionIdle()) {
+    if (isHandlingAdminTimeout) return;
+    isHandlingAdminTimeout = true;
     authStore.adminLogout();
-    event.preventDefault();
-    event.stopPropagation();
-    alert('閒置超過 1 小時，請重新登入。');
+    if (event?.cancelable) event.preventDefault();
+    event?.stopPropagation?.();
+    alert(`閒置超過 ${ADMIN_IDLE_TIMEOUT_HOURS} 小時，請重新登入。`);
     router.push('/admin-login');
     return;
   }
 
-  authStore.setAdminActivity();
-}, true);
+  const now = Date.now();
+  if (now - lastAdminActivityWriteAt >= ADMIN_ACTIVITY_WRITE_INTERVAL_MS) {
+    authStore.setAdminActivity(now);
+    lastAdminActivityWriteAt = now;
+  }
+};
+
+ADMIN_ACTIVITY_EVENTS.forEach((eventName) => {
+  window.addEventListener(eventName, handleAdminActivity, {
+    capture: true,
+    passive: eventName === 'scroll',
+  });
+});
+
+window.addEventListener('focus', handleAdminActivity);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') handleAdminActivity();
+});
 
 app.mount('#app')
