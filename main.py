@@ -9,7 +9,7 @@ from core.config import settings
 app = FastAPI(
     title="GFmotor API",
     description="GFmotor 改車系統的後端 API。",
-    version="0.10.0",
+    version="0.11.0",
 )
 
 
