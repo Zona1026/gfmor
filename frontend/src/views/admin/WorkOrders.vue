@@ -497,32 +497,36 @@
               </select>
               <button class="btn btn-outline" @click="submitPayment">登錄付款</button>
             </div>
-            <table v-if="selectedWorkOrder.payments?.length" class="mini-table">
-              <thead>
-                <tr><th>時間</th><th>方式</th><th>金額</th></tr>
-              </thead>
-              <tbody>
-                <tr v-for="payment in selectedWorkOrder.payments" :key="payment.id">
-                  <td>{{ formatTaipeiDateTime(payment.paid_at) }}</td>
-                  <td>{{ payment.method || '-' }}</td>
-                  <td>NT$ {{ payment.amount?.toLocaleString() }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <table v-if="selectedWorkOrder.refund_records?.length" class="mini-table refund-history">
-              <thead>
-                <tr><th>退款時間</th><th>類型</th><th>方式</th><th>金額</th><th>經手人</th></tr>
-              </thead>
-              <tbody>
-                <tr v-for="refund in selectedWorkOrder.refund_records" :key="refund.id">
-                  <td>{{ formatTaipeiDateTime(refund.refunded_at) }}</td>
-                  <td>{{ refundTypeMap[refund.refund_type] || refund.refund_type }}</td>
-                  <td>{{ refund.method || '-' }}</td>
-                  <td>NT$ {{ refund.amount?.toLocaleString() }}</td>
-                  <td>{{ refund.actor || '-' }}</td>
-                </tr>
-              </tbody>
-            </table>
+            <div v-if="selectedWorkOrder.payments?.length" class="payment-table-wrap">
+              <table class="mini-table">
+                <thead>
+                  <tr><th>時間</th><th>方式</th><th>金額</th></tr>
+                </thead>
+                <tbody>
+                  <tr v-for="payment in selectedWorkOrder.payments" :key="payment.id">
+                    <td>{{ formatTaipeiDateTime(payment.paid_at) }}</td>
+                    <td>{{ payment.method || '-' }}</td>
+                    <td>NT$ {{ payment.amount?.toLocaleString() }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div v-if="selectedWorkOrder.refund_records?.length" class="payment-table-wrap refund-history">
+              <table class="mini-table">
+                <thead>
+                  <tr><th>退款時間</th><th>類型</th><th>方式</th><th>金額</th><th>經手人</th></tr>
+                </thead>
+                <tbody>
+                  <tr v-for="refund in selectedWorkOrder.refund_records" :key="refund.id">
+                    <td>{{ formatTaipeiDateTime(refund.refunded_at) }}</td>
+                    <td>{{ refundTypeMap[refund.refund_type] || refund.refund_type }}</td>
+                    <td>{{ refund.method || '-' }}</td>
+                    <td>NT$ {{ refund.amount?.toLocaleString() }}</td>
+                    <td>{{ refund.actor || '-' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </section>
         </div>
 
@@ -2099,6 +2103,7 @@ watch(
     background-color: $background-color;
     display: grid;
     gap: 0.9rem;
+    min-width: 0;
 
     h4 {
       color: $primary-light;
@@ -2473,6 +2478,25 @@ watch(
     margin-top: 0.85rem;
   }
 
+  .payment-table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+
+    .mini-table {
+      min-width: 0;
+
+      th,
+      td {
+        padding: 0.7rem 0.4rem;
+        white-space: nowrap;
+      }
+    }
+
+    &.refund-history .mini-table {
+      min-width: 620px;
+    }
+  }
+
   .line-status-table {
     min-width: 820px;
 
@@ -2584,6 +2608,7 @@ watch(
       display: flex;
       justify-content: space-between;
       gap: 1rem;
+      min-width: 0;
     }
 
     dt {
@@ -2591,9 +2616,12 @@ watch(
     }
 
     dd {
+      flex: 0 0 auto;
       margin: 0;
       color: $primary-light;
       font-weight: 700;
+      text-align: right;
+      white-space: nowrap;
     }
   }
 
