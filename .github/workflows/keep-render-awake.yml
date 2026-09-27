@@ -1,0 +1,33 @@
+name: Keep Render API Awake
+
+on:
+  schedule:
+    - cron: "3,13,23,33,43,53 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keep-render-api-awake
+  cancel-in-progress: true
+
+jobs:
+  ping-health-endpoint:
+    name: Ping API health endpoint
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Request Render health endpoint
+        shell: bash
+        run: |
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --location \
+            --max-time 120 \
+            --retry 2 \
+            --retry-delay 5 \
+            https://gfmotor-api.onrender.com/health
