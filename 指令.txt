@@ -1,3 +1,4 @@
 uvicorn main:app --reload 啟動後端伺服器
 cd frontend
 npm run dev  啟動前端伺服器
+電腦中的設定檔全部為本地資料庫，線上資料庫只有Render有
