@@ -213,6 +213,10 @@ export const getProducts = async () => {
   return await api.get('/products/');
 };
 
+export const getProduct = async (id) => {
+  return await api.get(`/products/${id}`);
+};
+
 export const createWorkOrderRefund = async (workOrderId, data) => {
   return await api.post(`/work-orders/${workOrderId}/refunds`, data, adminAuthConfig());
 };

@@ -84,7 +84,12 @@ def read_paginated_products(
     status: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    query = db.query(models.Product)
+    query = db.query(models.Product).filter(
+        models.Product.inventory_type.in_([
+            models.InventoryType.SHOP,
+            models.InventoryType.BOTH,
+        ])
+    )
 
     if search and search.strip():
         keyword = f"%{search.strip()}%"

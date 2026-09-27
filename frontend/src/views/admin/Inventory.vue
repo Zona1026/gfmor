@@ -26,7 +26,7 @@
           ＋ 新增商品
         </button>
       </div>
-      <InventoryTable :items="shopItems" />
+      <InventoryTable :items="shopItems" :can-edit="canManageInventory" @edit="openEditModal" />
     </section>
 
     <section v-if="activeTab === 'parts'" class="inventory-panel">
@@ -36,7 +36,7 @@
           ＋ 新增零件
         </button>
       </div>
-      <InventoryTable :items="partItems" />
+      <InventoryTable :items="partItems" :can-edit="canManageInventory" @edit="openEditModal" />
     </section>
 
     <section v-if="activeTab === 'movements'" class="panel">
@@ -227,13 +227,13 @@
 
     <section v-if="activeTab === 'low'" class="inventory-panel">
       <div class="panel-title list-heading"><h3>低庫存提醒</h3></div>
-      <InventoryTable :items="lowStockItems" />
+      <InventoryTable :items="lowStockItems" :can-edit="canManageInventory" @edit="openEditModal" />
     </section>
 
     <div v-if="showCreateModal && canManageInventory" class="modal-overlay" @click.self="closeCreateModal">
-      <div class="modal" role="dialog" aria-modal="true" :aria-label="createModalTitle">
+      <div class="modal" role="dialog" aria-modal="true" :aria-label="itemModalTitle">
         <div class="modal-header">
-          <h3>{{ createModalTitle }}</h3>
+          <h3>{{ itemModalTitle }}</h3>
           <button class="btn btn-outline" type="button" @click="closeCreateModal">關閉</button>
         </div>
         <form class="create-form" @submit.prevent="submitCreateItem">
@@ -261,7 +261,7 @@
               <input v-model.number="createForm.price" type="number" min="0" required />
             </label>
             <label>
-              初始庫存
+              {{ editingItemId ? '實際庫存' : '初始庫存' }}
               <input v-model.number="createForm.stock" type="number" min="0" required />
             </label>
             <label>
@@ -275,6 +275,13 @@
             <label>
               低庫存門檻
               <input v-model.number="createForm.low_stock_threshold" type="number" min="0" required />
+            </label>
+            <label v-if="editingItemId">
+              販售狀態
+              <select v-model.number="createForm.is_active" required>
+                <option :value="1">上架</option>
+                <option :value="0">下架</option>
+              </select>
             </label>
           </div>
           <div v-if="showCategoryForm" class="category-create-row">
@@ -294,10 +301,13 @@
             圖片
             <input type="file" accept="image/*" @change="onCreateFileChange" />
           </label>
+          <div v-if="itemPreviewUrl" class="item-preview">
+            <img :src="itemPreviewUrl" alt="商品圖片預覽" />
+          </div>
           <div class="form-actions">
             <button class="btn btn-outline" type="button" @click="closeCreateModal">取消</button>
             <button class="btn btn-primary" type="submit" :disabled="savingCreate">
-              {{ savingCreate ? '新增中...' : '確認新增' }}
+              {{ savingCreate ? '儲存中...' : editingItemId ? '儲存變更' : '確認新增' }}
             </button>
           </div>
         </form>
@@ -315,12 +325,14 @@ import {
   adjustInventory,
   createProduct,
   createProductCategory,
+  getProduct,
   getInventoryItems,
   getInventoryMovements,
   getInventoryReservations,
   getProductCategories,
   releaseInventoryReservation,
-  scrapInventory
+  scrapInventory,
+  updateProduct
 } from '../../api/admin';
 
 const route = useRoute();
@@ -349,6 +361,8 @@ const showCategoryForm = ref(false);
 const newCategoryName = ref('');
 const createItemType = ref('SHOP');
 const selectedCreateFile = ref(null);
+const editingItemId = ref(null);
+const itemPreviewUrl = ref('');
 const shopItems = ref([]);
 const partItems = ref([]);
 const allItems = ref([]);
@@ -366,7 +380,8 @@ const defaultCreateForm = (inventoryType = 'SHOP') => ({
   stock: 0,
   inventory_type: inventoryType,
   low_stock_threshold: 5,
-  description: ''
+  description: '',
+  is_active: 1
 });
 const createForm = reactive(defaultCreateForm());
 
@@ -449,13 +464,18 @@ function productCategory(item) {
 }
 
 const activeCategories = computed(() => categories.value.filter(category => category.is_active));
-const createModalTitle = computed(() => createItemType.value === 'PART' ? '新增零件' : '新增商品');
+const itemModalTitle = computed(() => {
+  const itemLabel = createItemType.value === 'PART' ? '零件' : '商品';
+  return `${editingItemId.value ? '編輯' : '新增'}${itemLabel}`;
+});
 
 const InventoryTable = defineComponent({
   props: {
-    items: { type: Array, required: true }
+    items: { type: Array, required: true },
+    canEdit: { type: Boolean, default: false }
   },
-  setup(props) {
+  emits: ['edit'],
+  setup(props, { emit }) {
     const stockValue = (value) => value === null || value === undefined ? '-' : formatNumber(value);
     return () => {
       const rows = props.items.length
@@ -464,9 +484,17 @@ const InventoryTable = defineComponent({
           h('td', productCategory(item)),
           h('td', { class: 'stock-cell' }, stockValue(item.stock)),
           h('td', { class: 'available-cell' }, stockValue(item.available_stock)),
-          h('td', { class: 'reserved-cell' }, stockValue(item.reserved_stock))
+          h('td', { class: 'reserved-cell' }, stockValue(item.reserved_stock)),
+          ...(props.canEdit ? [h('td', { class: 'action-cell' }, [
+            h('button', {
+              class: 'btn btn-sm btn-outline edit-item-button',
+              type: 'button',
+              title: `編輯${item.name}`,
+              onClick: () => emit('edit', item)
+            }, '編輯')
+          ])] : [])
         ]))
-        : [h('tr', [h('td', { colspan: 5, class: 'empty-row' }, '尚無庫存資料。')])];
+        : [h('tr', [h('td', { colspan: props.canEdit ? 6 : 5, class: 'empty-row' }, '尚無庫存資料。')])];
 
       return h('div', { class: 'inventory-table-block' }, [
         h('div', { class: 'table-wrap' }, [
@@ -477,7 +505,8 @@ const InventoryTable = defineComponent({
                 h('th', '分類'),
                 h('th', '實際庫存'),
                 h('th', '可用庫存'),
-                h('th', '預留數量')
+                h('th', '預留數量'),
+                ...(props.canEdit ? [h('th', { class: 'action-cell' }, '操作')] : [])
               ])
             ]),
             h('tbody', rows)
@@ -568,23 +597,53 @@ async function submitStocktake(item) {
 }
 
 function openCreateModal(inventoryType) {
+  editingItemId.value = null;
   createItemType.value = inventoryType;
   Object.assign(createForm, defaultCreateForm(inventoryType));
   selectedCreateFile.value = null;
+  itemPreviewUrl.value = '';
   showCategoryForm.value = false;
   newCategoryName.value = '';
   showCreateModal.value = true;
 }
 
+async function openEditModal(item) {
+  try {
+    const product = await getProduct(item.id);
+    editingItemId.value = product.id;
+    createItemType.value = product.inventory_type === 'PART' ? 'PART' : 'SHOP';
+    Object.assign(createForm, defaultCreateForm(product.inventory_type), {
+      name: product.name || '',
+      category_id: product.category_id ? String(product.category_id) : '',
+      price: product.price || 0,
+      stock: product.stock || 0,
+      inventory_type: product.inventory_type || 'BOTH',
+      low_stock_threshold: product.low_stock_threshold ?? 5,
+      description: product.description || '',
+      is_active: Number(product.is_active ?? 1)
+    });
+    selectedCreateFile.value = null;
+    itemPreviewUrl.value = product.image_url || '';
+    showCategoryForm.value = false;
+    newCategoryName.value = '';
+    showCreateModal.value = true;
+  } catch (error) {
+    alert(`載入商品詳情失敗：${error.response?.data?.detail || error.message}`);
+  }
+}
+
 function closeCreateModal() {
   showCreateModal.value = false;
+  editingItemId.value = null;
   selectedCreateFile.value = null;
+  itemPreviewUrl.value = '';
   showCategoryForm.value = false;
   newCategoryName.value = '';
 }
 
 function onCreateFileChange(event) {
   selectedCreateFile.value = event.target.files?.[0] || null;
+  if (selectedCreateFile.value) itemPreviewUrl.value = URL.createObjectURL(selectedCreateFile.value);
 }
 
 async function submitCreateCategory() {
@@ -614,15 +673,17 @@ async function submitCreateItem() {
     formData.append('inventory_type', createForm.inventory_type);
     formData.append('low_stock_threshold', Number(createForm.low_stock_threshold) || 0);
     formData.append('description', createForm.description || '');
+    if (editingItemId.value) formData.append('is_active', Number(createForm.is_active));
     if (createForm.category_id) formData.append('category_id', Number(createForm.category_id));
     else formData.append('category', '');
     if (selectedCreateFile.value) formData.append('file', selectedCreateFile.value);
 
-    await createProduct(formData);
+    if (editingItemId.value) await updateProduct(editingItemId.value, formData);
+    else await createProduct(formData);
     closeCreateModal();
     await fetchItems();
   } catch (error) {
-    alert(`新增失敗：${error.response?.data?.detail || error.message}`);
+    alert(`儲存失敗：${error.response?.data?.detail || error.message}`);
   } finally {
     savingCreate.value = false;
   }
@@ -842,6 +903,11 @@ onMounted(fetchAll);
   width: 25%;
 }
 
+.inventory-table-block :deep(.inventory-table .action-cell) {
+  width: 92px;
+  text-align: right;
+}
+
 .inventory-table-block :deep(.inventory-table td) {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1041,6 +1107,21 @@ textarea {
 
 .form-actions {
   justify-content: flex-end;
+}
+
+.item-preview {
+  width: min(240px, 100%);
+  overflow: hidden;
+  border: 1px solid $medium-grey;
+  border-radius: $border-radius;
+  background: $background-color;
+}
+
+.item-preview img {
+  display: block;
+  width: 100%;
+  max-height: 180px;
+  object-fit: contain;
 }
 
 @media (max-width: 720px) {

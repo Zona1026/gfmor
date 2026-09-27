@@ -119,6 +119,8 @@ def create_order(
             raise HTTPException(status_code=400, detail=f"找不到商品 ID={item.product_id}")
         if not product.is_active:
             raise HTTPException(status_code=400, detail=f"商品 [{product.name}] 已下架")
+        if product.inventory_type == models.InventoryType.PART:
+            raise HTTPException(status_code=400, detail=f"商品 [{product.name}] 不提供線上販售")
         if inventory_service.available_stock(db, product) < item.quantity:
             raise HTTPException(status_code=400, detail=f"商品 [{product.name}] 可用庫存不足（可用 {inventory_service.available_stock(db, product)}）")
 
