@@ -6,6 +6,7 @@ from schemas import admin as admin_schema
 from api.dependencies.admin_auth import ROLE_STAFF, require_admin, require_super_admin
 from db.database import get_db
 from core.security import get_password_hash # Reuse the hashing function
+from core.staff_names import canonical_staff_name
 
 router = APIRouter()
 
@@ -14,7 +15,18 @@ def get_staff_admins(admin=Depends(require_admin), db: Session = Depends(get_db)
     """
     列出可指派為工單負責人的一般權限帳號。
     """
-    return db.query(models.Admin).filter(models.Admin.role == ROLE_STAFF).order_by(models.Admin.id).all()
+    staff_admins = db.query(models.Admin).filter(models.Admin.role == ROLE_STAFF).order_by(models.Admin.id).all()
+    return [
+        {
+            "id": staff.id,
+            "username": staff.username,
+            "email": staff.email,
+            "full_name": canonical_staff_name(staff.full_name) or staff.full_name,
+            "role": staff.role,
+            "created_at": staff.created_at,
+        }
+        for staff in staff_admins
+    ]
 
 @router.get("/", response_model=List[admin_schema.AdminDetail])
 def get_admins(admin=Depends(require_admin), db: Session = Depends(get_db)):

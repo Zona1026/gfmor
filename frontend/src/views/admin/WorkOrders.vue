@@ -199,10 +199,10 @@
               </label>
               <label>
                 <span class="field-label">負責人 <span class="required-mark">*</span></span>
-                <select v-model="createForm.responsible_staff" required>
-                  <option value="" disabled>請選擇負責人</option>
-                  <option v-for="staff in responsibleStaffOptions" :key="staff" :value="staff">
-                    {{ staff }}
+                <select v-model="createForm.responsible_staff_id" required>
+                  <option :value="null" disabled>請選擇負責人</option>
+                  <option v-for="staff in responsibleStaffOptions" :key="staff.id" :value="staff.id">
+                    {{ staff.name }}
                   </option>
                 </select>
               </label>
@@ -414,9 +414,9 @@
               </label>
               <label>
                 負責人
-                <select v-model="detailForm.responsible_staff" :disabled="!canEditWorkOrder">
-                  <option v-for="staff in responsibleStaffOptions" :key="staff" :value="staff">
-                    {{ staff }}
+                <select v-model="detailForm.responsible_staff_id" :disabled="!canEditWorkOrder">
+                  <option v-for="staff in responsibleStaffOptions" :key="staff.id" :value="staff.id">
+                    {{ staff.name }}
                   </option>
                 </select>
               </label>
@@ -811,7 +811,11 @@ const searchKeyword = ref('');
 const filterDate = ref('');
 const workOrderEditorRoles = ['最高級', '管理層', '一般'];
 const workOrderManagerRoles = ['最高級', '管理層'];
-const defaultResponsibleStaff = '火腿';
+const responsibleStaffAliases = {
+  火腿: '腿腿',
+  江子暢: '腿腿'
+};
+const defaultResponsibleStaffUsername = 'HAM-9999';
 const paymentMethodOptions = ['現金', '轉帳', 'Linepay'];
 const canCreateWorkOrder = computed(() => ['最高級', '管理層', '一般'].includes(adminUser.value?.role));
 const canEditWorkOrder = computed(() => workOrderEditorRoles.includes(adminUser.value?.role));
@@ -976,11 +980,12 @@ const canSubmitRefund = computed(() => Boolean(
 const lineItemEditingLocked = computed(() => supervisorReviewLocked.value);
 const membershipSelectionLocked = computed(() => supervisorReviewLocked.value);
 const responsibleStaffOptions = computed(() => {
-  const names = staffAdmins.value
-    .map(admin => admin.full_name || admin.username)
-    .filter(Boolean);
-  if (!names.includes(defaultResponsibleStaff)) names.unshift(defaultResponsibleStaff);
-  return names;
+  return staffAdmins.value
+    .map(admin => ({
+      id: admin.id,
+      name: staffDisplayName(admin)
+    }))
+    .filter(staff => staff.id && staff.name);
 });
 
 function defaultCreateForm() {
@@ -1000,7 +1005,8 @@ function defaultCreateForm() {
     vehicle_purchase_date: '',
     service_type: 'MAINTENANCE',
     problem_description: '',
-    responsible_staff: defaultResponsibleStaff,
+    responsible_staff: '',
+    responsible_staff_id: null,
     scheduled_at: '',
     ordered_date: todayDateString(),
     completed_date: todayDateString(),
@@ -1034,6 +1040,55 @@ function defaultRefundForm() {
     method: '',
     inventory_action: 'NO_CHANGE',
     reason: ''
+  };
+}
+
+function canonicalResponsibleStaff(name) {
+  const trimmedName = String(name || '').trim();
+  if (!trimmedName) return '';
+  return responsibleStaffAliases[trimmedName] || trimmedName;
+}
+
+function staffDisplayName(staff) {
+  if (!staff) return '';
+  return staff.full_name || staff.username || '';
+}
+
+function staffNameById(staffId) {
+  const staff = staffAdmins.value.find(item => item.id === staffId);
+  return staffDisplayName(staff);
+}
+
+function staffIdByName(name) {
+  const canonicalName = canonicalResponsibleStaff(name);
+  const staff = staffAdmins.value.find(item =>
+    staffDisplayName(item) === canonicalName || item.username === canonicalName
+  );
+  return staff?.id || null;
+}
+
+function defaultResponsibleStaffId() {
+  return staffAdmins.value.find(item => item.username === defaultResponsibleStaffUsername)?.id
+    || responsibleStaffOptions.value[0]?.id
+    || null;
+}
+
+function applyDefaultResponsibleStaff(form) {
+  if (!form.responsible_staff_id) {
+    form.responsible_staff_id = defaultResponsibleStaffId();
+  }
+  form.responsible_staff = staffNameById(form.responsible_staff_id) || form.responsible_staff || '';
+}
+
+function workOrderResponsibleStaffName(workOrder) {
+  return staffDisplayName(workOrder.responsible_staff_admin)
+    || canonicalResponsibleStaff(workOrder.responsible_staff);
+}
+
+function normalizeWorkOrderResponsibleStaff(workOrder) {
+  return {
+    ...workOrder,
+    responsible_staff: workOrderResponsibleStaffName(workOrder)
   };
 }
 
@@ -1098,7 +1153,7 @@ const clearFilters = () => {
 const fetchWorkOrders = async () => {
   loading.value = true;
   try {
-    workOrders.value = await getWorkOrders(filterToParams());
+    workOrders.value = (await getWorkOrders(filterToParams())).map(normalizeWorkOrderResponsibleStaff);
   } catch (error) {
     console.error('載入工單失敗:', error);
     workOrders.value = [];
@@ -1118,6 +1173,10 @@ const fetchProducts = async () => {
 const fetchStaffAdmins = async () => {
   try {
     staffAdmins.value = await getStaffAdmins();
+    applyDefaultResponsibleStaff(createForm.value);
+    if (detailForm.value && Object.keys(detailForm.value).length) {
+      applyDefaultResponsibleStaff(detailForm.value);
+    }
   } catch (error) {
     console.error('載入負責人清單失敗:', error);
     staffAdmins.value = [];
@@ -1412,7 +1471,7 @@ const validateCreateRequiredFields = () => {
   if (!hasText(createForm.value.vehicle_license_plate)) return '車牌為必填';
   if (!hasText(createForm.value.vehicle_model)) return '車型為必填';
   if (!hasMileageValue(createForm.value.vehicle_mileage)) return '里程為必填';
-  if (!hasText(createForm.value.responsible_staff)) return '負責人為必填';
+  if (!createForm.value.responsible_staff_id) return '負責人為必填';
   if (createMode.value === 'historical') {
     if (!hasText(createForm.value.ordered_date)) return '訂購日為必填';
     if (!hasText(createForm.value.completed_date)) return '完工日為必填';
@@ -1435,6 +1494,7 @@ const submitCreateWorkOrder = async () => {
   try {
     const payload = {
       ...createForm.value,
+      responsible_staff: staffNameById(createForm.value.responsible_staff_id),
       vehicle_mileage: Number(createForm.value.vehicle_mileage),
       vehicle_purchase_date: createForm.value.vehicle_purchase_date || null,
       scheduled_at: createForm.value.scheduled_at || null,
@@ -1478,7 +1538,7 @@ const submitCreateWorkOrder = async () => {
 
 const openDetail = async (id) => {
   try {
-    selectedWorkOrder.value = await getWorkOrder(id);
+    selectedWorkOrder.value = normalizeWorkOrderResponsibleStaff(await getWorkOrder(id));
     await Promise.all([
       fetchProducts(),
       fetchStaffAdmins(),
@@ -1496,7 +1556,10 @@ const openDetail = async (id) => {
       vehicle_mileage: selectedWorkOrder.value.vehicle_mileage,
       problem_description: selectedWorkOrder.value.problem_description || '',
       inspection_result: selectedWorkOrder.value.inspection_result || '',
-      responsible_staff: selectedWorkOrder.value.responsible_staff || defaultResponsibleStaff,
+      responsible_staff: workOrderResponsibleStaffName(selectedWorkOrder.value),
+      responsible_staff_id: selectedWorkOrder.value.responsible_staff_id
+        || staffIdByName(selectedWorkOrder.value.responsible_staff)
+        || defaultResponsibleStaffId(),
       scheduled_at: toDatetimeLocal(selectedWorkOrder.value.scheduled_at),
       ordered_date: selectedWorkOrder.value.ordered_date || selectedWorkOrder.value.consumption_date || '',
       notes: selectedWorkOrder.value.notes || ''
@@ -1554,6 +1617,7 @@ const saveWorkOrder = async () => {
   try {
     const payload = {
       ...detailForm.value,
+      responsible_staff: staffNameById(detailForm.value.responsible_staff_id),
       vehicle_mileage: Number(detailForm.value.vehicle_mileage),
       scheduled_at: detailForm.value.scheduled_at || null
     };
@@ -1569,7 +1633,7 @@ const saveWorkOrder = async () => {
     if (!membershipSelectionLocked.value) {
       payload.line_items = detailLineItems.value.map(cleanLineItem);
     }
-    selectedWorkOrder.value = await updateWorkOrder(selectedWorkOrder.value.id, payload);
+    selectedWorkOrder.value = normalizeWorkOrderResponsibleStaff(await updateWorkOrder(selectedWorkOrder.value.id, payload));
     detailLineItems.value = (selectedWorkOrder.value.line_items || []).map(item => ({ ...item }));
     originalDetailRedeemedPoints.value = detailLineItems.value.reduce(
       (total, item) => total + Number(item.points_redeemed || 0),

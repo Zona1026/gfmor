@@ -1,8 +1,9 @@
 from datetime import date, datetime
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
+from core.staff_names import canonical_staff_name
 from db.models import (
     BookingCategory,
     PurchaseRequestStatus,
@@ -37,6 +38,16 @@ class GuestCustomerSummary(BaseModel):
     id: int
     name: str
     phone: str
+
+    class Config:
+        from_attributes = True
+
+
+class AdminSummary(BaseModel):
+    id: int
+    username: str
+    full_name: Optional[str] = None
+    role: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -278,10 +289,13 @@ class WorkOrderBase(BaseModel):
     problem_description: Optional[str] = None
     inspection_result: Optional[str] = None
     responsible_staff: Optional[str] = None
+    responsible_staff_id: Optional[int] = None
     scheduled_at: Optional[datetime] = None
     ordered_date: Optional[date] = None
     consumption_date: Optional[date] = None
     notes: Optional[str] = None
+
+    _canonical_responsible_staff = validator("responsible_staff", allow_reuse=True)(canonical_staff_name)
 
 
 class WorkOrderCreate(WorkOrderBase):
@@ -315,10 +329,13 @@ class WorkOrderUpdate(BaseModel):
     problem_description: Optional[str] = None
     inspection_result: Optional[str] = None
     responsible_staff: Optional[str] = None
+    responsible_staff_id: Optional[int] = None
     scheduled_at: Optional[datetime] = None
     ordered_date: Optional[date] = None
     notes: Optional[str] = None
     line_items: Optional[List[WorkOrderLineItemUpdate]] = None
+
+    _canonical_responsible_staff = validator("responsible_staff", allow_reuse=True)(canonical_staff_name)
 
 
 class WorkOrderDeleteCreate(BaseModel):
@@ -347,6 +364,7 @@ class WorkOrder(BaseModel):
     status: WorkOrderStatus
     payment_status: WorkOrderPaymentStatus
     responsible_staff: Optional[str] = None
+    responsible_staff_id: Optional[int] = None
     scheduled_at: Optional[datetime] = None
     ordered_date: date
     consumption_date: date
@@ -368,6 +386,8 @@ class WorkOrder(BaseModel):
     delete_reason: Optional[str] = None
     is_historical_backfill: bool = False
     inventory_tracking_exempt: bool = False
+
+    _canonical_responsible_staff = validator("responsible_staff", allow_reuse=True)(canonical_staff_name)
     backfilled_at: Optional[datetime] = None
     backfilled_by: Optional[str] = None
     backfill_reason: Optional[str] = None
@@ -387,6 +407,7 @@ class WorkOrder(BaseModel):
     guest_customer: Optional[GuestCustomerSummary] = None
     guest_motor: Optional[GuestMotorSummary] = None
     motor: Optional[MotorSummary] = None
+    responsible_staff_admin: Optional[AdminSummary] = None
 
     class Config:
         from_attributes = True

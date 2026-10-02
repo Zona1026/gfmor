@@ -11,6 +11,7 @@ from . import membership as membership_service
 from . import new_vehicle as new_vehicle_service
 from . import points as points_service
 from . import purchases as purchase_service
+from core.staff_names import canonical_staff_name, staff_name_variants
 from schemas.user import UserCreate, UserUpdate
 from schemas.product import ProductCreate, ProductUpdate
 from schemas.accounting import RefundCreate
@@ -392,6 +393,7 @@ def _work_order_options():
         joinedload(models.WorkOrder.guest_customer),
         joinedload(models.WorkOrder.guest_motor),
         joinedload(models.WorkOrder.motor),
+        joinedload(models.WorkOrder.responsible_staff_admin),
         joinedload(models.WorkOrder.items).joinedload(models.WorkOrderItem.product),
         joinedload(models.WorkOrder.line_items).joinedload(models.WorkOrderLineItem.product),
         joinedload(models.WorkOrder.line_items).joinedload(models.WorkOrderLineItem.purchase_requests),
@@ -407,6 +409,35 @@ def _schema_dict(schema, **kwargs):
     if hasattr(schema, "model_dump"):
         return schema.model_dump(**kwargs)
     return schema.dict(**kwargs)
+
+
+def _staff_display_name(admin):
+    if not admin:
+        return None
+    return admin.full_name or admin.username
+
+
+def _resolve_responsible_staff(db: Session, responsible_staff_id=None, responsible_staff=None):
+    if responsible_staff_id:
+        admin = db.query(models.Admin).filter(models.Admin.id == responsible_staff_id).first()
+        if not admin:
+            raise ValueError("找不到負責人")
+        return admin.id, _staff_display_name(admin)
+
+    canonical_name = canonical_staff_name(responsible_staff)
+    if not canonical_name:
+        return None, None
+
+    variants = staff_name_variants(canonical_name)
+    admin = (
+        db.query(models.Admin)
+        .filter(or_(models.Admin.full_name.in_(variants), models.Admin.username.in_(variants)))
+        .order_by(models.Admin.id)
+        .first()
+    )
+    if admin:
+        return admin.id, _staff_display_name(admin)
+    return None, canonical_name
 
 
 def _booking_service_type(category):
@@ -917,7 +948,17 @@ def get_work_orders(
     if payment_status:
         query = query.filter(models.WorkOrder.payment_status == models.WorkOrderPaymentStatus(payment_status))
     if responsible_staff:
-        query = query.filter(models.WorkOrder.responsible_staff == responsible_staff)
+        variants = staff_name_variants(responsible_staff)
+        staff_ids = [
+            row.id
+            for row in db.query(models.Admin.id)
+            .filter(or_(models.Admin.full_name.in_(variants), models.Admin.username.in_(variants)))
+            .all()
+        ]
+        filters = [models.WorkOrder.responsible_staff.in_(variants)]
+        if staff_ids:
+            filters.append(models.WorkOrder.responsible_staff_id.in_(staff_ids))
+        query = query.filter(or_(*filters))
 
     if date_str:
         try:
@@ -976,12 +1017,18 @@ def create_work_order(db: Session, work_order: WorkOrderCreate):
         line_items.extend(_legacy_items_to_line_items(db, work_order.items))
 
     ordered_date = work_order.ordered_date or work_order.consumption_date or datetime.now(TAIPEI_TZ).date()
+    responsible_staff_id, responsible_staff_name = _resolve_responsible_staff(
+        db,
+        responsible_staff_id=work_order.responsible_staff_id,
+        responsible_staff=work_order.responsible_staff,
+    )
     db_work_order = models.WorkOrder(
         booking_id=work_order.booking_id,
         service_type=work_order.service_type or models.WorkOrderServiceType.MAINTENANCE,
         problem_description=work_order.problem_description,
         inspection_result=work_order.inspection_result,
-        responsible_staff=work_order.responsible_staff,
+        responsible_staff=responsible_staff_name,
+        responsible_staff_id=responsible_staff_id,
         scheduled_at=work_order.scheduled_at,
         ordered_date=ordered_date,
         consumption_date=work_order.consumption_date or ordered_date,
@@ -1064,11 +1111,17 @@ def create_historical_work_order(
             line_item.counts_toward_membership = False
 
     completed_at = _taipei_date_to_utc(work_order.completed_date)
+    responsible_staff_id, responsible_staff_name = _resolve_responsible_staff(
+        db,
+        responsible_staff_id=work_order.responsible_staff_id,
+        responsible_staff=work_order.responsible_staff,
+    )
     db_work_order = models.WorkOrder(
         service_type=work_order.service_type or models.WorkOrderServiceType.MAINTENANCE,
         problem_description=work_order.problem_description,
         inspection_result=work_order.inspection_result,
-        responsible_staff=work_order.responsible_staff,
+        responsible_staff=responsible_staff_name,
+        responsible_staff_id=responsible_staff_id,
         scheduled_at=work_order.scheduled_at,
         ordered_date=ordered_date,
         consumption_date=work_order.completed_date,
@@ -1123,6 +1176,14 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
 
     if "ordered_date" in update_data and update_data["ordered_date"] is None:
         raise ValueError("訂購日不可為空")
+    if "responsible_staff_id" in update_data or "responsible_staff" in update_data:
+        responsible_staff_id, responsible_staff_name = _resolve_responsible_staff(
+            db,
+            responsible_staff_id=update_data.get("responsible_staff_id"),
+            responsible_staff=update_data.get("responsible_staff"),
+        )
+        update_data["responsible_staff_id"] = responsible_staff_id
+        update_data["responsible_staff"] = responsible_staff_name
 
     vehicle_selection_fields = {"motor_id", "guest_motor_id"}
     vehicle_fields = {

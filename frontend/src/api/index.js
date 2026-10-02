@@ -17,6 +17,15 @@ const isAdminPage = () => {
   return currentPath === '/admin' || currentPath.startsWith('/admin/');
 };
 
+const isAdminAuthPage = () => {
+  const currentPath = window.location.pathname;
+  return currentPath === '/admin-login' || currentPath === '/admin-reset-password';
+};
+
+const isAdminAuthRequest = (url = '') => {
+  return url.includes('/admin/login') || url.includes('/admin/password-reset/');
+};
+
 const redirectToAdminLogin = () => {
   localStorage.removeItem('adminToken');
   localStorage.removeItem('adminUser');
@@ -39,10 +48,10 @@ apiClient.interceptors.request.use(
     // 後台頁面才優先帶 adminToken；會員中心與一般會員流程應使用 user token。
     // 這可避免手機瀏覽器殘留的後台 token 影響會員新增/修改車輛。
     const hasAuthHeader = config.headers?.Authorization || config.headers?.authorization;
-    if (!hasAuthHeader) {
+    if (!hasAuthHeader && !isAdminAuthRequest(config.url || '')) {
       if (isAdminRoute && adminToken) {
         config.headers.Authorization = `Bearer ${adminToken}`;
-      } else if (userToken) {
+      } else if (!isAdminAuthPage() && userToken) {
         config.headers.Authorization = `Bearer ${userToken}`;
       }
     }
@@ -68,7 +77,7 @@ apiClient.interceptors.response.use(
     return response.data;
   },
   (error) => {
-    if (error.response?.status === 401 && isAdminPage()) {
+    if (error.response?.status === 401 && isAdminPage() && !isAdminAuthRequest(error.config?.url || '')) {
       redirectToAdminLogin();
 
       // The page is unloading. Keep the rejected request from reaching page-level

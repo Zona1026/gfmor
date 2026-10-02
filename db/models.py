@@ -158,6 +158,7 @@ class Admin(Base):
     password_reset_expires_at = Column(DateTime, nullable=True)
     password_reset_requested_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+    assigned_work_orders = relationship("WorkOrder", back_populates="responsible_staff_admin")
 
 class Announcement(Base):
     """
@@ -532,6 +533,7 @@ class WorkOrder(Base):
     status = Column(Enum(WorkOrderStatus), nullable=False, default=WorkOrderStatus.INSPECTION_PENDING)
     payment_status = Column(Enum(WorkOrderPaymentStatus), nullable=False, default=WorkOrderPaymentStatus.UNPAID)
     responsible_staff = Column(String(50), nullable=True)
+    responsible_staff_id = Column(Integer, ForeignKey("admins.id"), nullable=True, index=True)
     scheduled_at = Column(DateTime, nullable=True)
     ordered_date = Column(Date, nullable=False)
     consumption_date = Column(Date, nullable=False)
@@ -562,6 +564,7 @@ class WorkOrder(Base):
     guest_customer = relationship("GuestCustomer", back_populates="work_orders")
     guest_motor = relationship("GuestMotor", back_populates="work_orders")
     motor = relationship("Motor", back_populates="work_orders")
+    responsible_staff_admin = relationship("Admin", back_populates="assigned_work_orders")
     # 建立與 WorkOrderItem (工單項目) 的一對多關聯
     # 當刪除一張工單時，與它關聯的所有工單項目也會被一併刪除 (cascade)
     items = relationship("WorkOrderItem", back_populates="work_order", cascade="all, delete-orphan")
