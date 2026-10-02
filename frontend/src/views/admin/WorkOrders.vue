@@ -750,6 +750,22 @@
         </div>
       </div>
     </div>
+
+    <div v-if="showRewardQrModal" class="modal-overlay reward-qr-overlay" @click.self="closeRewardQrModal">
+      <div class="modal-content reward-qr-modal">
+        <div class="modal-header">
+          <div>
+            <h3>請客人掃描集點 QR Code</h3>
+            <p>工單品項含機油，請協助客人完成集點。</p>
+          </div>
+          <button class="icon-btn" type="button" @click="closeRewardQrModal">×</button>
+        </div>
+        <img :src="rewardQrImageUrl" alt="集點 QR Code" />
+        <div class="form-actions modal-footer-actions">
+          <button class="btn btn-primary" type="button" @click="closeRewardQrModal">完成</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -829,8 +845,13 @@ const reopenForm = ref({ reason: '' });
 const showRefundModal = ref(false);
 const refundModalMode = ref('general');
 const refundForm = ref(defaultRefundForm());
+const showRewardQrModal = ref(false);
 const updatingFulfillmentItemId = ref(null);
 const reviewingWorkOrder = ref(false);
+const rewardQrFileName = '000hghvb_rewardcards_pointqr_2_20260927_171805.png';
+const apiBaseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const backendBaseUrl = apiBaseUrl.replace(/\/api$/, '');
+const rewardQrImageUrl = `${backendBaseUrl || window.location.origin}/assets/${rewardQrFileName}`;
 
 const serviceTypeMap = {
   REPAIR: '維修',
@@ -1371,6 +1392,22 @@ const validateLineItems = (items) => {
   return '';
 };
 
+const workOrderItemsContainOil = (items = []) => {
+  return items.some(item => String(item.name || '').includes('機油'));
+};
+
+const showRewardQrIfOilItems = (items = []) => {
+  if (workOrderItemsContainOil(items)) {
+    showRewardQrModal.value = true;
+    return true;
+  }
+  return false;
+};
+
+const closeRewardQrModal = () => {
+  showRewardQrModal.value = false;
+};
+
 const validateCreateRequiredFields = () => {
   if (!hasText(createForm.value.vehicle_license_plate)) return '車牌為必填';
   if (!hasText(createForm.value.vehicle_model)) return '車型為必填';
@@ -1431,6 +1468,7 @@ const submitCreateWorkOrder = async () => {
     closeCreateModal();
     await fetchWorkOrders();
     await openDetail(created.id);
+    showRewardQrIfOilItems(selectedWorkOrder.value?.line_items || payload.line_items);
   } catch (error) {
     alert(`建立工單失敗：${getErrorMessage(error)}`);
   } finally {
@@ -1539,7 +1577,9 @@ const saveWorkOrder = async () => {
     );
     await fetchDetailVehicleOptions(selectedWorkOrder.value);
     await fetchWorkOrders();
-    alert('工單已儲存');
+    if (!showRewardQrIfOilItems(selectedWorkOrder.value.line_items)) {
+      alert('工單已儲存');
+    }
   } catch (error) {
     alert(`儲存失敗：${getErrorMessage(error)}`);
   } finally {
@@ -2028,6 +2068,11 @@ watch(
       align-items: center;
       z-index: 1010;
     }
+
+    &.reward-qr-overlay {
+      align-items: center;
+      z-index: 1020;
+    }
   }
 
   .modal-content {
@@ -2046,6 +2091,18 @@ watch(
 
     &.confirm-modal {
       width: min(92vw, 520px);
+    }
+
+    &.reward-qr-modal {
+      width: min(92vw, 460px);
+
+      img {
+        display: block;
+        width: min(100%, 360px);
+        margin: 1rem auto 0;
+        border-radius: $border-radius;
+        background: #fff;
+      }
     }
   }
 

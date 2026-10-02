@@ -31,6 +31,11 @@ app.add_middleware(
 
 app.mount("/test", StaticFiles(directory="static"), name="static")
 app.mount(
+    "/assets",
+    StaticFiles(directory=Path("assets"), check_dir=False),
+    name="assets",
+)
+app.mount(
     "/uploads/portfolio",
     StaticFiles(directory=Path(settings.PORTFOLIO_UPLOAD_DIR), check_dir=False),
     name="portfolio_uploads",
