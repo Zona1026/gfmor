@@ -756,11 +756,29 @@
         <div class="modal-header">
           <div>
             <h3>請客人掃描集點 QR Code</h3>
-            <p>工單品項含機油，請協助客人完成集點。</p>
+            <p v-if="!selectedRewardCampaign">工單品項含機油，請先選擇這次適用的活動。</p>
+            <p v-else>{{ selectedRewardCampaign.description }}</p>
           </div>
           <button class="icon-btn" type="button" @click="closeRewardQrModal">×</button>
         </div>
-        <img :src="rewardQrImageUrl" alt="集點 QR Code" />
+        <div v-if="!selectedRewardCampaign" class="reward-campaign-options">
+          <button
+            v-for="campaign in rewardCampaignOptions"
+            :key="campaign.value"
+            class="reward-campaign-option"
+            type="button"
+            @click="selectRewardCampaign(campaign.value)"
+          >
+            <strong>{{ campaign.label }}</strong>
+            <span>{{ campaign.description }}</span>
+          </button>
+        </div>
+        <template v-else>
+          <img :src="selectedRewardCampaign.qrImageUrl" :alt="`${selectedRewardCampaign.label} QR Code`" />
+          <button class="btn btn-outline reward-change-campaign" type="button" @click="clearSelectedRewardCampaign">
+            重新選擇活動
+          </button>
+        </template>
         <div class="form-actions modal-footer-actions">
           <button class="btn btn-primary" type="button" @click="closeRewardQrModal">完成</button>
         </div>
@@ -850,12 +868,32 @@ const showRefundModal = ref(false);
 const refundModalMode = ref('general');
 const refundForm = ref(defaultRefundForm());
 const showRewardQrModal = ref(false);
+const selectedRewardCampaignValue = ref('');
 const updatingFulfillmentItemId = ref(null);
 const reviewingWorkOrder = ref(false);
-const rewardQrFileName = '000hghvb_rewardcards_pointqr_2_20260927_171805.png';
 const apiBaseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 const backendBaseUrl = apiBaseUrl.replace(/\/api$/, '');
-const rewardQrImageUrl = `${backendBaseUrl || window.location.origin}/assets/${rewardQrFileName}`;
+const assetUrl = (fileName) => `${backendBaseUrl || window.location.origin}/assets/${fileName}`;
+const rewardCampaignOptions = [
+  {
+    value: 'OIL_CHANGE_10_GET_2',
+    label: '單次更換機油',
+    description: '累積 10 次，免費送 2 次',
+    qrFileName: '000hghvb_rewardcards_pointqr_1_20260927_171805.png'
+  },
+  {
+    value: 'OIL_PREPAID_10_GET_4',
+    label: '一次付清 10 罐機油',
+    description: '一次購買 10 罐，免費送 4 次',
+    qrFileName: 'oil_prepaid_10_get_4_reward_qr.png'
+  }
+].map(campaign => ({
+  ...campaign,
+  qrImageUrl: assetUrl(campaign.qrFileName)
+}));
+const selectedRewardCampaign = computed(() => (
+  rewardCampaignOptions.find(campaign => campaign.value === selectedRewardCampaignValue.value) || null
+));
 
 const serviceTypeMap = {
   REPAIR: '維修',
@@ -1457,14 +1495,24 @@ const workOrderItemsContainOil = (items = []) => {
 
 const showRewardQrIfOilItems = (items = []) => {
   if (workOrderItemsContainOil(items)) {
+    selectedRewardCampaignValue.value = '';
     showRewardQrModal.value = true;
     return true;
   }
   return false;
 };
 
+const selectRewardCampaign = (campaignValue) => {
+  selectedRewardCampaignValue.value = campaignValue;
+};
+
+const clearSelectedRewardCampaign = () => {
+  selectedRewardCampaignValue.value = '';
+};
+
 const closeRewardQrModal = () => {
   showRewardQrModal.value = false;
+  selectedRewardCampaignValue.value = '';
 };
 
 const validateCreateRequiredFields = () => {
@@ -2168,6 +2216,46 @@ watch(
         background: #fff;
       }
     }
+  }
+
+  .reward-campaign-options {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+
+  .reward-campaign-option {
+    display: grid;
+    gap: 0.35rem;
+    width: 100%;
+    padding: 1rem;
+    color: $text-primary;
+    text-align: left;
+    background: rgba($text-primary, 0.04);
+    border: 1px solid $medium-grey;
+    border-radius: $border-radius;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+
+    &:hover {
+      background: rgba($primary-color, 0.12);
+      border-color: $primary-color;
+      transform: translateY(-1px);
+    }
+
+    strong {
+      font-size: 1rem;
+    }
+
+    span {
+      color: $text-disabled;
+      font-size: 0.9rem;
+    }
+  }
+
+  .reward-change-campaign {
+    display: block;
+    margin: 0.75rem auto 0;
   }
 
   .modal-footer-actions {
