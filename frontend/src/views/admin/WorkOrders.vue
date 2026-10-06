@@ -161,12 +161,12 @@
               </div>
               <div class="form-grid">
                 <label>
-                  <span class="field-label">散客姓名 <span class="required-mark">*</span></span>
-                  <input v-model.trim="createForm.guest_name" required />
+                  散客姓名
+                  <input v-model.trim="createForm.guest_name" />
                 </label>
                 <label>
-                  <span class="field-label">散客電話 <span class="required-mark">*</span></span>
-                  <input v-model.trim="createForm.guest_phone" required />
+                  散客電話
+                  <input v-model.trim="createForm.guest_phone" />
                 </label>
               </div>
             </div>
@@ -238,9 +238,9 @@
                   <input v-model="createForm.paid_date" type="date" :max="todayDateString()" required />
                 </label>
                 <label>
-                  <span class="field-label">付款方式 <span class="required-mark">*</span></span>
-                  <select v-model="createForm.payment_method" required>
-                    <option value="" disabled>請選擇付款方式</option>
+                  付款方式
+                  <select v-model="createForm.payment_method">
+                    <option value="">未選擇</option>
                     <option v-for="method in paymentMethodOptions" :key="method" :value="method">{{ method }}</option>
                   </select>
                 </label>
@@ -1524,7 +1524,6 @@ const validateCreateRequiredFields = () => {
     if (!hasText(createForm.value.ordered_date)) return '訂購日為必填';
     if (!hasText(createForm.value.completed_date)) return '完工日為必填';
     if (!hasText(createForm.value.paid_date)) return '付款日為必填';
-    if (!hasText(createForm.value.payment_method)) return '付款方式為必填';
     if (!hasText(createForm.value.backfill_reason)) return '補登原因為必填';
     if (createForm.value.ordered_date > createForm.value.completed_date) return '訂購日不可晚於完工日';
   }

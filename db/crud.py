@@ -805,6 +805,21 @@ def _upsert_guest_motor_for_work_order(db: Session, guest_id: int, work_order: W
     return guest_motor
 
 
+def find_guest_customer_by_exact_profile(db: Session, guest_name: str, guest_phone: str):
+    cleaned_name = (guest_name or "").strip()
+    cleaned_phone = (guest_phone or "").strip()
+    if not cleaned_name or not cleaned_phone:
+        return None
+    return (
+        db.query(models.GuestCustomer)
+        .filter(
+            models.GuestCustomer.phone == cleaned_phone,
+            models.GuestCustomer.name == cleaned_name,
+        )
+        .first()
+    )
+
+
 def _hydrate_direct_customer(db: Session, db_work_order, work_order: WorkOrderCreate):
     if work_order.google_id and (work_order.guest_customer_id or work_order.guest_name or work_order.guest_phone):
         raise ValueError("工單不可同時綁定會員與散客")
@@ -835,16 +850,14 @@ def _hydrate_direct_customer(db: Session, db_work_order, work_order: WorkOrderCr
             guest = db.query(models.GuestCustomer).filter(models.GuestCustomer.id == work_order.guest_customer_id).first()
             if not guest:
                 raise ValueError(f"找不到散客 ID={work_order.guest_customer_id}")
-        elif work_order.guest_name and work_order.guest_phone:
-            guest = db.query(models.GuestCustomer).filter(models.GuestCustomer.phone == work_order.guest_phone).first()
-            if guest:
-                guest.name = work_order.guest_name
-            else:
-                guest = models.GuestCustomer(name=work_order.guest_name, phone=work_order.guest_phone)
+        else:
+            guest_name = (work_order.guest_name or "").strip()
+            guest_phone = (work_order.guest_phone or "").strip()
+            guest = find_guest_customer_by_exact_profile(db, guest_name, guest_phone)
+            if not guest:
+                guest = models.GuestCustomer(name=guest_name, phone=guest_phone)
                 db.add(guest)
                 db.flush()
-        else:
-            raise ValueError("現場工單需提供會員或散客資料")
 
         db_work_order.guest_customer_id = guest.id
         db_work_order.customer_name = work_order.customer_name or guest.name
@@ -874,8 +887,6 @@ def _hydrate_direct_customer(db: Session, db_work_order, work_order: WorkOrderCr
     if db_work_order.guest_customer_id:
         _upsert_guest_motor_for_work_order(db, db_work_order.guest_customer_id, work_order, db_work_order)
 
-    if not db_work_order.customer_name or not db_work_order.customer_phone:
-        raise ValueError("工單需有客戶姓名與電話")
     if not db_work_order.vehicle_license_plate:
         raise ValueError("工單需有車牌或設備識別資料")
     if not str(db_work_order.vehicle_model or "").strip():
@@ -1096,9 +1107,7 @@ def create_historical_work_order(
         raise ValueError("訂購日不可晚於完工日")
     if work_order.paid_date > today:
         raise ValueError("付款日不可晚於今天")
-    payment_method = work_order.payment_method.strip()
-    if not payment_method:
-        raise ValueError("付款方式為必填")
+    payment_method = (work_order.payment_method or "").strip() or None
     backfill_reason = work_order.backfill_reason.strip()
     if not backfill_reason:
         raise ValueError("補登原因為必填")

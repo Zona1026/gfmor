@@ -46,16 +46,17 @@ def create_guest_customer(
     admin=Depends(require_manager_admin),
     db: Session = Depends(get_db),
 ):
-    existing = db.query(models.GuestCustomer).filter(models.GuestCustomer.phone == guest.phone).first()
+    guest_name = (guest.name or "").strip()
+    guest_phone = (guest.phone or "").strip()
+    existing = crud.find_guest_customer_by_exact_profile(db, guest_name, guest_phone)
     if existing:
-        existing.name = guest.name
         if guest.notes is not None:
             existing.notes = guest.notes
         db.commit()
         db.refresh(existing)
         return existing
 
-    db_guest = models.GuestCustomer(**guest.dict())
+    db_guest = models.GuestCustomer(name=guest_name, phone=guest_phone, notes=guest.notes)
     db.add(db_guest)
     db.commit()
     db.refresh(db_guest)

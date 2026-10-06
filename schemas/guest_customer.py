@@ -41,8 +41,8 @@ class GuestMotor(GuestMotorBase):
 
 
 class GuestCustomerBase(BaseModel):
-    name: str
-    phone: str
+    name: str = ""
+    phone: str = ""
     notes: Optional[str] = None
 
 

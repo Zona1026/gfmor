@@ -308,7 +308,7 @@ class HistoricalWorkOrderCreate(WorkOrderBase):
     line_items: List[WorkOrderLineItemCreate] = Field(min_length=1)
     completed_date: date
     paid_date: date
-    payment_method: str = Field(min_length=1)
+    payment_method: Optional[str] = None
     payment_note: Optional[str] = None
     award_points: bool = True
     backfill_reason: str = Field(min_length=1)

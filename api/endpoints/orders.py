@@ -231,15 +231,16 @@ def create_instore_order(
             if not guest:
                 raise HTTPException(status_code=400, detail="找不到該散客")
         else:
-            guest = db.query(models.GuestCustomer).filter(models.GuestCustomer.phone == order_data.guest_phone).first()
+            guest_name = (order_data.guest_name or "").strip()
+            guest_phone = (order_data.guest_phone or "").strip()
+            guest = crud.find_guest_customer_by_exact_profile(db, guest_name, guest_phone)
             if guest:
-                guest.name = order_data.guest_name or guest.name
                 if order_data.guest_notes is not None:
                     guest.notes = order_data.guest_notes
             else:
                 guest = models.GuestCustomer(
-                    name=order_data.guest_name,
-                    phone=order_data.guest_phone,
+                    name=guest_name,
+                    phone=guest_phone,
                     notes=order_data.guest_notes,
                 )
                 db.add(guest)
