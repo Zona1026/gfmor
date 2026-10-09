@@ -129,12 +129,35 @@ def read_work_orders(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
+@router.get("/reviews/", response_model=List[work_order_schema.WorkOrder], summary="讀取待復核工單")
+def read_work_order_reviews(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    q: str = None,
+    admin=Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    return crud.get_work_orders(db, skip=skip, limit=limit, q=q, review_pending=True)
+
+
+@router.get("/reviews/{work_order_id}", response_model=work_order_schema.WorkOrder, summary="讀取工單復核內容")
+def read_work_order_review(
+    work_order_id: int,
+    admin=Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    work_order = crud.get_work_order(db, work_order_id=work_order_id)
+    if work_order is None or work_order.deleted_at:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="找不到該工單")
+    return work_order
+
+
 @router.get("/approvals/", response_model=List[work_order_schema.WorkOrderApproval], summary="讀取工單主管審核列表")
 def read_work_order_approvals(
     approval_status: str = Query(None, alias="status"),
     skip: int = 0,
     limit: int = 100,
-    admin=Depends(require_admin),
+    admin=Depends(require_super_admin),
     db: Session = Depends(get_db),
 ):
     try:

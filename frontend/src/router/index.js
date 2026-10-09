@@ -21,7 +21,7 @@ import AdminPortfolio from '../views/admin/Portfolio.vue'
 import AdminProducts from '../views/admin/Products.vue'
 import AdminOrders from '../views/admin/Orders.vue'
 import AdminWorkOrders from '../views/admin/WorkOrders.vue'
-import AdminApprovals from '../views/admin/Approvals.vue'
+import AdminWorkOrderReviews from '../views/admin/WorkOrderReviews.vue'
 import AdminPurchases from '../views/admin/Purchases.vue'
 import AdminAccounting from '../views/admin/Accounting.vue'
 import AdminAdmins from '../views/admin/Admins.vue'
@@ -98,9 +98,16 @@ const routes = [
         component: AdminWorkOrders
       },
       {
+        path: 'work-orders/reviews',
+        name: 'AdminWorkOrderReviews',
+        component: AdminWorkOrderReviews,
+        meta: { requiresWorkOrderReview: true, title: '待復核工單' }
+      },
+      {
         path: 'approvals',
         name: 'AdminApprovals',
-        component: AdminApprovals
+        redirect: { name: 'AdminWorkOrderReviews' },
+        meta: { requiresWorkOrderReview: true }
       },
       {
         path: 'members',
@@ -231,6 +238,10 @@ router.beforeEach((to, from) => {
 
   if (to.meta.requiresAdmin && !authStore.adminToken) {
     return '/admin-login'
+  }
+
+  if (to.meta.requiresWorkOrderReview && authStore.adminUser?.role !== '最高級') {
+    return '/admin/work-orders'
   }
 
   if (to.meta.requiresAuth && !authStore.user) {

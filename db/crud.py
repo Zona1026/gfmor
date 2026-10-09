@@ -920,6 +920,7 @@ def get_work_orders(
     payment_status: str = None,
     responsible_staff: str = None,
     include_deleted: bool = False,
+    review_pending: bool = False,
 ):
     """
     獲取工單列表，支援分頁、狀態、日期與關鍵字搜尋。
@@ -933,6 +934,23 @@ def get_work_orders(
     )
     if not include_deleted:
         query = query.filter(models.WorkOrder.deleted_at.is_(None))
+
+    if review_pending:
+        query = query.filter(
+            models.WorkOrder.status != models.WorkOrderStatus.CANCELED,
+            or_(
+                models.WorkOrder.approvals.any(
+                    models.WorkOrderApproval.status == models.WorkOrderApprovalStatus.PENDING
+                ),
+                models.WorkOrder.status == models.WorkOrderStatus.SUPERVISOR_APPROVAL_PENDING,
+                and_(
+                    models.WorkOrder.supervisor_reviewed_at.is_(None),
+                    models.WorkOrder.is_historical_backfill.is_(False),
+                    models.WorkOrder.status != models.WorkOrderStatus.COMPLETED,
+                    models.WorkOrder.line_items.any(),
+                ),
+            ),
+        )
 
     if status:
         if status == "active":
@@ -1489,14 +1507,13 @@ def confirm_work_order_supervisor_review(db: Session, work_order_id: int, review
     db_work_order = get_work_order(db, work_order_id)
     if not db_work_order:
         return None
-    if db_work_order.supervisor_reviewed_at:
-        return db_work_order
-
     reviewed_at = datetime.utcnow()
     pending_approvals = [
         approval for approval in db_work_order.approvals
         if approval.status == models.WorkOrderApprovalStatus.PENDING
     ]
+    if db_work_order.supervisor_reviewed_at and not pending_approvals:
+        return db_work_order
     pending_types = {approval.type for approval in pending_approvals}
 
     for approval in pending_approvals:

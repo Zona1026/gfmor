@@ -21,7 +21,12 @@
       <nav>
         <router-link to="/admin" exact-active-class="active" @click="closeSidebar">儀表板</router-link>
         <router-link to="/admin/bookings" active-class="active" @click="closeSidebar">預約管理</router-link>
-        <router-link to="/admin/work-orders" active-class="active" @click="closeSidebar">工單管理</router-link>
+        <div class="nav-group">
+          <router-link to="/admin/work-orders" exact-active-class="active" @click="closeSidebar">工單管理</router-link>
+          <div v-if="adminUser?.role === '最高級'" class="nav-submenu">
+            <router-link to="/admin/work-orders/reviews" active-class="active" @click="closeSidebar">待復核工單</router-link>
+          </div>
+        </div>
         <router-link to="/admin/members" active-class="active" @click="closeSidebar">客戶 / 會員管理</router-link>
         <router-link to="/admin/new-vehicles" active-class="active" @click="closeSidebar">新車專區</router-link>
         <router-link to="/admin/products" active-class="active" @click="closeSidebar">商城管理</router-link>
@@ -222,15 +227,15 @@
               <div v-else class="empty-state">目前沒有進行中工單。</div>
             </section>
 
-            <section class="reminder-card">
+            <section v-if="adminUser?.role === '最高級'" class="reminder-card">
               <div class="card-header">
                 <div>
-                  <h3>待主管確認</h3>
+                  <h3>待復核工單</h3>
                   <span>退款、折扣、異常報價、工單結案與追加項目</span>
                 </div>
                 <div class="header-actions">
                   <strong>{{ approvalItems.length }}</strong>
-                  <router-link to="/admin/approvals">查看全部</router-link>
+                  <router-link to="/admin/work-orders/reviews">查看全部</router-link>
                 </div>
               </div>
               <table v-if="approvalPreview.length" class="summary-table">
@@ -553,7 +558,7 @@ const fetchDashboardData = async () => {
       getAdminBookings({ skip: 0, limit: 200, date_str: tomorrowStr }),
       getAllOrders(),
       getWorkOrders({ skip: 0, limit: 200 }),
-      getWorkOrderApprovals({ status: 'PENDING' }),
+      adminUser.value?.role === '最高級' ? getWorkOrderApprovals({ status: 'PENDING' }) : Promise.resolve([]),
       getPurchaseRequests({ status: 'awaiting-arrival', limit: 200 })
     ]);
 

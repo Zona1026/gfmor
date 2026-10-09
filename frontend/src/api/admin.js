@@ -30,6 +30,14 @@ export const getWorkOrders = async (params = {}) => {
   return await api.get('/work-orders/', { params });
 };
 
+export const getWorkOrderReviews = async (params = {}) => {
+  return await api.get('/work-orders/reviews/', { ...adminAuthConfig(), params });
+};
+
+export const getWorkOrderReview = async (id) => {
+  return await api.get(`/work-orders/reviews/${id}`, adminAuthConfig());
+};
+
 export const getWorkOrder = async (id) => {
   return await api.get(`/work-orders/${id}`);
 };

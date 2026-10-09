@@ -30,14 +30,7 @@
           </option>
         </select>
       </label>
-      <button
-        type="button"
-        class="btn btn-outline supervisor-filter-btn"
-        :class="{ active: statusFilter === 'SUPERVISOR_APPROVAL_PENDING' }"
-        @click="showSupervisorPendingWorkOrders"
-      >
-        待主管確認
-      </button>
+
     </div>
 
     <div class="toolbar">
@@ -108,7 +101,7 @@
     </div>
 
     <div v-if="showCreateModal && canCreateWorkOrder" class="modal-overlay" @click.self="closeCreateModal">
-      <div class="modal-content large">
+      <div class="modal-content large work-order-sheet">
         <div class="modal-header">
           <div>
             <h3>{{ createMode === 'historical' ? '補登歷史工單' : '新增工單' }}</h3>
@@ -176,26 +169,38 @@
             <h4>基本資料</h4>
             <div class="form-grid compact-basic-grid">
               <label>
+                訂購日
+                <input v-model="createForm.ordered_date" type="date" required />
+              </label>
+              <label>
                 <span class="field-label">車牌 <span class="required-mark">*</span></span>
                 <input v-model.trim="createForm.vehicle_license_plate" required />
               </label>
               <label>
+                預約日
+                <input v-model="createForm.scheduled_at" type="datetime-local" />
+              </label>
+              <label>
                 品牌
                 <input v-model.trim="createForm.vehicle_brand" />
+              </label>
+              <label v-if="createMode === 'normal'">
+                完工日
+                <input type="text" value="完工後自動記錄" disabled />
               </label>
               <label>
                 <span class="field-label">車型 <span class="required-mark">*</span></span>
                 <input v-model.trim="createForm.vehicle_model" required />
               </label>
               <label>
-                <span class="field-label">里程 <span class="required-mark">*</span></span>
-                <input v-model.number="createForm.vehicle_mileage" type="number" min="0" required />
-              </label>
-              <label>
                 服務類型
                 <select v-model="createForm.service_type">
                   <option v-for="(label, value) in serviceTypeMap" :key="value" :value="value">{{ label }}</option>
                 </select>
+              </label>
+              <label>
+                <span class="field-label">里程 <span class="required-mark">*</span></span>
+                <input v-model.number="createForm.vehicle_mileage" type="number" min="0" required />
               </label>
               <label>
                 <span class="field-label">負責人 <span class="required-mark">*</span></span>
@@ -205,18 +210,6 @@
                     {{ staff.name }}
                   </option>
                 </select>
-              </label>
-              <label>
-                訂購日
-                <input v-model="createForm.ordered_date" type="date" required />
-              </label>
-              <label>
-                預約日
-                <input v-model="createForm.scheduled_at" type="datetime-local" />
-              </label>
-              <label v-if="createMode === 'normal'">
-                完工日
-                <input type="text" value="完工後自動記錄" disabled />
               </label>
               <label v-if="createSource === 'guest'" class="new-vehicle-field">
                 新車
@@ -299,13 +292,13 @@
                   <span>明細名稱</span>
                   <input v-model.trim="item.name" placeholder="明細名稱" required />
                 </label>
-                <label class="line-field line-quantity">
-                  <span>數量</span>
-                  <input v-model.number="item.quantity" type="number" min="1" step="1" required />
-                </label>
                 <label class="line-field line-price">
                   <span>單價</span>
                   <input v-model.number="item.unit_price" type="number" min="0" />
+                </label>
+                <label class="line-field line-quantity">
+                  <span>數量</span>
+                  <input v-model.number="item.quantity" type="number" min="1" step="1" required />
                 </label>
                 <label class="membership-toggle">
                   <input v-model="item.counts_toward_membership" type="checkbox" />
@@ -339,28 +332,13 @@
     </div>
 
     <div v-if="selectedWorkOrder" class="modal-overlay" @click.self="closeDetail">
-      <div class="modal-content xlarge">
+      <div class="modal-content xlarge work-order-sheet">
         <div class="modal-header">
           <div>
             <h3>
               工單 #{{ selectedWorkOrder.id }}
               <span v-if="selectedWorkOrder.is_historical_backfill" class="historical-tag">歷史補登</span>
             </h3>
-            <div class="work-order-customer-vehicle">
-              <span>{{ selectedWorkOrder.customer_name }} /</span>
-              <select
-                v-model.number="detailVehicleId"
-                aria-label="工單車輛"
-                required
-                :disabled="!canEditWorkOrder || supervisorReviewLocked"
-                @change="applyDetailVehicle"
-              >
-                <option :value="null" disabled>請選擇車輛</option>
-                <option v-for="vehicle in detailVehicleOptions" :key="vehicle.id" :value="vehicle.id">
-                  {{ vehicle.license_plate }} / {{ vehicle.brand || '-' }} {{ vehicle.model_name || '' }}
-                </option>
-              </select>
-            </div>
           </div>
           <div class="modal-actions">
             <button
@@ -386,6 +364,21 @@
         <div class="detail-grid">
           <section class="form-section">
             <h4>基本資料</h4>
+            <div class="work-order-customer-vehicle">
+              <span>{{ selectedWorkOrder.customer_name }} /</span>
+              <select
+                v-model.number="detailVehicleId"
+                aria-label="工單車輛"
+                required
+                :disabled="!canEditWorkOrder || supervisorReviewLocked"
+                @change="applyDetailVehicle"
+              >
+                <option :value="null" disabled>請選擇車輛</option>
+                <option v-for="vehicle in detailVehicleOptions" :key="vehicle.id" :value="vehicle.id">
+                  {{ vehicle.license_plate }} / {{ vehicle.brand || '-' }} {{ vehicle.model_name || '' }}
+                </option>
+              </select>
+            </div>
             <div v-if="selectedWorkOrder.is_historical_backfill" class="backfill-audit">
               <strong>補登紀錄</strong>
               <span>補登人：{{ selectedWorkOrder.backfilled_by || '-' }}</span>
@@ -394,10 +387,18 @@
             </div>
             <div class="form-grid compact-basic-grid">
               <label>
+                訂購日
+                <input v-model="detailForm.ordered_date" type="date" required :disabled="!canEditWorkOrder" />
+              </label>
+              <label>
                 服務類型
                 <select v-model="detailForm.service_type" :disabled="!canEditWorkOrder">
                   <option v-for="(label, value) in serviceTypeMap" :key="value" :value="value">{{ label }}</option>
                 </select>
+              </label>
+              <label>
+                預約日
+                <input v-model="detailForm.scheduled_at" type="datetime-local" :disabled="!canEditWorkOrder" />
               </label>
               <label>
                 工單狀態
@@ -411,6 +412,10 @@
                     {{ label }}
                   </option>
                 </select>
+              </label>
+              <label>
+                完工日
+                <input :value="formatDate(selectedWorkOrder.completed_at)" type="text" disabled />
               </label>
               <label>
                 負責人
@@ -430,18 +435,6 @@
                   :disabled="!canEditWorkOrder || supervisorReviewLocked"
                 />
               </label>
-              <label>
-                訂購日
-                <input v-model="detailForm.ordered_date" type="date" required :disabled="!canEditWorkOrder" />
-              </label>
-              <label>
-                預約日
-                <input v-model="detailForm.scheduled_at" type="datetime-local" :disabled="!canEditWorkOrder" />
-              </label>
-              <label>
-                完工日
-                <input :value="formatDate(selectedWorkOrder.completed_at)" type="text" disabled />
-              </label>
             </div>
             <label>
               問題描述
@@ -458,6 +451,94 @@
             <div v-if="hasBlockingApproval(selectedWorkOrder)" class="warning-text">
               此工單仍有待主管審核或退回項目，不能進入施工中、待收款或已完工。
             </div>
+          </section>
+
+          <section class="form-section">
+            <div class="section-title-row">
+              <h4>施工 / 零件 / 工資 / 折扣明細</h4>
+              <div v-if="canEditWorkOrder" class="detail-section-actions">
+                <button type="button" class="btn btn-outline" :disabled="lineItemEditingLocked || activeRevision" @click="addDetailLineItem">新增明細</button>
+                <button type="button" class="btn btn-primary" :disabled="saving" @click="saveWorkOrder">儲存工單</button>
+              </div>
+            </div>
+            <div class="line-editor">
+              <div v-for="(item, index) in detailLineItems" :key="item.id || index" class="line-row detail-line-row">
+                <label class="line-field line-type">
+                  <span>類型</span>
+                  <select v-model="item.type" :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)">
+                    <option v-for="(label, value) in lineItemTypeMap" :key="value" :value="value">{{ label }}</option>
+                  </select>
+                </label>
+                <label class="line-field line-product">
+                  <span>商品</span>
+                  <select v-if="item.type === 'PART'" v-model.number="item.product_id" :disabled="!canEditWorkOrder || lineItemEditingLocked || activeRevision || isLineItemInventoryLocked(item)" @change="applyProductToLine(item)">
+                    <option :value="null">不綁商品 / 不扣庫存</option>
+                    <option v-for="product in products" :key="product.id" :value="product.id">
+                      {{ product.name }}
+                    </option>
+                  </select>
+                  <input v-else value="不適用" disabled />
+                </label>
+                <label class="line-field line-name">
+                  <span>明細名稱</span>
+                  <input v-model.trim="item.name" :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)" placeholder="明細名稱" required />
+                </label>
+                <label class="line-field line-price">
+                  <span>單價</span>
+                  <input v-model.number="item.unit_price" type="number" min="0" :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)" />
+                </label>
+                <label class="line-field line-quantity">
+                  <span>數量</span>
+                  <input v-model.number="item.quantity" type="number" min="1" step="1" required :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)" />
+                </label>
+                <label class="membership-toggle">
+                  <input
+                    v-model="item.counts_toward_membership"
+                    type="checkbox"
+                    :disabled="!canEditWorkOrder || membershipSelectionLocked"
+                  />
+                  <span>累積消費</span>
+                </label>
+                <label class="points-redemption">
+                  <input
+                    class="points-check"
+                    type="checkbox"
+                    :checked="Number(item.points_redeemed || 0) > 0"
+                    :disabled="!canEditWorkOrder || lineItemEditingLocked || !selectedWorkOrder.google_id || item.type !== 'PART'"
+                    @change="toggleLineItemPoints(item, $event.target.checked)"
+                  />
+                  <span>使用點數</span>
+                  <input
+                    v-model.number="item.points_redeemed"
+                    class="points-input"
+                    type="number"
+                    min="1"
+                    :max="detailRedeemablePoints"
+                    :disabled="!canEditWorkOrder || lineItemEditingLocked || !selectedWorkOrder.google_id || item.type !== 'PART' || Number(item.points_redeemed || 0) <= 0"
+                  />
+                  <span>點</span>
+                </label>
+                <div class="line-total">
+                  <span>小計</span>
+                  <strong>NT$ {{ lineItemTotal(item).toLocaleString() }}</strong>
+                </div>
+                <button v-if="canEditWorkOrder" type="button" class="icon-btn danger" :disabled="lineItemEditingLocked || activeRevision || isLineItemInventoryLocked(item)" @click="removeDetailLineItem(index)">×</button>
+              </div>
+            </div>
+            <div class="total-row">
+              <span>總金額</span>
+              <strong>NT$ {{ detailTotal.toLocaleString() }}</strong>
+            </div>
+            <div class="total-row membership-total">
+              <span>可列入會員累積</span>
+              <strong>NT$ {{ detailMembershipTotal.toLocaleString() }}</strong>
+            </div>
+            <div v-if="detailRedeemedPoints > 0" class="total-row points-total">
+              <span>本單使用點數</span>
+              <strong>{{ detailRedeemedPoints.toLocaleString() }} 點</strong>
+            </div>
+            <div v-if="supervisorReviewLocked" class="muted-line">主管已審核，工單明細與會員累積資格已鎖定。</div>
+            <div v-else-if="activeRevision" class="warning-text">工單已退回修改。換料請從對應採購單登記替代料件；修改後需重新主管審核。</div>
           </section>
 
           <section class="form-section">
@@ -530,142 +611,7 @@
           </section>
         </div>
 
-        <section class="form-section">
-          <div class="section-title-row">
-            <h4>施工 / 零件 / 工資 / 折扣明細</h4>
-            <div v-if="canEditWorkOrder" class="detail-section-actions">
-              <button type="button" class="btn btn-outline" :disabled="lineItemEditingLocked || activeRevision" @click="addDetailLineItem">新增明細</button>
-              <button type="button" class="btn btn-primary" :disabled="saving" @click="saveWorkOrder">儲存工單</button>
-            </div>
-          </div>
-          <div class="line-editor">
-            <div v-for="(item, index) in detailLineItems" :key="item.id || index" class="line-row detail-line-row">
-              <label class="line-field line-type">
-                <span>類型</span>
-                <select v-model="item.type" :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)">
-                  <option v-for="(label, value) in lineItemTypeMap" :key="value" :value="value">{{ label }}</option>
-                </select>
-              </label>
-              <label class="line-field line-product">
-                <span>商品</span>
-                <select v-if="item.type === 'PART'" v-model.number="item.product_id" :disabled="!canEditWorkOrder || lineItemEditingLocked || activeRevision || isLineItemInventoryLocked(item)" @change="applyProductToLine(item)">
-                  <option :value="null">不綁商品 / 不扣庫存</option>
-                  <option v-for="product in products" :key="product.id" :value="product.id">
-                    {{ product.name }}
-                  </option>
-                </select>
-                <input v-else value="不適用" disabled />
-              </label>
-              <label class="line-field line-name">
-                <span>明細名稱</span>
-                <input v-model.trim="item.name" :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)" placeholder="明細名稱" required />
-              </label>
-              <label class="line-field line-quantity">
-                <span>數量</span>
-                <input v-model.number="item.quantity" type="number" min="1" step="1" required :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)" />
-              </label>
-              <label class="line-field line-price">
-                <span>單價</span>
-                <input v-model.number="item.unit_price" type="number" min="0" :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)" />
-              </label>
-              <label class="membership-toggle">
-                <input
-                  v-model="item.counts_toward_membership"
-                  type="checkbox"
-                  :disabled="!canEditWorkOrder || membershipSelectionLocked"
-                />
-                <span>累積消費</span>
-              </label>
-              <label class="points-redemption">
-                <input
-                  class="points-check"
-                  type="checkbox"
-                  :checked="Number(item.points_redeemed || 0) > 0"
-                  :disabled="!canEditWorkOrder || lineItemEditingLocked || !selectedWorkOrder.google_id || item.type !== 'PART'"
-                  @change="toggleLineItemPoints(item, $event.target.checked)"
-                />
-                <span>使用點數</span>
-                <input
-                  v-model.number="item.points_redeemed"
-                  class="points-input"
-                  type="number"
-                  min="1"
-                  :max="detailRedeemablePoints"
-                  :disabled="!canEditWorkOrder || lineItemEditingLocked || !selectedWorkOrder.google_id || item.type !== 'PART' || Number(item.points_redeemed || 0) <= 0"
-                />
-                <span>點</span>
-              </label>
-              <div class="line-total">
-                <span>小計</span>
-                <strong>NT$ {{ lineItemTotal(item).toLocaleString() }}</strong>
-              </div>
-              <button v-if="canEditWorkOrder" type="button" class="icon-btn danger" :disabled="lineItemEditingLocked || activeRevision || isLineItemInventoryLocked(item)" @click="removeDetailLineItem(index)">×</button>
-            </div>
-          </div>
-          <div class="total-row">
-            <span>總金額</span>
-            <strong>NT$ {{ detailTotal.toLocaleString() }}</strong>
-          </div>
-          <div class="total-row membership-total">
-            <span>可列入會員累積</span>
-            <strong>NT$ {{ detailMembershipTotal.toLocaleString() }}</strong>
-          </div>
-          <div v-if="detailRedeemedPoints > 0" class="total-row points-total">
-            <span>本單使用點數</span>
-            <strong>{{ detailRedeemedPoints.toLocaleString() }} 點</strong>
-          </div>
-          <div v-if="supervisorReviewLocked" class="muted-line">主管已審核，工單明細與會員累積資格已鎖定。</div>
-          <div v-else-if="activeRevision" class="warning-text">工單已退回修改。換料請從對應採購單登記替代料件；修改後需重新主管審核。</div>
-        </section>
 
-        <section class="form-section">
-          <div class="section-title-row line-status-heading">
-            <h4>明細狀態</h4>
-            <button
-              v-if="canReviewApprovals && !supervisorReviewLocked"
-              type="button"
-              class="btn btn-primary"
-              :disabled="reviewingWorkOrder"
-              @click="confirmSupervisorReview"
-            >
-              {{ reviewingWorkOrder ? '審核中...' : '確認審核' }}
-            </button>
-            <span v-else-if="supervisorReviewLocked" class="reviewed-label">
-              已審核
-            </span>
-          </div>
-          <div v-if="selectedWorkOrder.line_items?.length" class="line-status-table-wrap">
-            <table class="mini-table line-status-table">
-              <thead>
-                <tr><th>類型</th><th>名稱</th><th>庫存數量</th><th>狀態</th><th>最後更新時間</th></tr>
-              </thead>
-              <tbody>
-                <tr v-for="item in selectedWorkOrder.line_items" :key="item.id">
-                  <td>{{ lineItemTypeMap[item.type] || item.type }}</td>
-                  <td>{{ item.name }}</td>
-                  <td>{{ item.type === 'PART' ? inventoryStatusText(item) : '-' }}</td>
-                  <td>
-                    <select
-                      :value="item.fulfillment_status || ''"
-                      :disabled="!canReviewApprovals || updatingFulfillmentItemId === item.id"
-                      @change="updateLineItemFulfillment(item, $event.target.value)"
-                    >
-                      <option value="" disabled>請選擇</option>
-                      <option v-for="(label, value) in fulfillmentStatusMap" :key="value" :value="value">
-                        {{ label }}
-                      </option>
-                    </select>
-                  </td>
-                  <td>{{ formatTaipeiDateTime(item.fulfillment_status_updated_at || item.created_at) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div v-else class="muted-line">目前沒有工單明細。</div>
-          <div v-if="!canReviewApprovals && selectedWorkOrder.line_items?.length" class="muted-line">
-            僅最高級管理員可更新明細狀態。
-          </div>
-        </section>
       </div>
     </div>
 
@@ -794,7 +740,6 @@ import { useRoute, useRouter } from 'vue-router';
 import {
   addWorkOrderPayment,
   completeWorkOrderRevisionRefund,
-  confirmWorkOrderReview,
   createHistoricalWorkOrder,
   createWorkOrderRefund,
   createWorkOrder,
@@ -807,8 +752,7 @@ import {
   getWorkOrders,
   searchUsersByName,
   reopenWorkOrder,
-  updateWorkOrder,
-  updateWorkOrderLineItemFulfillmentStatus
+  updateWorkOrder
 } from '../../api/admin';
 import { useAuthStore } from '../../store/auth';
 import { formatTaipeiDateTime } from '../../utils/dateTime';
@@ -869,8 +813,6 @@ const refundModalMode = ref('general');
 const refundForm = ref(defaultRefundForm());
 const showRewardQrModal = ref(false);
 const selectedRewardCampaignValue = ref('');
-const updatingFulfillmentItemId = ref(null);
-const reviewingWorkOrder = ref(false);
 const apiBaseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 const backendBaseUrl = apiBaseUrl.replace(/\/api$/, '');
 const assetUrl = (fileName) => `${backendBaseUrl || window.location.origin}/assets/${fileName}`;
@@ -932,12 +874,7 @@ const lineItemTypeMap = {
   DISCOUNT: '折扣'
 };
 
-const fulfillmentStatusMap = {
-  PENDING: '確認中',
-  RESERVED: '已預留',
-  ORDERED: '已叫貨',
-  ARRIVED: '已到貨'
-};
+
 
 const serviceTypeFilterOptions = [
   { label: '維修工單', value: 'REPAIR' },
@@ -1166,13 +1103,6 @@ const filterToParams = () => {
 const applyFilters = async () => {
   await router.replace({ path: route.path, query: buildQuery() });
   await fetchWorkOrders();
-};
-
-const showSupervisorPendingWorkOrders = () => {
-  statusFilter.value = statusFilter.value === 'SUPERVISOR_APPROVAL_PENDING'
-    ? ''
-    : 'SUPERVISOR_APPROVAL_PENDING';
-  applyFilters();
 };
 
 const showTodayWorkOrders = () => {
@@ -1406,23 +1336,6 @@ const lineItemTotal = (item) => {
 const isLineItemInventoryLocked = (item) => {
   return Boolean(item.inventory_deducted)
     || Number(item.inventory_consumed_quantity || 0) > 0;
-};
-
-const inventoryStatusText = (item) => {
-  const reserved = Number(item.inventory_reserved_quantity || 0);
-  const consumed = Number(item.inventory_consumed_quantity || 0);
-  const shortage = Number(item.inventory_shortage_quantity || 0);
-  const activeRequests = (item.purchase_requests || []).filter(request => !['CANCELED', 'ASSIGNED_TO_WORK_ORDER'].includes(request.status));
-  const quantity = Number(item.quantity || 0);
-
-  if (consumed >= quantity && quantity > 0) return `已扣庫存 ${consumed}`;
-  if (selectedWorkOrder.value?.inventory_reservation_pending && reserved <= 0 && consumed <= 0) return '待主管確認預留';
-  if (selectedWorkOrder.value?.inventory_consumption_pending && reserved > 0) return `待主管確認扣庫存 / 已預留 ${reserved}`;
-  if (shortage > 0 && activeRequests.length) return `已預留 ${reserved} / 已扣 ${consumed} / 缺貨待到貨 ${shortage}`;
-  if (shortage > 0) return `已預留 ${reserved} / 已扣 ${consumed} / 缺貨 ${shortage}`;
-  if (reserved > 0) return `已預留 ${reserved} / 待扣庫存`;
-  if (consumed > 0) return `已扣庫存 ${consumed}`;
-  return '尚未預留';
 };
 
 const calculateTotal = (items) => {
@@ -1716,39 +1629,6 @@ const hasBlockingApproval = (workOrder, targetStatus = null) => {
     return pending.some(approval => approval.type !== 'INVENTORY_CONSUMPTION');
   }
   return pending.length > 0;
-};
-
-const updateLineItemFulfillment = async (item, status) => {
-  if (!selectedWorkOrder.value || !item?.id || !status || !canReviewApprovals.value) return;
-  updatingFulfillmentItemId.value = item.id;
-  try {
-    selectedWorkOrder.value = await updateWorkOrderLineItemFulfillmentStatus(
-      selectedWorkOrder.value.id,
-      item.id,
-      status
-    );
-    detailLineItems.value = (selectedWorkOrder.value.line_items || []).map(item => ({ ...item }));
-    await fetchWorkOrders();
-  } catch (error) {
-    alert(`明細狀態更新失敗：${getErrorMessage(error)}`);
-  } finally {
-    updatingFulfillmentItemId.value = null;
-  }
-};
-
-const confirmSupervisorReview = async () => {
-  if (!selectedWorkOrder.value || !canReviewApprovals.value || supervisorReviewLocked.value) return;
-  reviewingWorkOrder.value = true;
-  try {
-    const payload = { reviewed_by: adminUser.value?.username || adminUser.value?.full_name || '主管' };
-    selectedWorkOrder.value = await confirmWorkOrderReview(selectedWorkOrder.value.id, payload);
-    detailLineItems.value = (selectedWorkOrder.value.line_items || []).map(item => ({ ...item }));
-    await fetchWorkOrders();
-  } catch (error) {
-    alert(`確認審核失敗：${getErrorMessage(error)}`);
-  } finally {
-    reviewingWorkOrder.value = false;
-  }
 };
 
 const openReopenModal = () => {
@@ -2302,7 +2182,7 @@ watch(
   }
 
   .detail-grid {
-    grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.8fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .form-section {
@@ -2328,7 +2208,7 @@ watch(
   }
 
   .compact-basic-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .form-row {
@@ -2389,7 +2269,7 @@ watch(
 
   .line-row {
     display: grid;
-    grid-template-columns: 90px minmax(112px, 0.75fr) minmax(140px, 1.1fr) 62px 72px 122px 92px 36px;
+    grid-template-columns: 90px minmax(112px, 0.75fr) minmax(140px, 1.1fr) 72px 62px 122px 92px 36px;
     gap: 0.5rem;
     align-items: end;
     min-width: 0;
@@ -2397,8 +2277,8 @@ watch(
     .line-type { grid-column: 1; }
     .line-product { grid-column: 2; }
     .line-name { grid-column: 3; }
-    .line-quantity { grid-column: 4; }
-    .line-price { grid-column: 5; }
+    .line-price { grid-column: 4; }
+    .line-quantity { grid-column: 5; }
 
     .line-field {
       display: grid;
@@ -2486,7 +2366,7 @@ watch(
     }
 
     &.detail-line-row {
-      grid-template-columns: 84px minmax(100px, 0.65fr) minmax(120px, 1fr) 58px 68px 112px 164px 84px 36px;
+      grid-template-columns: 84px minmax(100px, 0.65fr) minmax(120px, 1fr) 68px 58px 112px 164px 84px 36px;
 
       .points-redemption { grid-column: 7; }
       .line-total { grid-column: 8; }
@@ -2752,8 +2632,8 @@ watch(
       .line-type { grid-column: 1 / span 2; }
       .line-product { grid-column: 3 / span 3; }
       .line-name { grid-column: 6 / span 3; }
-      .line-quantity { grid-column: 9 / span 2; }
-      .line-price { grid-column: 11 / span 2; }
+      .line-price { grid-column: 9 / span 2; }
+      .line-quantity { grid-column: 11 / span 2; }
 
       .membership-toggle {
         grid-column: 1 / span 4;
@@ -2860,7 +2740,71 @@ watch(
     padding: 0.75rem;
   }
 
+  .work-order-sheet {
+    .form-section {
+      border-radius: 0;
+      padding: 0;
+      gap: 0;
+
+      > h4,
+      > .section-title-row {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid $medium-grey;
+      }
+
+      > :not(h4):not(.section-title-row) {
+        margin: 0.75rem 1rem;
+      }
+    }
+
+    .compact-basic-grid {
+      gap: 0;
+      border-top: 1px solid $medium-grey;
+      border-left: 1px solid $medium-grey;
+
+      > label {
+        display: grid;
+        grid-template-columns: 90px minmax(0, 1fr);
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.65rem;
+        border-right: 1px solid $medium-grey;
+        border-bottom: 1px solid $medium-grey;
+
+        > input,
+        > select {
+          width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
+        }
+      }
+    }
+
+    .line-editor {
+      gap: 0;
+    }
+
+    .line-row {
+      padding: 0.75rem 0;
+      border-bottom: 1px solid $medium-grey;
+    }
+
+    .money-summary {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0;
+
+      > div {
+        padding: 0.65rem;
+        border-bottom: 1px solid $medium-grey;
+      }
+    }
+  }
+
   @media (max-width: 980px) {
+    .work-order-sheet .money-summary {
+      grid-template-columns: 1fr;
+    }
+
     .filter-bar {
       align-items: stretch;
 
