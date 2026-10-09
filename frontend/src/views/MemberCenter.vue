@@ -338,6 +338,7 @@ import { useAuthStore } from '../store/auth';
 import { getUser, getUserPoints, getUserPointTransactions, updateUserProfile } from '../api/users';
 import { getUserBookings, updateBooking } from '../api/bookings';
 import { getUserWorkOrders } from '../api/workOrders';
+import { lineItemTotal } from '../utils/workOrderAmounts';
 import { deleteMotor, getMotorMaintenanceRecords, updateMotor } from '../api/motors';
 
 const router = useRouter();
@@ -525,7 +526,7 @@ const formatConsumptionDate = (value) => {
   return formatDateTime(value);
 };
 
-const lineItemAmount = (item) => Number(item.quantity || 0) * Number(item.unit_price || 0);
+const lineItemAmount = lineItemTotal;
 
 const workOrderItemNames = (record) => {
   const names = (record.line_items || []).map(item => `${item.name} x${item.quantity || 1}`);

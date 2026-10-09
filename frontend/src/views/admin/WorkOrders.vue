@@ -552,10 +552,26 @@
               <div><dt>待收尾款</dt><dd>NT$ {{ selectedWorkOrder.balance_amount?.toLocaleString() || 0 }}</dd></div>
               <div><dt>可列入會員累積</dt><dd>NT$ {{ selectedWorkOrder.membership_eligible_amount?.toLocaleString() || 0 }}</dd></div>
             </dl>
-            <div class="customer-point-balance">
-              <span>會員現有點數</span>
-              <strong v-if="selectedWorkOrder.google_id">{{ detailCustomerPoints.toLocaleString() }} 點</strong>
-              <strong v-else>散客無會員點數</strong>
+            <div class="points-payment-row">
+              <div class="customer-points-summary">
+                <div class="customer-point-balance">
+                  <span>會員現有點數</span>
+                  <strong v-if="selectedWorkOrder.google_id">{{ detailCustomerPoints.toLocaleString() }} 點</strong>
+                  <strong v-else>散客無會員點數</strong>
+                </div>
+                <div v-if="selectedWorkOrder.google_id && detailRedeemedPoints > 0" class="customer-point-balance" aria-live="polite">
+                  <span>此工單將扣除點數</span>
+                  <strong>{{ detailRedeemedPoints.toLocaleString() }} 點</strong>
+                </div>
+              </div>
+              <div v-if="canManageWorkOrderPayments && selectedWorkOrder.status !== 'CANCELED'" class="payment-form">
+                <input v-model.number="paymentForm.amount" type="number" min="1" placeholder="付款金額" />
+                <select v-model="paymentForm.method">
+                  <option value="" disabled>付款方式</option>
+                  <option v-for="method in paymentMethodOptions" :key="method" :value="method">{{ method }}</option>
+                </select>
+                <button class="btn btn-outline" @click="submitPayment">登錄付款</button>
+              </div>
             </div>
             <div v-if="pendingRefundRevision" class="refund-alert">
               <div>
@@ -569,14 +585,6 @@
             <div v-if="canReviewApprovals && selectedWorkOrder.refundable_amount > 0 && !pendingRefundRevision" class="refund-actions">
               <button class="btn btn-outline" type="button" @click="openGeneralRefundModal">建立退款</button>
               <span>目前可退款 NT$ {{ selectedWorkOrder.refundable_amount.toLocaleString() }}</span>
-            </div>
-            <div v-if="canManageWorkOrderPayments && selectedWorkOrder.status !== 'CANCELED'" class="payment-form">
-              <input v-model.number="paymentForm.amount" type="number" min="1" placeholder="付款金額" />
-              <select v-model="paymentForm.method">
-                <option value="" disabled>付款方式</option>
-                <option v-for="method in paymentMethodOptions" :key="method" :value="method">{{ method }}</option>
-              </select>
-              <button class="btn btn-outline" @click="submitPayment">登錄付款</button>
             </div>
             <div v-if="selectedWorkOrder.payments?.length" class="payment-table-wrap">
               <table class="mini-table">
@@ -756,6 +764,7 @@ import {
 } from '../../api/admin';
 import { useAuthStore } from '../../store/auth';
 import { formatTaipeiDateTime } from '../../utils/dateTime';
+import { lineItemTotal, calculateTotal, calculateMembershipTotal } from '../../utils/workOrderAmounts';
 
 const route = useRoute();
 const router = useRouter();
@@ -1329,36 +1338,9 @@ const applyProductToLine = (item) => {
   item.unit_price = product.price;
 };
 
-const lineItemTotal = (item) => {
-  return Math.max(0, Number(item.quantity) || 0) * Math.max(0, Number(item.unit_price) || 0);
-};
-
 const isLineItemInventoryLocked = (item) => {
   return Boolean(item.inventory_deducted)
     || Number(item.inventory_consumed_quantity || 0) > 0;
-};
-
-const calculateTotal = (items) => {
-  let subtotal = 0;
-  let discount = 0;
-  for (const item of items) {
-    const amount = lineItemTotal(item);
-    if (item.type === 'DISCOUNT') discount += amount;
-    else subtotal += amount;
-  }
-  return Math.max(0, subtotal - discount);
-};
-
-const calculateMembershipTotal = (items) => {
-  let subtotal = 0;
-  let discount = 0;
-  for (const item of items) {
-    if (!item.counts_toward_membership) continue;
-    const amount = lineItemTotal(item);
-    if (item.type === 'DISCOUNT') discount += amount;
-    else subtotal += amount;
-  }
-  return Math.min(calculateTotal(items), Math.max(0, subtotal - discount));
 };
 
 const cleanLineItem = (item) => ({
@@ -2431,16 +2413,32 @@ watch(
     }
   }
 
+  .points-payment-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 0;
+    border-top: 1px solid $medium-grey;
+    border-bottom: 1px solid $medium-grey;
+
+    > div {
+      min-width: 0;
+    }
+  }
+
   .customer-point-balance {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    min-height: 42px;
-    padding: 0.35rem 0;
-    border-top: 1px solid $medium-grey;
-    border-bottom: 1px solid $medium-grey;
+    min-height: 56px;
+    padding: 0.65rem;
+    box-sizing: border-box;
     color: $text-secondary;
+
+    & + .customer-point-balance {
+      border-top: 1px solid $medium-grey;
+    }
 
     strong {
       color: #81c784;
@@ -2452,7 +2450,12 @@ watch(
     display: grid;
     grid-template-columns: minmax(82px, 1fr) minmax(88px, 100px) auto;
     align-items: center;
+    align-content: start;
     gap: 0.7rem;
+    min-height: 56px;
+    padding: 8px 0.65rem;
+    border-left: 1px solid $medium-grey;
+    box-sizing: border-box;
 
     input,
     select {
@@ -2463,6 +2466,13 @@ watch(
 
     button {
       white-space: nowrap;
+    }
+
+    input,
+    select,
+    button {
+      height: 40px;
+      box-sizing: border-box;
     }
   }
 
@@ -2790,19 +2800,52 @@ watch(
     }
 
     .money-summary {
+      position: relative;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 0;
+
+      &::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 50%;
+        border-left: 1px solid $medium-grey;
+        pointer-events: none;
+      }
 
       > div {
         padding: 0.65rem;
         border-bottom: 1px solid $medium-grey;
       }
     }
+
+    .form-section > dl.money-summary {
+      margin-bottom: 0;
+    }
+
+    .form-section > div.points-payment-row {
+      margin-top: 0;
+      border-top: 0;
+    }
   }
 
   @media (max-width: 980px) {
+    .points-payment-row {
+      grid-template-columns: 1fr;
+
+      .payment-form {
+        border-left: 0;
+        border-top: 1px solid $medium-grey;
+      }
+    }
+
     .work-order-sheet .money-summary {
       grid-template-columns: 1fr;
+
+      &::after {
+        display: none;
+      }
     }
 
     .filter-bar {
