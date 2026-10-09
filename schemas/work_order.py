@@ -112,6 +112,7 @@ class WorkOrderLineItemBase(BaseModel):
     name: str
     description: Optional[str] = None
     product_id: Optional[int] = None
+    promotion_gift_id: Optional[int] = None
     quantity: int = Field(default=1, gt=0)
     unit_price: int = 0
     is_confirmed: int = 1

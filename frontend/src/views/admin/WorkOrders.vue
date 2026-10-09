@@ -271,44 +271,32 @@
               <button type="button" class="btn btn-outline" @click="addCreateLineItem">新增明細</button>
             </div>
             <div class="line-editor">
-              <div v-for="(item, index) in createLineItems" :key="index" class="line-row">
-                <label class="line-field line-type">
-                  <span>類型</span>
-                  <select v-model="item.type" @change="handleLineTypeChange(item)">
-                    <option v-for="(label, value) in lineItemTypeMap" :key="value" :value="value">{{ label }}</option>
-                  </select>
-                </label>
-                <label class="line-field line-product">
-                  <span>商品</span>
-                  <select v-if="item.type === 'PART'" v-model.number="item.product_id" @change="applyProductToLine(item)">
-                    <option :value="null">不綁商品 / 不扣庫存</option>
-                    <option v-for="product in products" :key="product.id" :value="product.id">
-                      {{ product.name }}
-                    </option>
-                  </select>
-                  <input v-else value="不適用" disabled />
-                </label>
-                <label class="line-field line-name">
+              <div v-for="(item, index) in createLineItems" :key="index" class="line-row" :class="{ 'membership-controls': canManageMembershipFields }">
+                <WorkOrderProductPicker class="line-picker" :item="item" :products="products" :types="lineItemTypeMap" :disabled="Boolean(item.promotion_gift_id)"
+                  @select-product="applyProductToLine" @change-type="handleLineTypeChange" />
+                <label v-if="['LABOR', 'DISCOUNT'].includes(item.type)" class="line-field line-name">
                   <span>明細名稱</span>
-                  <input v-model.trim="item.name" placeholder="明細名稱" required />
+                  <input v-if="canEnterLineDetails(item) && item.type !== 'PART'" v-model.trim="item.name" placeholder="明細名稱" required />
+                  <span v-else class="line-value">{{ item.name }}</span>
                 </label>
-                <label class="line-field line-price">
+                <label class="line-field line-price" :class="{ 'wide-price': !['LABOR', 'DISCOUNT'].includes(item.type) }">
                   <span>單價</span>
-                  <input v-model.number="item.unit_price" type="number" min="0" />
+                  <input v-if="canEnterLineDetails(item)" v-model.number="item.unit_price" type="number" min="0" />
+                  <span v-else class="line-value">NT$ {{ Number(item.unit_price || 0).toLocaleString() }}</span>
                 </label>
                 <label class="line-field line-quantity">
                   <span>數量</span>
-                  <input v-model.number="item.quantity" type="number" min="1" step="1" required />
+                  <input v-model.number="item.quantity" type="number" min="1" step="1" required :disabled="Boolean(item.promotion_gift_id)" />
                 </label>
-                <label class="membership-toggle">
-                  <input v-model="item.counts_toward_membership" type="checkbox" />
+                <label v-if="canManageMembershipFields" class="membership-toggle">
+                  <input v-model="item.counts_toward_membership" type="checkbox" :disabled="Boolean(item.promotion_gift_id)" />
                   <span>累積消費</span>
                 </label>
                 <div class="line-total">
                   <span>小計</span>
                   <strong>NT$ {{ lineItemTotal(item).toLocaleString() }}</strong>
                 </div>
-                <button type="button" class="icon-btn danger" @click="removeCreateLineItem(index)">×</button>
+                <button type="button" class="icon-btn danger" :disabled="Boolean(item.promotion_gift_id)" @click="removeCreateLineItem(index)">×</button>
               </div>
             </div>
             <div class="total-row">
@@ -462,49 +450,38 @@
               </div>
             </div>
             <div class="line-editor">
-              <div v-for="(item, index) in detailLineItems" :key="item.id || index" class="line-row detail-line-row">
-                <label class="line-field line-type">
-                  <span>類型</span>
-                  <select v-model="item.type" :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)">
-                    <option v-for="(label, value) in lineItemTypeMap" :key="value" :value="value">{{ label }}</option>
-                  </select>
-                </label>
-                <label class="line-field line-product">
-                  <span>商品</span>
-                  <select v-if="item.type === 'PART'" v-model.number="item.product_id" :disabled="!canEditWorkOrder || lineItemEditingLocked || activeRevision || isLineItemInventoryLocked(item)" @change="applyProductToLine(item)">
-                    <option :value="null">不綁商品 / 不扣庫存</option>
-                    <option v-for="product in products" :key="product.id" :value="product.id">
-                      {{ product.name }}
-                    </option>
-                  </select>
-                  <input v-else value="不適用" disabled />
-                </label>
-                <label class="line-field line-name">
+              <div v-for="(item, index) in detailLineItems" :key="item.id || index" class="line-row detail-line-row" :class="{ 'membership-controls': canManageMembershipFields }">
+                <WorkOrderProductPicker class="line-picker" :item="item" :products="products" :types="lineItemTypeMap"
+                  :disabled="!canEditWorkOrder || lineItemEditingLocked || activeRevision || isLineItemInventoryLocked(item)"
+                  @select-product="applyProductToLine" @change-type="handleLineTypeChange" />
+                <label v-if="['LABOR', 'DISCOUNT'].includes(item.type)" class="line-field line-name">
                   <span>明細名稱</span>
-                  <input v-model.trim="item.name" :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)" placeholder="明細名稱" required />
+                  <input v-if="canEnterLineDetails(item) && item.type !== 'PART'" v-model.trim="item.name" :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)" placeholder="明細名稱" required />
+                  <span v-else class="line-value">{{ item.name }}</span>
                 </label>
-                <label class="line-field line-price">
+                <label class="line-field line-price" :class="{ 'wide-price': !['LABOR', 'DISCOUNT'].includes(item.type) }">
                   <span>單價</span>
-                  <input v-model.number="item.unit_price" type="number" min="0" :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)" />
+                  <input v-if="canEnterLineDetails(item)" v-model.number="item.unit_price" type="number" min="0" :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)" />
+                  <span v-else class="line-value">NT$ {{ Number(item.unit_price || 0).toLocaleString() }}</span>
                 </label>
                 <label class="line-field line-quantity">
                   <span>數量</span>
                   <input v-model.number="item.quantity" type="number" min="1" step="1" required :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)" />
                 </label>
-                <label class="membership-toggle">
+                <label v-if="canManageMembershipFields" class="membership-toggle">
                   <input
                     v-model="item.counts_toward_membership"
                     type="checkbox"
-                    :disabled="!canEditWorkOrder || membershipSelectionLocked"
+                    :disabled="!canEditWorkOrder || membershipSelectionLocked || Boolean(item.promotion_gift_id)"
                   />
                   <span>累積消費</span>
                 </label>
-                <label class="points-redemption">
+                <label v-if="canManageMembershipFields" class="points-redemption">
                   <input
                     class="points-check"
                     type="checkbox"
                     :checked="Number(item.points_redeemed || 0) > 0"
-                    :disabled="!canEditWorkOrder || lineItemEditingLocked || !selectedWorkOrder.google_id || item.type !== 'PART'"
+                    :disabled="!canEditWorkOrder || lineItemEditingLocked || !selectedWorkOrder.google_id || item.type !== 'PART' || Boolean(item.promotion_gift_id)"
                     @change="toggleLineItemPoints(item, $event.target.checked)"
                   />
                   <span>使用點數</span>
@@ -514,7 +491,7 @@
                     type="number"
                     min="1"
                     :max="detailRedeemablePoints"
-                    :disabled="!canEditWorkOrder || lineItemEditingLocked || !selectedWorkOrder.google_id || item.type !== 'PART' || Number(item.points_redeemed || 0) <= 0"
+                    :disabled="!canEditWorkOrder || lineItemEditingLocked || !selectedWorkOrder.google_id || item.type !== 'PART' || Number(item.points_redeemed || 0) <= 0 || Boolean(item.promotion_gift_id)"
                   />
                   <span>點</span>
                 </label>
@@ -742,6 +719,9 @@
 </template>
 
 <script setup>
+import WorkOrderProductPicker from '../../components/admin/WorkOrderProductPicker.vue';
+import { MANUAL_PRODUCT_CATEGORY } from '../../utils/workOrderProductPicker';
+import { getInventoryItems, previewPromotionOrder } from '../../api/admin';
 import { computed, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
@@ -754,7 +734,6 @@ import {
   deleteWorkOrder,
   getCustomerDetail,
   getGuestCustomers,
-  getProducts,
   getStaffAdmins,
   getWorkOrder,
   getWorkOrders,
@@ -791,6 +770,7 @@ const paymentMethodOptions = ['現金', '轉帳', 'Linepay'];
 const canCreateWorkOrder = computed(() => ['最高級', '管理層', '一般'].includes(adminUser.value?.role));
 const canEditWorkOrder = computed(() => workOrderEditorRoles.includes(adminUser.value?.role));
 const canManageWorkOrderPayments = computed(() => workOrderManagerRoles.includes(adminUser.value?.role));
+const canManageMembershipFields = computed(() => workOrderManagerRoles.includes(adminUser.value?.role));
 const canUseCriticalWorkOrder = computed(() => workOrderManagerRoles.includes(adminUser.value?.role));
 const canReviewApprovals = computed(() => adminUser.value?.role === '最高級');
 
@@ -877,7 +857,7 @@ const refundTypeMap = {
 };
 
 const lineItemTypeMap = {
-  SERVICE: '施工項目',
+  SERVICE: '請選擇類型',
   PART: '零件 / 耗材',
   LABOR: '工資 / 服務費',
   DISCOUNT: '折扣'
@@ -1009,6 +989,8 @@ function defaultLineItem() {
     name: '',
     description: '',
     product_id: null,
+    picker_category: '',
+    picker_supplier: '',
     quantity: 1,
     unit_price: 0,
     is_confirmed: 1,
@@ -1141,7 +1123,7 @@ const fetchWorkOrders = async () => {
 
 const fetchProducts = async () => {
   try {
-    products.value = await getProducts();
+    products.value = await getInventoryItems({ type: 'all' });
   } catch (error) {
     console.error('載入商品失敗:', error);
   }
@@ -1331,15 +1313,19 @@ const handleLineTypeChange = (item) => {
   }
 };
 
+const canEnterLineDetails = item => !item.promotion_gift_id && (['LABOR', 'DISCOUNT'].includes(item.type) || (item.type === 'PART' && !item.product_id && item.picker_category === MANUAL_PRODUCT_CATEGORY));
+
 const applyProductToLine = (item) => {
   const product = products.value.find(product => product.id === Number(item.product_id));
   if (!product) return;
   item.name = product.name;
   item.unit_price = product.price;
+  item.promotion_auto_price = product.price;
+  item.promotion_name = '';
 };
 
 const isLineItemInventoryLocked = (item) => {
-  return Boolean(item.inventory_deducted)
+  return Boolean(item.promotion_gift_id) || Boolean(item.inventory_deducted)
     || Number(item.inventory_consumed_quantity || 0) > 0;
 };
 
@@ -1349,6 +1335,7 @@ const cleanLineItem = (item) => ({
   name: item.name || (item.type === 'DISCOUNT' ? '折扣' : ''),
   description: item.description || '',
   product_id: item.type === 'PART' ? Number(item.product_id) || null : null,
+  promotion_gift_id: item.promotion_gift_id || null,
   quantity: Number(item.quantity),
   unit_price: Number(item.unit_price) || 0,
   is_confirmed: Number(item.is_confirmed ?? 1),
@@ -1365,7 +1352,12 @@ const hasMileageValue = (value) => {
 };
 
 const validateLineItems = (items) => {
+  if (promotionPreviewLoading.value) return '活動與贈品計算中，請稍候再儲存';
+  if (promotionPreviewError.value) return '活動與贈品載入失敗，請重新選取商品後再儲存';
   for (const [index, item] of items.entries()) {
+    if (item.type === 'SERVICE') return `第 ${index + 1} 項明細：請選擇類型`;
+    if (item.type === 'PART' && !item.product_id && item.picker_category !== MANUAL_PRODUCT_CATEGORY) return `第 ${index + 1} 項明細：請選擇商品，或選擇「不綁商品 / 不扣庫存」分類`;
+    if (item.promotion_loading) return `第 ${index + 1} 項明細：活動價格載入中，請稍候再儲存`;
     if (!hasText(item.name)) return `第 ${index + 1} 項明細：明細名稱為必填`;
 
     const quantity = Number(item.quantity);
@@ -1759,6 +1751,44 @@ const getErrorMessage = (error) => {
   if (Array.isArray(detail)) return detail.map(item => item.msg).join('\n');
   return JSON.stringify(detail);
 };
+
+const promotionPreviewLoading = ref(false);
+const promotionPreviewError = ref(false);
+let previewRequestId = 0;
+const promotionLineKey = lines => JSON.stringify(lines.filter(item => !item.promotion_gift_id).map(item => [item.product_id, item.type, item.quantity, item.is_confirmed]));
+async function refreshPromotionLines(linesRef) {
+  const requestId = ++previewRequestId;
+  const key = promotionLineKey(linesRef.value);
+  promotionPreviewLoading.value = true;
+  promotionPreviewError.value = false;
+  try {
+    const result = await previewPromotionOrder({ line_items: linesRef.value.filter(item => !item.promotion_gift_id && Number.isInteger(Number(item.quantity)) && Number(item.quantity) > 0).map(item => ({ type: item.type, product_id: Number(item.product_id) || null, quantity: Number(item.quantity), is_confirmed: Number(item.is_confirmed ?? 1) })) });
+    if (requestId !== previewRequestId || key !== promotionLineKey(linesRef.value)) return;
+    const purchased = linesRef.value.filter(item => !item.promotion_gift_id);
+    for (const item of purchased) {
+      const quote = result.prices.find(value => value.product_id === Number(item.product_id));
+      if (!quote || item.promotion_auto_price === undefined) continue;
+      if (Number(item.unit_price) === Number(item.promotion_auto_price)) {
+        item.unit_price = quote.unit_price;
+        item.promotion_name = quote.promotion_name || '';
+      }
+      item.promotion_auto_price = quote.unit_price;
+    }
+    linesRef.value = [...purchased, ...result.gifts];
+  } catch {
+    if (requestId !== previewRequestId) return;
+    promotionPreviewError.value = true;
+    alert('活動與贈品載入失敗，請重新選取商品。');
+  } finally {
+    if (requestId === previewRequestId) promotionPreviewLoading.value = false;
+  }
+}
+watch(() => promotionLineKey(createLineItems.value), () => {
+  if (showCreateModal.value && createMode.value === 'normal' && !saving.value) refreshPromotionLines(createLineItems);
+});
+watch(() => promotionLineKey(detailLineItems.value), () => {
+  if (selectedWorkOrder.value && !selectedWorkOrder.value.is_historical_backfill && !lineItemEditingLocked.value && !activeRevision.value && !saving.value && !detailLineItems.value.some(item => item.inventory_deducted || item.inventory_consumed_quantity > 0)) refreshPromotionLines(detailLineItems);
+});
 
 watch(
   () => route.query,
@@ -2896,5 +2926,46 @@ watch(
       }
     }
   }
+}
+</style>
+
+<style scoped>
+.line-field .line-value { display: flex; align-items: center; height: 38px; padding: 0.45rem 0.65rem; border: 1px solid #444; border-radius: 6px; background: #202124; box-sizing: border-box; font-size: 0.9rem; font-weight: 400; color: #eee; }
+.line-row { grid-template-columns: minmax(140px, 1fr) 80px 64px 92px 32px !important; }
+.line-row.membership-controls { grid-template-columns: minmax(140px, 1fr) 80px 64px 112px 92px 32px !important; }
+.line-row.detail-line-row.membership-controls { grid-template-columns: minmax(140px, 1fr) 76px 60px 106px 176px 92px 32px !important; }
+.line-row > .line-picker { grid-column: 1 / -1 !important; grid-row: 1 !important; }
+.line-row > .line-name { grid-column: 1 !important; grid-row: 2 !important; }
+.line-row > .line-price { grid-column: 2 !important; grid-row: 2 !important; }
+.line-row > .line-price.wide-price { grid-column: 1 / span 2 !important; }
+.line-row > .line-quantity { grid-column: 3 !important; grid-row: 2 !important; }
+.line-row > .membership-toggle { grid-column: 4 !important; grid-row: 2 !important; white-space: nowrap; min-height: 38px; padding: 0.45rem 0.5rem; }
+.line-row > .points-redemption { grid-column: 5 !important; grid-row: 2 !important; min-height: 38px; }
+.line-row > .line-total { grid-column: -3 !important; grid-row: 2 !important; }
+.line-row > .icon-btn { grid-column: -2 !important; grid-row: 2 !important; }
+@container (max-width: 760px) {
+  .line-row, .line-row.membership-controls, .line-row.detail-line-row.membership-controls { grid-template-columns: repeat(12, minmax(0, 1fr)) !important; }
+  .line-row > .line-name { grid-column: 1 / span 8 !important; }
+  .line-row > .line-price { grid-column: 9 / span 2 !important; }
+  .line-row > .line-price.wide-price { grid-column: 1 / span 10 !important; }
+  .line-row > .line-quantity { grid-column: 11 / span 2 !important; }
+  .line-row > .membership-toggle { grid-column: 1 / span 3 !important; grid-row: 3 !important; }
+  .line-row > .points-redemption { grid-column: 4 / span 5 !important; grid-row: 3 !important; }
+  .line-row > .line-total { grid-column: 9 / span 3 !important; grid-row: 3 !important; }
+  .line-row > .icon-btn { grid-column: 12 !important; grid-row: 3 !important; }
+}
+@container (max-width: 520px) {
+  .line-row, .line-row.membership-controls, .line-row.detail-line-row.membership-controls { grid-template-columns: minmax(0, 1fr) !important; }
+  .line-row > .line-picker, .line-row > .line-name, .line-row > .line-price,
+  .line-row > .line-quantity, .line-row > .line-total, .line-row > .icon-btn,
+  .line-row > .membership-toggle, .line-row > .points-redemption { grid-column: 1 !important; grid-row: auto !important; }
+  .line-row > .line-price.wide-price { grid-column: 1 !important; grid-row: auto !important; }
+}
+@media (max-width: 600px) {
+  .line-row, .line-row.membership-controls, .line-row.detail-line-row.membership-controls { grid-template-columns: minmax(0, 1fr) !important; }
+  .line-row > .line-picker, .line-row > .line-name, .line-row > .line-price,
+  .line-row > .line-quantity, .line-row > .line-total, .line-row > .icon-btn,
+  .line-row > .membership-toggle, .line-row > .points-redemption { grid-column: 1 !important; grid-row: auto !important; }
+  .line-row > .line-price.wide-price { grid-column: 1 !important; grid-row: auto !important; }
 }
 </style>

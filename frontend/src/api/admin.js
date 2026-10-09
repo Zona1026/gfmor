@@ -5,6 +5,13 @@ const adminAuthConfig = () => {
   return adminToken ? { headers: { Authorization: `Bearer ${adminToken}` } } : {};
 };
 
+export const getPromotions = () => api.get('/admin/promotions/', adminAuthConfig());
+export const createPromotion = data => api.post('/admin/promotions/', data, adminAuthConfig());
+export const updatePromotion = (id, data) => api.put(`/admin/promotions/${id}`, data, adminAuthConfig());
+export const endPromotion = id => api.post(`/admin/promotions/${id}/end`, {}, adminAuthConfig());
+export const getPromotionQuote = id => api.get(`/admin/promotions/quote/${id}`, adminAuthConfig());
+export const previewPromotionOrder = data => api.post('/admin/promotions/preview', data, adminAuthConfig());
+
 /**
  * 管理員登入
  * @param {Object} credentials { username, password }
@@ -217,12 +224,24 @@ export const deletePortfolioItem = async (id) => {
 };
 
 // ======= 商品管理 =======
+export const getProductSupplierPrices = async (id) => {
+  return await api.get(`/products/${id}/supplier-prices`, adminAuthConfig());
+};
+
+export const getProductVehicleModels = async () => {
+  return await api.get('/products/admin/vehicle-models', adminAuthConfig());
+};
+
+export const createProductVehicleModel = async (name) => {
+  return await api.post('/products/admin/vehicle-models', { name }, adminAuthConfig());
+};
+
 export const getProducts = async () => {
-  return await api.get('/products/');
+  return await api.get('/products/admin/', adminAuthConfig());
 };
 
 export const getProduct = async (id) => {
-  return await api.get(`/products/${id}`);
+  return await api.get(`/products/admin/${id}`, adminAuthConfig());
 };
 
 export const createWorkOrderRefund = async (workOrderId, data) => {
@@ -230,7 +249,7 @@ export const createWorkOrderRefund = async (workOrderId, data) => {
 };
 
 export const getPaginatedProducts = async (params = {}) => {
-  return await api.get('/products/paginated', { params });
+  return await api.get('/products/admin/paginated', { ...adminAuthConfig(), params });
 };
 
 export const getProductCategories = async (params = {}) => {
@@ -418,3 +437,7 @@ export const deleteAdmin = async (id) => {
 export const updateAdmin = async (id, data) => {
   return await api.put(`/admins/${id}`, data);
 };
+
+export const getProductExtraCategories = () => api.get('/products/admin/extra-categories', adminAuthConfig());
+export const createProductExtraCategory = data => api.post('/products/admin/extra-categories', data, adminAuthConfig());
+export const updateProductExtraCategory = (id, data) => api.put(`/products/admin/extra-categories/${id}`, data, adminAuthConfig());

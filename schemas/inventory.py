@@ -1,18 +1,21 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
 from db.models import InventoryMovementType, InventoryReservationStatus, InventoryType
-from schemas.product import ProductCategory
+from schemas.product import ProductCategory, ProductManagementMetadata, SupplierWholesalePrice, ProductExtraCategory
 
 
-class InventoryProduct(BaseModel):
+class InventoryProduct(ProductManagementMetadata):
+    supplier_wholesale_prices: List[SupplierWholesalePrice] = Field(default_factory=list)
     id: int
     name: str
     price: int = 0
     category: Optional[str] = None
     category_info: Optional[ProductCategory] = None
+    categories: List[ProductCategory] = Field(default_factory=list)
+    extra_categories: List[ProductExtraCategory] = Field(default_factory=list)
     inventory_type: InventoryType
     low_stock_threshold: int
     available_stock: int

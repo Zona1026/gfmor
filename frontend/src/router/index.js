@@ -88,6 +88,22 @@ const routes = [
     meta: { requiresAdmin: true },
     children: [
       {
+        path: 'promotions',
+        redirect: { name: 'AdminPromotionSettings' }
+      },
+      {
+        path: 'promotions/settings',
+        name: 'AdminPromotionSettings',
+        component: () => import('../views/admin/Promotions.vue'),
+        meta: { title: '優惠活動 / 活動設定' }
+      },
+      {
+        path: 'promotions/history',
+        name: 'AdminPromotionHistory',
+        component: () => import('../views/admin/Promotions.vue'),
+        meta: { title: '優惠活動 / 過往活動', promotionHistory: true }
+      },
+      {
         path: 'bookings',
         name: 'AdminBookings',
         component: AdminBookings

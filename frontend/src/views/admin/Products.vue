@@ -40,7 +40,9 @@
             <tr>
               <th>商品</th>
               <th>分類</th>
-              <th>價格</th>
+              <th>建議售價</th>
+              <th>同行批發價</th>
+              <th>安裝工資</th>
               <th>庫存</th>
               <th>狀態</th>
               <th>建立時間</th>
@@ -61,6 +63,8 @@
               </td>
               <td>{{ productCategoryName(product) }}</td>
               <td class="amount">NT$ {{ formatNumber(product.price) }}</td>
+              <td>{{ supplierWholesaleQuote(product) }}</td>
+              <td>{{ product.installation_labor == null ? '未設定' : `NT$ ${formatNumber(product.installation_labor)}` }}</td>
               <td>{{ formatNumber(product.stock) }}</td>
               <td><span class="status-tag" :class="product.is_active ? 'active' : 'inactive'">{{ product.is_active ? '上架中' : '已下架' }}</span></td>
               <td>{{ formatDate(product.created_at) }}</td>
@@ -71,7 +75,7 @@
               </td>
             </tr>
             <tr v-if="products.length === 0">
-              <td :colspan="canManageShop ? 7 : 6" class="empty-row">查無符合條件的商品。</td>
+              <td :colspan="canManageShop ? 9 : 8" class="empty-row">查無符合條件的商品。</td>
             </tr>
           </tbody>
         </table>
@@ -263,7 +267,7 @@
             </label>
           </div>
           <div class="form-row">
-            <label>價格<input v-model.number="productForm.price" type="number" min="0" required /></label>
+            <label>建議售價<input v-model.number="productForm.price" type="number" min="0" required /></label>
             <label>庫存<input v-model.number="productForm.stock" type="number" min="0" required /></label>
           </div>
           <div class="form-row">
@@ -276,6 +280,7 @@
             </label>
             <label>低庫存門檻<input v-model.number="productForm.low_stock_threshold" type="number" min="0" required /></label>
           </div>
+          <ProductDetailsFields :form="productForm" />
           <label>商品描述<textarea v-model="productForm.description" rows="3"></textarea></label>
           <label>商品圖片<input type="file" accept="image/*" @change="onProductFileChange" /></label>
           <div v-if="productPreviewUrl" class="preview">
@@ -341,6 +346,9 @@
 </template>
 
 <script setup>
+import ProductDetailsFields from '../../components/admin/ProductDetailsFields.vue';
+import { appendProductDetails, productDetailsForm, supplierWholesaleQuote } from '../../utils/productDetails';
+import { getProductSupplierPrices } from '../../api/admin';
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useAuthStore } from '../../store/auth';
@@ -451,6 +459,7 @@ const filteredShopOrders = computed(() => {
 
 function defaultProductForm() {
   return {
+    ...productDetailsForm(),
     name: '',
     category_id: '',
     price: 0,
@@ -481,7 +490,7 @@ const getErrorMessage = (error) => {
   return detail || error?.message || '請稍後再試';
 };
 
-const productCategoryName = (product) => product.category_info?.name || product.category || '未分類';
+const productCategoryName = (product) => (product.categories || []).map(category => category.name).join(' ／ ') || product.category_info?.name || product.category || '未分類';
 
 const selectedCategoryName = (categoryId) => {
   const category = categories.value.find(item => String(item.id) === String(categoryId));
@@ -551,9 +560,19 @@ const loadSettings = async () => {
   });
 };
 
-const openProductModal = (product = null) => {
+const openProductModal = async (product = null) => {
+  let supplierPrices = [];
+  if (product) {
+    try {
+      supplierPrices = await getProductSupplierPrices(product.id);
+    } catch (error) {
+      alert(`載入進貨廠商失敗：${getErrorMessage(error)}`);
+      return;
+    }
+  }
   editingProductId.value = product?.id || null;
   Object.assign(productForm, defaultProductForm(), product ? {
+    ...productDetailsForm(product, supplierPrices),
     name: product.name || '',
     category_id: product.category_id ? String(product.category_id) : '',
     price: product.price || 0,
@@ -582,6 +601,7 @@ const onProductFileChange = (event) => {
 
 const buildProductFormData = () => {
   const formData = new FormData();
+  appendProductDetails(formData, productForm);
   formData.append('name', productForm.name);
   formData.append('price', Number(productForm.price) || 0);
   formData.append('stock', Number(productForm.stock) || 0);

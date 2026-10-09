@@ -30,11 +30,22 @@
         <div class="card-body">
           <span class="category-tag" v-if="product.category">{{ product.category }}</span>
           <h3>{{ product.name }}</h3>
+          <dl class="product-specs" v-if="product.vehicle_model || product.model_number || product.specification || product.color || product.manufacturer">
+            <div v-if="product.vehicle_model"><dt>車種</dt><dd>{{ product.vehicle_model }}</dd></div>
+            <div v-if="product.model_number"><dt>型號</dt><dd>{{ product.model_number }}</dd></div>
+            <div v-if="product.specification"><dt>規格</dt><dd>{{ product.specification }}</dd></div>
+            <div v-if="product.color"><dt>顏色</dt><dd>{{ product.color }}</dd></div>
+            <div v-if="product.manufacturer"><dt>製造廠商</dt><dd>{{ product.manufacturer }}</dd></div>
+          </dl>
+          <div class="quote-reference">
+            <div>安裝工資 {{ product.installation_labor == null ? '未設定，請洽店家' : `NT$ ${product.installation_labor.toLocaleString()}` }}</div>
+            <small>商品售價與安裝工資分開計價，安裝報價請與店家確認。</small>
+          </div>
           <p class="description" v-if="product.description">{{ product.description }}</p>
         </div>
         <div class="card-footer">
           <div class="price-info">
-            <span class="price">NT$ {{ product.price?.toLocaleString() }}</span>
+            <span class="price">建議售價 NT$ {{ product.price?.toLocaleString() }}</span>
             <span class="stock" :class="{ 'out': product.stock <= 0 }">
               {{ product.stock > 0 ? `庫存 ${product.stock}` : '已售完' }}
             </span>
@@ -129,6 +140,13 @@ onBeforeUnmount(() => clearTimeout(searchTimer));
 
 <style lang="scss" scoped>
 @import '../assets/_variables.scss';
+
+.product-specs { margin: 0.5rem 0; font-size: 0.85rem; color: $text-secondary; }
+.product-specs div { display: flex; gap: 0.5rem; margin-bottom: 0.25rem; }
+.product-specs dt { flex-shrink: 0; }
+.product-specs dd { margin: 0; overflow-wrap: anywhere; }
+.quote-reference { color: $text-secondary; font-size: 0.86rem; line-height: 1.6; margin: 0.65rem 0; }
+.quote-reference small { display: block; font-size: 0.75rem; }
 
 .products-page {
   padding: 2rem;

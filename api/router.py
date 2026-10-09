@@ -16,6 +16,7 @@ from .endpoints import (
     points,
     portfolio,
     products,
+    promotions,
     purchases,
     settings,
     users,
@@ -30,6 +31,7 @@ api_router.include_router(customers.router, prefix="/customers", tags=["Customer
 api_router.include_router(guest_customers.router, prefix="/guest-customers", tags=["Guest Customers"])
 api_router.include_router(motors.router, prefix="/motors", tags=["Motors"])
 api_router.include_router(products.router, prefix="/products", tags=["Products"])
+api_router.include_router(promotions.router, prefix="/admin/promotions", tags=["Promotions"])
 api_router.include_router(bookings.router, prefix="/bookings", tags=["Bookings"])
 api_router.include_router(work_orders.router, prefix="/work-orders", tags=["Work Orders"])
 api_router.include_router(orders.router, prefix="/orders", tags=["Orders"])

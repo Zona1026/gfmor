@@ -1,5 +1,5 @@
 # 引入 SQLAlchemy 的必要模組
-from sqlalchemy import (Boolean, Column, Integer, String, Enum, Date, DateTime, ForeignKey, Text, func, and_)
+from sqlalchemy import (Table, Boolean, Column, Integer, String, Enum, Date, DateTime, ForeignKey, Text, JSON, func, and_)
 from sqlalchemy.orm import relationship
 
 # 引入我們在 db/database.py 中建立的 Base
@@ -7,6 +7,31 @@ from .database import Base
 
 # 為了讓 Python 的 Enum 與資料庫的 ENUM 類型能更好地配合
 import enum
+
+promotion_product_links = Table(
+    'promotion_product_links', Base.metadata,
+    Column('promotion_id', Integer, ForeignKey('promotions.id', ondelete='CASCADE'), primary_key=True),
+    Column('product_id', Integer, ForeignKey('products.id', ondelete='CASCADE'), primary_key=True),
+)
+
+
+class Promotion(Base):
+    __tablename__ = 'promotions'
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    description = Column(Text, nullable=False, default='')
+    starts_at = Column(DateTime, nullable=False)
+    ends_at = Column(DateTime, nullable=False)
+    discount_type = Column(String(20), nullable=False)
+    discount_value = Column(Integer, nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True)
+    ended_at = Column(DateTime, nullable=True)
+    buy_quantity = Column(Integer, nullable=False, default=1)
+    gift_quantity = Column(Integer, nullable=False, default=1)
+    gift_product_id = Column(Integer, ForeignKey('products.id'), nullable=True)
+    allow_discount_stacking = Column(Boolean, nullable=False, default=False)
+    products = relationship('Product', secondary=promotion_product_links)
+    gift_product = relationship('Product', foreign_keys=[gift_product_id])
 
 # 定義與資料庫 users.類別 對應的 Enum
 class UserCategory(str, enum.Enum):
@@ -222,6 +247,20 @@ class GuestCustomer(Base):
     motors = relationship("GuestMotor", back_populates="guest_customer", cascade="all, delete-orphan")
     work_orders = relationship("WorkOrder", back_populates="guest_customer")
 
+product_category_links = Table(
+    'product_category_links', Base.metadata,
+    Column('product_id', Integer, ForeignKey('products.id', ondelete='CASCADE'), primary_key=True),
+    Column('category_id', Integer, ForeignKey('product_categories.id', ondelete='CASCADE'), primary_key=True),
+)
+
+
+product_extra_category_links = Table(
+    'product_extra_category_links', Base.metadata,
+    Column('product_id', Integer, ForeignKey('products.id', ondelete='CASCADE'), primary_key=True),
+    Column('category_id', Integer, ForeignKey('product_extra_categories.id', ondelete='CASCADE'), primary_key=True),
+)
+
+
 class Product(Base):
     """
     商品資料表模型 (對應 products)
@@ -232,6 +271,16 @@ class Product(Base):
     name = Column(String(100), nullable=False, comment="品名")
     description = Column(Text, comment="描述")
     price = Column(Integer, nullable=False, comment="價格")
+    vehicle_model = Column(String(200), nullable=True, comment="適用車種")
+    barcode = Column(String(100), nullable=True, comment="商品條碼")
+    model_number = Column(String(200), nullable=True, comment="型號")
+    specification = Column(String(500), nullable=True, comment="規格")
+    color = Column(String(100), nullable=True, comment="顏色")
+    manufacturer = Column(String(200), nullable=True, comment="製造廠商")
+    suggested_price = Column(Integer, nullable=True, comment="建議售價")
+    wholesale_price = Column(Integer, nullable=True, comment="同行批發價")
+    installation_labor = Column(Integer, nullable=True, comment="安裝工資報價標準")
+    supplier_prices = Column(JSON, nullable=True, default=list, comment="各進貨廠商及進價")
     stock = Column(Integer, nullable=False, default=0, comment="庫存數量")
     inventory_type = Column(Enum(InventoryType), nullable=False, default=InventoryType.BOTH, server_default='BOTH', index=True)
     low_stock_threshold = Column(Integer, nullable=False, default=5, server_default='5')
@@ -243,11 +292,26 @@ class Product(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     category_info = relationship("ProductCategory", back_populates="products")
+    additional_categories = relationship("ProductCategory", secondary=product_category_links)
+    extra_categories = relationship("ProductExtraCategory", secondary=product_extra_category_links, order_by="ProductExtraCategory.sort_order, ProductExtraCategory.id")
+
+    @property
+    def categories(self):
+        entries = {category.id: category for category in self.additional_categories}
+        if self.category_info:
+            entries[self.category_info.id] = self.category_info
+        return sorted(entries.values(), key=lambda category: (category.sort_order or 0, category.id))
+
     inventory_reservations = relationship("InventoryReservation", back_populates="product", cascade="all, delete-orphan")
     inventory_movements = relationship("InventoryMovement", back_populates="product")
     purchase_requests = relationship("PurchaseRequest", back_populates="product")
     # 建立與 WorkOrderItem 的一對多關聯
     work_order_items = relationship("WorkOrderItem", back_populates="product")
+
+    @property
+    def supplier_wholesale_prices(self):
+        return [{"supplier_name": row["supplier_name"], "wholesale_price": row.get("wholesale_price")}
+                for row in (self.supplier_prices or [])]
 
     @property
     def reserved_stock(self):
@@ -260,6 +324,21 @@ class Product(Base):
     @property
     def available_stock(self):
         return max(0, (self.stock or 0) - self.reserved_stock)
+
+class ProductExtraCategory(Base):
+    __tablename__ = 'product_extra_categories'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False, unique=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Integer, nullable=False, default=1)
+
+
+class ProductVehicleModel(Base):
+    __tablename__ = 'product_vehicle_models'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(200), nullable=False, unique=True)
+
 
 class ProductCategory(Base):
     """
@@ -713,6 +792,7 @@ class WorkOrderLineItem(Base):
     name = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
+    promotion_gift_id = Column(Integer, ForeignKey('promotions.id'), nullable=True)
     quantity = Column(Integer, nullable=False, default=1)
     unit_price = Column(Integer, nullable=False, default=0)
     is_confirmed = Column(Integer, nullable=False, default=1)

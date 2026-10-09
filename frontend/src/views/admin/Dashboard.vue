@@ -22,14 +22,34 @@
         <router-link to="/admin" exact-active-class="active" @click="closeSidebar">儀表板</router-link>
         <router-link to="/admin/bookings" active-class="active" @click="closeSidebar">預約管理</router-link>
         <div class="nav-group">
-          <router-link to="/admin/work-orders" exact-active-class="active" @click="closeSidebar">工單管理</router-link>
-          <div v-if="adminUser?.role === '最高級'" class="nav-submenu">
-            <router-link to="/admin/work-orders/reviews" active-class="active" @click="closeSidebar">待復核工單</router-link>
+          <button
+            type="button"
+            class="nav-group-toggle"
+            :class="{ active: isWorkOrderRoute }"
+            :aria-expanded="isWorkOrderOpen"
+            @click="isWorkOrderOpen = !isWorkOrderOpen"
+          >
+            <span>工單管理</span>
+            <span class="nav-group-chevron" aria-hidden="true">⌄</span>
+          </button>
+          <div v-show="isWorkOrderOpen" class="nav-submenu">
+            <router-link to="/admin/work-orders" exact-active-class="active" @click="closeSidebar">工單列表</router-link>
+            <router-link v-if="adminUser?.role === '最高級'" to="/admin/work-orders/reviews" active-class="active" @click="closeSidebar">待復核工單</router-link>
           </div>
         </div>
         <router-link to="/admin/members" active-class="active" @click="closeSidebar">客戶 / 會員管理</router-link>
         <router-link to="/admin/new-vehicles" active-class="active" @click="closeSidebar">新車專區</router-link>
         <router-link to="/admin/products" active-class="active" @click="closeSidebar">商城管理</router-link>
+        <div class="nav-group">
+          <button type="button" class="nav-group-toggle" :class="{ active: isPromotionRoute }" :aria-expanded="isPromotionOpen" @click="isPromotionOpen = !isPromotionOpen">
+            <span>優惠活動</span>
+            <span class="nav-group-chevron" aria-hidden="true">⌄</span>
+          </button>
+          <div v-show="isPromotionOpen" class="nav-submenu">
+            <router-link to="/admin/promotions/settings" active-class="active" @click="closeSidebar">活動設定</router-link>
+            <router-link to="/admin/promotions/history" active-class="active" @click="closeSidebar">過往活動</router-link>
+          </div>
+        </div>
         <div class="nav-group">
           <button
             type="button"
@@ -352,6 +372,8 @@ const isShopManagementOpen = ref(shopManagementPaths.includes(route.path));
 const isAccountingOpen = ref(route.path === '/admin/accounting');
 const isSystemSettingsOpen = ref(systemSettingsPaths.includes(route.path));
 const isInventoryOpen = ref(route.path.startsWith('/admin/inventory'));
+const isWorkOrderOpen = ref(route.path.startsWith('/admin/work-orders'));
+const isPromotionOpen = ref(route.path.startsWith('/admin/promotions'));
 const allBookings = ref([]);
 const allOrders = ref([]);
 const allWorkOrders = ref([]);
@@ -377,8 +399,16 @@ const isShopManagementRoute = computed(() => shopManagementPaths.includes(route.
 const isAccountingRoute = computed(() => route.path === '/admin/accounting');
 const isSystemSettingsRoute = computed(() => systemSettingsPaths.includes(route.path));
 const isInventoryRoute = computed(() => route.path.startsWith('/admin/inventory'));
+const isWorkOrderRoute = computed(() => route.path.startsWith('/admin/work-orders'));
+const isPromotionRoute = computed(() => route.path.startsWith('/admin/promotions'));
 
 watch(() => route.path, (path) => {
+  if (path.startsWith('/admin/promotions')) {
+    isPromotionOpen.value = true;
+  }
+  if (path.startsWith('/admin/work-orders')) {
+    isWorkOrderOpen.value = true;
+  }
   if (shopManagementPaths.includes(path)) {
     isShopManagementOpen.value = true;
   }

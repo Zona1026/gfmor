@@ -11,6 +11,7 @@ from . import membership as membership_service
 from . import new_vehicle as new_vehicle_service
 from . import points as points_service
 from . import purchases as purchase_service
+from . import promotions as promotion_service
 from core.staff_names import canonical_staff_name, staff_name_variants
 from schemas.user import UserCreate, UserUpdate
 from schemas.product import ProductCreate, ProductUpdate
@@ -657,7 +658,7 @@ def _build_line_item(db: Session, item_in: WorkOrderLineItemCreate):
         db_product = get_product(db, product_id=item_data["product_id"])
         if not db_product:
             raise ValueError(f"找不到ID為 {item_data['product_id']} 的商品")
-        if item_type == models.WorkOrderLineItemType.PART and not item_data.get("unit_price"):
+        if item_type == models.WorkOrderLineItemType.PART and 'unit_price' not in item_in.model_fields_set:
             item_data["unit_price"] = db_product.price
         if not item_data.get("name"):
             item_data["name"] = db_product.name
@@ -1041,7 +1042,7 @@ def create_work_order(db: Session, work_order: WorkOrderCreate):
         if db_booking.work_order:
             raise ValueError(f"此預約已建立工單 #{db_booking.work_order.id}")
 
-    line_items = [_build_line_item(db, item) for item in work_order.line_items]
+    line_items = [_build_line_item(db, item) for item in work_order.line_items if not item.promotion_gift_id]
     if work_order.items:
         line_items.extend(_legacy_items_to_line_items(db, work_order.items))
 
@@ -1064,6 +1065,7 @@ def create_work_order(db: Session, work_order: WorkOrderCreate):
         notes=work_order.notes,
         line_items=line_items,
     )
+    promotion_service.sync_gifts(db, db_work_order)
     if db_booking:
         _hydrate_from_booking(db_work_order, db_booking)
         db_booking.status = models.BookingStatus.CONVERTED_TO_WORK_ORDER
@@ -1291,6 +1293,8 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
             _release_work_order_inventory(db, db_work_order)
             rebuilt_line_items = []
             for item in line_items_data:
+                if item.get('promotion_gift_id'):
+                    continue
                 item_id = item.get("id")
                 rebuilt_item = _build_line_item(db, WorkOrderLineItemCreate(**item))
                 existing_item = existing_line_items.get(item_id)
@@ -1299,6 +1303,8 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
                     rebuilt_item.fulfillment_status_updated_at = existing_item.fulfillment_status_updated_at
                 rebuilt_line_items.append(rebuilt_item)
             db_work_order.line_items = rebuilt_line_items
+            if not db_work_order.is_historical_backfill:
+                promotion_service.sync_gifts(db, db_work_order)
             _recalculate_work_order_total(db_work_order)
             _sync_payment_status(db_work_order)
             _sync_work_order_approvals(db_work_order)

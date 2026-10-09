@@ -251,13 +251,13 @@
                     {{ category.name }}
                   </option>
                 </select>
-                <button class="btn btn-outline" type="button" @click="showCategoryForm = !showCategoryForm">
+                <button class="btn btn-outline" type="button" :aria-expanded="showCategoryForm" aria-controls="new-product-category" @click="toggleCategoryForm">
                   ＋ 新增分類
                 </button>
               </span>
             </label>
             <label>
-              售價
+              建議售價
               <input v-model.number="createForm.price" type="number" min="0" required />
             </label>
             <label>
@@ -284,15 +284,16 @@
               </select>
             </label>
           </div>
-          <div v-if="showCategoryForm" class="category-create-row">
+          <div v-if="showCategoryForm" id="new-product-category" class="category-create-row">
             <label>
               新分類名稱
-              <input v-model.trim="newCategoryName" type="text" placeholder="例如：機油、煞車零件" @keyup.enter.prevent="submitCreateCategory" />
+              <input ref="newCategoryInput" v-model.trim="newCategoryName" maxlength="50" type="text" placeholder="例如：機油、煞車零件" @keydown.enter.prevent="submitCreateCategory" />
             </label>
             <button class="btn btn-primary" type="button" :disabled="savingCategory || !newCategoryName" @click="submitCreateCategory">
               {{ savingCategory ? '新增中...' : '建立分類' }}
             </button>
           </div>
+          <ProductDetailsFields :form="createForm" />
           <label>
             描述
             <textarea v-model.trim="createForm.description" rows="3"></textarea>
@@ -317,7 +318,9 @@
 </template>
 
 <script setup>
-import { computed, defineComponent, h, onMounted, reactive, ref, watch } from 'vue';
+import ProductDetailsFields from '../../components/admin/ProductDetailsFields.vue';
+import { appendProductDetails, productDetailsForm, supplierWholesaleQuote } from '../../utils/productDetails';
+import { computed, defineComponent, h, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../../store/auth';
@@ -326,6 +329,7 @@ import {
   createProduct,
   createProductCategory,
   getProduct,
+  getProductSupplierPrices,
   getInventoryItems,
   getInventoryMovements,
   getInventoryReservations,
@@ -359,6 +363,7 @@ const savingCategory = ref(false);
 const showCreateModal = ref(false);
 const showCategoryForm = ref(false);
 const newCategoryName = ref('');
+const newCategoryInput = ref(null);
 const createItemType = ref('SHOP');
 const selectedCreateFile = ref(null);
 const editingItemId = ref(null);
@@ -374,6 +379,7 @@ const reservationStatus = ref('');
 const stocktakeDrafts = reactive({});
 
 const defaultCreateForm = (inventoryType = 'SHOP') => ({
+  ...productDetailsForm(),
   name: '',
   category_id: '',
   price: 0,
@@ -460,7 +466,7 @@ function sourceLabel(type, id) {
 }
 
 function productCategory(item) {
-  return item.category_info?.name || item.category || '未分類';
+  return (item.categories || []).map(category => category.name).join(' ／ ') || item.category_info?.name || item.category || '未分類';
 }
 
 const activeCategories = computed(() => categories.value.filter(category => category.is_active));
@@ -482,6 +488,9 @@ const InventoryTable = defineComponent({
         ? props.items.map(item => h('tr', { key: item.id, class: { 'low-stock': item.is_low_stock } }, [
           h('td', [h('strong', { class: 'product-name' }, item.name)]),
           h('td', productCategory(item)),
+          h('td', { class: 'amount' }, `NT$ ${formatNumber(item.price)}`),
+          h('td', supplierWholesaleQuote(item)),
+          h('td', item.installation_labor == null ? '未設定' : `NT$ ${formatNumber(item.installation_labor)}`),
           h('td', { class: 'stock-cell' }, stockValue(item.stock)),
           h('td', { class: 'available-cell' }, stockValue(item.available_stock)),
           h('td', { class: 'reserved-cell' }, stockValue(item.reserved_stock)),
@@ -494,7 +503,7 @@ const InventoryTable = defineComponent({
             }, '編輯')
           ])] : [])
         ]))
-        : [h('tr', [h('td', { colspan: props.canEdit ? 6 : 5, class: 'empty-row' }, '尚無庫存資料。')])];
+        : [h('tr', [h('td', { colspan: props.canEdit ? 9 : 8, class: 'empty-row' }, '尚無庫存資料。')])];
 
       return h('div', { class: 'inventory-table-block' }, [
         h('div', { class: 'table-wrap' }, [
@@ -503,6 +512,9 @@ const InventoryTable = defineComponent({
               h('tr', [
                 h('th', '品項名稱'),
                 h('th', '分類'),
+                h('th', '建議售價'),
+                h('th', '同行批發價'),
+                h('th', '安裝工資'),
                 h('th', '實際庫存'),
                 h('th', '可用庫存'),
                 h('th', '預留數量'),
@@ -609,10 +621,11 @@ function openCreateModal(inventoryType) {
 
 async function openEditModal(item) {
   try {
-    const product = await getProduct(item.id);
+    const [product, supplierPrices] = await Promise.all([getProduct(item.id), getProductSupplierPrices(item.id)]);
     editingItemId.value = product.id;
     createItemType.value = product.inventory_type === 'PART' ? 'PART' : 'SHOP';
     Object.assign(createForm, defaultCreateForm(product.inventory_type), {
+      ...productDetailsForm(product, supplierPrices),
       name: product.name || '',
       category_id: product.category_id ? String(product.category_id) : '',
       price: product.price || 0,
@@ -646,9 +659,17 @@ function onCreateFileChange(event) {
   if (selectedCreateFile.value) itemPreviewUrl.value = URL.createObjectURL(selectedCreateFile.value);
 }
 
+async function toggleCategoryForm() {
+  showCategoryForm.value = !showCategoryForm.value;
+  if (showCategoryForm.value) {
+    await nextTick();
+    newCategoryInput.value?.focus();
+  }
+}
+
 async function submitCreateCategory() {
   const name = newCategoryName.value.trim();
-  if (!name) return;
+  if (!name || savingCategory.value) return;
   savingCategory.value = true;
   try {
     const category = await createProductCategory({ name, sort_order: 0, is_active: 1 });
@@ -667,6 +688,7 @@ async function submitCreateItem() {
   savingCreate.value = true;
   try {
     const formData = new FormData();
+    appendProductDetails(formData, createForm);
     formData.append('name', createForm.name);
     formData.append('price', Number(createForm.price) || 0);
     formData.append('stock', Number(createForm.stock) || 0);
