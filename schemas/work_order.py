@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import AliasChoices, BaseModel, Field, validator
 
 from core.staff_names import canonical_staff_name
 from db.models import (
@@ -260,7 +260,7 @@ class WorkOrderRevision(BaseModel):
 
 class WorkOrderApprovalWorkOrderSummary(BaseModel):
     id: int
-    customer_name: Optional[str] = None
+    customer_name: Optional[str] = Field(default=None, validation_alias=AliasChoices("current_customer_name", "customer_name"))
     vehicle_license_plate: Optional[str] = None
     total_amount: int = 0
     status: WorkOrderStatus
@@ -352,7 +352,7 @@ class WorkOrder(BaseModel):
     guest_motor_id: Optional[int] = None
     motor_id: Optional[int] = None
     customer_type: str
-    customer_name: Optional[str] = None
+    customer_name: Optional[str] = Field(default=None, validation_alias=AliasChoices("current_customer_name", "customer_name"))
     customer_phone: Optional[str] = None
     vehicle_license_plate: Optional[str] = None
     vehicle_brand: Optional[str] = None

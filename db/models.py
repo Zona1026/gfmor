@@ -683,6 +683,14 @@ class WorkOrder(Base):
         return sum(payment.amount or 0 for payment in self.payments)
 
     @property
+    def current_customer_name(self):
+        if self.user is not None:
+            return self.user.name
+        if self.booking is not None and self.booking.user is not None:
+            return self.booking.user.name
+        return self.customer_name
+
+    @property
     def refunded_amount(self):
         return sum(refund.amount or 0 for refund in self.refund_records)
 

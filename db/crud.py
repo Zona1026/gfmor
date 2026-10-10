@@ -263,6 +263,13 @@ def update_user(db: Session, google_id: str, user_update: UserUpdate):
 
     if update_data.get("phone"):
         merge_guest_customers_to_user_by_phone(db, db_user, update_data["phone"])
+
+    if "name" in update_data and db_user.name is not None:
+        # 工單保留獨立的客戶姓名欄位；會員改名時一併同步既有工單。
+        db.flush()
+        db.query(models.WorkOrder).filter(
+            models.WorkOrder.google_id == db_user.google_id,
+        ).update({models.WorkOrder.customer_name: db_user.name}, synchronize_session="fetch")
             
     # 3. 提交所有變更 (包含使用者更新和新增的車輛)
     try:
@@ -1028,6 +1035,7 @@ def get_work_orders(
         keyword = f"%{q.strip()}%"
         filters = [
             models.WorkOrder.customer_name.ilike(keyword),
+            models.WorkOrder.user.has(models.User.name.ilike(keyword)),
             models.WorkOrder.customer_phone.ilike(keyword),
             models.WorkOrder.vehicle_license_plate.ilike(keyword),
             models.User.name.ilike(keyword),
