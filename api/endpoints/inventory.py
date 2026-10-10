@@ -1,7 +1,8 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from api.dependencies.admin_auth import require_admin, require_super_admin
 from db import inventory as inventory_service
@@ -12,8 +13,7 @@ from schemas import inventory as inventory_schema
 router = APIRouter()
 
 
-def _product_payload(db: Session, product, can_view_detail: bool):
-    reserved = inventory_service.reserved_quantity(db, product.id)
+def _product_payload(product, can_view_detail: bool, reserved: int):
     available = max(0, (product.stock or 0) - reserved)
     payload = {
         "id": product.id,
@@ -43,7 +43,11 @@ def read_inventory_items(
     db: Session = Depends(get_db),
     admin=Depends(require_admin),
 ):
-    query = db.query(models.Product).options(joinedload(models.Product.category_info))
+    query = db.query(models.Product).options(
+        joinedload(models.Product.category_info),
+        selectinload(models.Product.additional_categories),
+        selectinload(models.Product.extra_categories),
+    )
     if type == "shop":
         query = query.filter(models.Product.inventory_type.in_([
             models.InventoryType.SHOP,
@@ -57,9 +61,24 @@ def read_inventory_items(
     elif type != "all":
         raise HTTPException(status_code=400, detail="type must be shop, part, or all")
 
+    products = query.order_by(models.Product.id.asc()).all()
+    reserved_by_product = {}
+    if products:
+        reserved_by_product = dict(
+            db.query(
+                models.InventoryReservation.product_id,
+                func.sum(models.InventoryReservation.quantity),
+            )
+            .filter(
+                models.InventoryReservation.product_id.in_([product.id for product in products]),
+                models.InventoryReservation.status == models.InventoryReservationStatus.ACTIVE,
+            )
+            .group_by(models.InventoryReservation.product_id)
+            .all()
+        )
     items = [
-        _product_payload(db, product, admin["is_manager"])
-        for product in query.order_by(models.Product.id.asc()).all()
+        _product_payload(product, admin["is_manager"], reserved_by_product.get(product.id, 0))
+        for product in products
     ]
     if low_stock:
         items = [item for item in items if item["is_low_stock"]]

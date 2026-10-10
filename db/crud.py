@@ -331,6 +331,8 @@ def update_product(db: Session, product_id: int, product_update: ProductUpdate):
     
     # exclude_unset=True 表示只取有被前端明確給定的值
     update_data = product_update.dict(exclude_unset=True)
+    if 'vehicle_models' not in update_data and 'vehicle_model' in update_data:
+        update_data['vehicle_models'] = [update_data['vehicle_model']] if update_data['vehicle_model'] else []
     for key, value in update_data.items():
         setattr(db_product, key, value)
         
@@ -897,6 +899,25 @@ def _hydrate_direct_customer(db: Session, db_work_order, work_order: WorkOrderCr
     if not str(db_work_order.responsible_staff or "").strip():
         raise ValueError("工單需有負責人")
 
+def _sync_member_motor_mileage(db: Session, work_order):
+    """Keep the vehicle's current odometer from moving backwards on old work orders."""
+    mileage = work_order.vehicle_mileage
+    if (
+        not work_order.google_id
+        or not work_order.motor_id
+        or mileage is None
+        or mileage < 0
+        or work_order.deleted_at
+        or work_order.status == models.WorkOrderStatus.CANCELED
+    ):
+        return
+    db.query(models.Motor).filter(
+        models.Motor.id == work_order.motor_id,
+        models.Motor.google_id == work_order.google_id,
+        or_(models.Motor.mileage.is_(None), models.Motor.mileage < mileage),
+    ).update({models.Motor.mileage: mileage}, synchronize_session="fetch")
+
+
 def get_work_order(db: Session, work_order_id: int):
     """
     根據 ID 獲取單一工單及其所有項目。
@@ -1068,6 +1089,8 @@ def create_work_order(db: Session, work_order: WorkOrderCreate):
     promotion_service.sync_gifts(db, db_work_order)
     if db_booking:
         _hydrate_from_booking(db_work_order, db_booking)
+        if work_order.vehicle_mileage is not None:
+            db_work_order.vehicle_mileage = work_order.vehicle_mileage
         db_booking.status = models.BookingStatus.CONVERTED_TO_WORK_ORDER
         db.add(db_booking)
     else:
@@ -1079,6 +1102,7 @@ def create_work_order(db: Session, work_order: WorkOrderCreate):
     db.add(db_work_order)
     db.flush()
     points_service.sync_work_order_point_redemption(db, db_work_order)
+    _sync_member_motor_mileage(db, db_work_order)
     db.commit()
     return get_work_order(db, db_work_order.id)
 
@@ -1189,6 +1213,7 @@ def create_historical_work_order(
     accounting_service.record_work_order_payment(db, db_work_order, payment)
     _sync_payment_status(db_work_order)
     membership_service.sync_work_order_membership_consumption(db, db_work_order)
+    _sync_member_motor_mileage(db, db_work_order)
     db.commit()
     return get_work_order(db, db_work_order.id)
 
@@ -1352,6 +1377,8 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
     _sync_work_order_approvals(db_work_order)
     membership_service.sync_work_order_membership_consumption(db, db_work_order)
     
+    if "vehicle_mileage" in update_data or vehicle_selection_fields.intersection(update_data):
+        _sync_member_motor_mileage(db, db_work_order)
     db.add(db_work_order)
     db.commit()
     return get_work_order(db, work_order_id)

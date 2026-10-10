@@ -33,6 +33,8 @@ def _parse_product_details(metadata_json, supplier_prices_json):
             details['supplier_prices'] = [price.model_dump(exclude_unset=True) for price in prices.supplier_prices]
     except ValidationError:
         raise HTTPException(status_code=422, detail="商品欄位格式錯誤：金額須為非負整數，進貨廠商名稱不可空白，文字請勿超過長度限制")
+    if 'vehicle_models' not in details and 'vehicle_model' in details:
+        details['vehicle_models'] = [details['vehicle_model']] if details['vehicle_model'] else []
     return details
 
 
@@ -326,6 +328,8 @@ def read_product_vehicle_models(db: Session = Depends(get_db), admin=Depends(req
                    models.Motor.model_name, models.GuestMotor.model_name):
         names.update(row[0].strip() for row in db.query(column).distinct().all()
                      if row[0] and row[0].strip())
+    for (values,) in db.query(models.Product._vehicle_models).all():
+        names.update(values or [])
     return ['通用', *sorted(names - {'通用'})]
 
 
@@ -386,6 +390,7 @@ def create_product_with_image(
     name: str = Form(...),
     price: int = Form(...),
     stock: int = Form(0),
+    is_active: int = Form(1, ge=0, le=1),
     inventory_type: Optional[str] = Form(None),
     low_stock_threshold: int = Form(5),
     description: Optional[str] = Form(None),
@@ -416,6 +421,7 @@ def create_product_with_image(
         name=name,
         price=price,
         stock=stock,
+        is_active=is_active,
         inventory_type=_inventory_type(inventory_type),
         low_stock_threshold=low_stock_threshold,
         description=description,

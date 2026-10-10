@@ -31,7 +31,7 @@
           <span class="category-tag" v-if="product.category">{{ product.category }}</span>
           <h3>{{ product.name }}</h3>
           <dl class="product-specs" v-if="product.vehicle_model || product.model_number || product.specification || product.color || product.manufacturer">
-            <div v-if="product.vehicle_model"><dt>車種</dt><dd>{{ product.vehicle_model }}</dd></div>
+            <div v-if="product.vehicle_model"><dt>車種</dt><dd>{{ product.vehicle_models?.length ? product.vehicle_models.join('、') : product.vehicle_model }}</dd></div>
             <div v-if="product.model_number"><dt>型號</dt><dd>{{ product.model_number }}</dd></div>
             <div v-if="product.specification"><dt>規格</dt><dd>{{ product.specification }}</dd></div>
             <div v-if="product.color"><dt>顏色</dt><dd>{{ product.color }}</dd></div>

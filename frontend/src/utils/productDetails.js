@@ -6,6 +6,7 @@ export function productDetailsForm(product = {}, supplierPrices = []) {
   const details = {};
   textFields.forEach(field => { details[field] = product[field] ?? ''; });
   moneyFields.forEach(field => { details[field] = product[field] ?? ''; });
+  details.vehicle_models = [...(product.vehicle_models ?? (product.vehicle_model ? [product.vehicle_model] : []))];
   details.extra_category_ids = (product.extra_categories || []).map(category => String(category.id));
   details.category_ids = (product.categories || []).map(category => String(category.id)).filter(id => id !== String(product.category_id));
   details.legacy_wholesale_price = product.wholesale_price ?? '';
@@ -18,6 +19,8 @@ export function productDetailsForm(product = {}, supplierPrices = []) {
 export function appendProductDetails(formData, form) {
   const metadata = {};
   textFields.forEach(field => { metadata[field] = form[field]?.trim() || null; });
+  metadata.vehicle_models = [...new Set((form.vehicle_models || []).map(name => name.trim()).filter(Boolean))];
+  metadata.vehicle_model = metadata.vehicle_models[0] || null;
   moneyFields.forEach(field => {
     const raw = form[field];
     const value = raw === '' || raw === null || raw === undefined ? null : Number(raw);

@@ -237,7 +237,7 @@
           <button class="btn btn-outline" type="button" @click="closeCreateModal">關閉</button>
         </div>
         <form class="create-form" @submit.prevent="submitCreateItem">
-          <div class="form-grid">
+          <div v-if="activeTab !== 'parts'" class="form-grid">
             <label>
               品項名稱
               <input v-model.trim="createForm.name" type="text" required />
@@ -293,7 +293,67 @@
               {{ savingCategory ? '新增中...' : '建立分類' }}
             </button>
           </div>
-          <ProductDetailsFields :form="createForm" />
+          <ProductDetailsFields :form="createForm" :parts-layout="activeTab === 'parts'">
+            <template #name>
+            <label>
+              商品名稱
+              <input v-model.trim="createForm.name" type="text" required />
+            </label>
+            </template>
+            <template #category>
+            <label>
+              分類
+              <span class="category-control">
+                <select v-model="createForm.category_id">
+                  <option value="">未分類</option>
+                  <option v-for="category in activeCategories" :key="category.id" :value="String(category.id)">
+                    {{ category.name }}
+                  </option>
+                </select>
+                <button class="btn btn-outline" type="button" :aria-expanded="showCategoryForm" aria-controls="new-product-category" @click="toggleCategoryForm">
+                  ＋ 新增分類
+                </button>
+              </span>
+            </label>
+            </template>
+            <template #price>
+            <label>
+              建議售價
+              <input v-model.number="createForm.price" type="number" min="0" required />
+            </label>
+            </template>
+            <template #status>
+            <label>
+              販售狀態
+              <select v-model.number="createForm.is_active" required>
+                <option :value="1">上架</option>
+                <option :value="0">下架</option>
+              </select>
+            </label>
+            </template>
+            <template #usage>
+            <label>
+              庫存用途
+              <select v-model="createForm.inventory_type" required>
+                <option value="SHOP">商城商品</option>
+                <option value="PART">工單零件 / 耗材</option>
+                <option value="BOTH">商城與工單共用</option>
+              </select>
+            </label>
+            </template>
+            <template #stock>
+            <label>
+              實際庫存
+              <input v-model.number="createForm.stock" type="number" min="0" required />
+            </label>
+            </template>
+            <template #threshold>
+            <label>
+              低庫存門檻
+              <input v-model.number="createForm.low_stock_threshold" type="number" min="0" required />
+            </label>
+            </template>
+          </ProductDetailsFields>
           <label>
             描述
             <textarea v-model.trim="createForm.description" rows="3"></textarea>
@@ -695,7 +755,7 @@ async function submitCreateItem() {
     formData.append('inventory_type', createForm.inventory_type);
     formData.append('low_stock_threshold', Number(createForm.low_stock_threshold) || 0);
     formData.append('description', createForm.description || '');
-    if (editingItemId.value) formData.append('is_active', Number(createForm.is_active));
+    formData.append('is_active', Number(createForm.is_active));
     if (createForm.category_id) formData.append('category_id', Number(createForm.category_id));
     else formData.append('category', '');
     if (selectedCreateFile.value) formData.append('file', selectedCreateFile.value);
@@ -888,18 +948,19 @@ onMounted(fetchAll);
 
 .inventory-table-block :deep(.inventory-table) {
   width: 100%;
-  min-width: 760px;
+  min-width: 810px;
   border-collapse: collapse;
   table-layout: fixed;
 }
 
 .inventory-table-block :deep(.inventory-table th),
 .inventory-table-block :deep(.inventory-table td) {
-  padding: 0.8rem 0.9rem;
+  padding: 0.8rem 0.5rem;
   border-bottom: 1px solid $medium-grey;
   text-align: left;
   vertical-align: middle;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .inventory-table-block :deep(.inventory-table th) {
@@ -917,22 +978,12 @@ onMounted(fetchAll);
   background-color: rgba($primary-color, 0.05);
 }
 
-.inventory-table-block :deep(.inventory-table th:first-child) {
-  width: 30%;
-}
-
-.inventory-table-block :deep(.inventory-table th:nth-child(2)) {
-  width: 25%;
-}
-
 .inventory-table-block :deep(.inventory-table .action-cell) {
-  width: 92px;
-  text-align: right;
+  text-align: center;
 }
 
 .inventory-table-block :deep(.inventory-table td) {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 0.875rem;
 }
 
 .inventory-table :deep(.product-name) {

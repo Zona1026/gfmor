@@ -334,6 +334,7 @@
               class="btn btn-outline"
               type="button"
               @click="openReopenModal"
+              :disabled="detailLoading"
             >
               退回修改
             </button>
@@ -342,6 +343,7 @@
               class="btn btn-danger"
               type="button"
               @click="openDeleteModal"
+              :disabled="detailLoading"
             >
               刪除工單
             </button>
@@ -349,7 +351,8 @@
           </div>
         </div>
 
-        <div class="detail-grid">
+        <p v-if="detailLoading" role="status">工單資料載入中，請稍候…</p>
+        <div v-else class="detail-grid">
           <section class="form-section">
             <h4>基本資料</h4>
             <div class="work-order-customer-vehicle">
@@ -446,7 +449,7 @@
               <h4>施工 / 零件 / 工資 / 折扣明細</h4>
               <div v-if="canEditWorkOrder" class="detail-section-actions">
                 <button type="button" class="btn btn-outline" :disabled="lineItemEditingLocked || activeRevision" @click="addDetailLineItem">新增明細</button>
-                <button type="button" class="btn btn-primary" :disabled="saving" @click="saveWorkOrder">儲存工單</button>
+                <button type="button" class="btn btn-primary" :disabled="saving || detailLoading" @click="saveWorkOrder">儲存工單</button>
               </div>
             </div>
             <div class="line-editor">
@@ -722,7 +725,7 @@
 import WorkOrderProductPicker from '../../components/admin/WorkOrderProductPicker.vue';
 import { MANUAL_PRODUCT_CATEGORY } from '../../utils/workOrderProductPicker';
 import { getInventoryItems, previewPromotionOrder } from '../../api/admin';
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
 import {
@@ -786,6 +789,9 @@ const createForm = ref(defaultCreateForm());
 const createLineItems = ref([defaultLineItem(), defaultLineItem()]);
 
 const selectedWorkOrder = ref(null);
+let detailRequestId = 0;
+const detailLoading = ref(false);
+onBeforeUnmount(() => { detailRequestId += 1; });
 const detailForm = ref({});
 const detailLineItems = ref([]);
 const detailVehicleOptions = ref([]);
@@ -1244,7 +1250,7 @@ const applySelectedMemberMotor = () => {
   createForm.value.vehicle_mileage = selected.motor.mileage ?? null;
 };
 
-const fetchDetailVehicleOptions = async (workOrder) => {
+const fetchDetailVehicleOptions = async (workOrder, isCurrent = () => true) => {
   const customerType = workOrder.google_id ? 'member' : 'guest';
   const customerId = workOrder.google_id || workOrder.guest_customer_id;
   const selectedVehicleId = workOrder.motor_id || workOrder.guest_motor_id || null;
@@ -1255,6 +1261,7 @@ const fetchDetailVehicleOptions = async (workOrder) => {
 
   try {
     const customer = await getCustomerDetail(customerType, customerId);
+    if (!isCurrent()) return;
     detailCustomerPoints.value = workOrder.google_id ? Number(customer.current_points || 0) : 0;
     detailVehicleOptions.value = (customer.vehicles || []).filter(vehicle =>
       !vehicle.status || vehicle.id === selectedVehicleId
@@ -1471,40 +1478,50 @@ const submitCreateWorkOrder = async () => {
 };
 
 const openDetail = async (id) => {
+  const requestId = ++detailRequestId;
+  const isCurrent = () => requestId === detailRequestId;
+  detailLoading.value = true;
   try {
-    selectedWorkOrder.value = normalizeWorkOrderResponsibleStaff(await getWorkOrder(id));
+    const workOrder = normalizeWorkOrderResponsibleStaff(await getWorkOrder(id));
+    if (!isCurrent()) return;
+    selectedWorkOrder.value = workOrder;
+    detailForm.value = {};
+    detailLineItems.value = [];
     await Promise.all([
       fetchProducts(),
       fetchStaffAdmins(),
-      fetchDetailVehicleOptions(selectedWorkOrder.value)
+      fetchDetailVehicleOptions(workOrder, isCurrent)
     ]);
+    if (!isCurrent()) return;
     detailForm.value = {
-      service_type: selectedWorkOrder.value.service_type,
-      status: selectedWorkOrder.value.status,
-      motor_id: selectedWorkOrder.value.motor_id,
-      guest_motor_id: selectedWorkOrder.value.guest_motor_id,
-      vehicle_license_plate: selectedWorkOrder.value.vehicle_license_plate || '',
-      vehicle_brand: selectedWorkOrder.value.vehicle_brand || '',
-      vehicle_model: selectedWorkOrder.value.vehicle_model || '',
-      vehicle_vin: selectedWorkOrder.value.vehicle_vin || '',
-      vehicle_mileage: selectedWorkOrder.value.vehicle_mileage,
-      problem_description: selectedWorkOrder.value.problem_description || '',
-      inspection_result: selectedWorkOrder.value.inspection_result || '',
-      responsible_staff: workOrderResponsibleStaffName(selectedWorkOrder.value),
-      responsible_staff_id: selectedWorkOrder.value.responsible_staff_id
-        || staffIdByName(selectedWorkOrder.value.responsible_staff)
+      service_type: workOrder.service_type,
+      status: workOrder.status,
+      motor_id: workOrder.motor_id,
+      guest_motor_id: workOrder.guest_motor_id,
+      vehicle_license_plate: workOrder.vehicle_license_plate || '',
+      vehicle_brand: workOrder.vehicle_brand || '',
+      vehicle_model: workOrder.vehicle_model || '',
+      vehicle_vin: workOrder.vehicle_vin || '',
+      vehicle_mileage: workOrder.vehicle_mileage,
+      problem_description: workOrder.problem_description || '',
+      inspection_result: workOrder.inspection_result || '',
+      responsible_staff: workOrderResponsibleStaffName(workOrder),
+      responsible_staff_id: workOrder.responsible_staff_id
+        || staffIdByName(workOrder.responsible_staff)
         || defaultResponsibleStaffId(),
-      scheduled_at: toDatetimeLocal(selectedWorkOrder.value.scheduled_at),
-      ordered_date: selectedWorkOrder.value.ordered_date || selectedWorkOrder.value.consumption_date || '',
-      notes: selectedWorkOrder.value.notes || ''
+      scheduled_at: toDatetimeLocal(workOrder.scheduled_at),
+      ordered_date: workOrder.ordered_date || workOrder.consumption_date || '',
+      notes: workOrder.notes || ''
     };
-    detailLineItems.value = (selectedWorkOrder.value.line_items || []).map(item => ({ ...item }));
+    detailLineItems.value = (workOrder.line_items || []).map(item => ({ ...item }));
     originalDetailRedeemedPoints.value = detailLineItems.value.reduce(
       (total, item) => total + Number(item.points_redeemed || 0),
       0
     );
-    paymentForm.value = { amount: selectedWorkOrder.value.balance_amount || null, method: '', note: '' };
+    paymentForm.value = { amount: workOrder.balance_amount || null, method: '', note: '' };
   } catch (error) {
+    if (!isCurrent()) return;
+    console.error('讀取工單失敗:', error);
     if (error.response?.status === 401) {
       authStore.adminLogout();
       alert('管理員登入已過期，請重新登入。');
@@ -1512,10 +1529,14 @@ const openDetail = async (id) => {
       return;
     }
     alert(`讀取工單失敗：${getErrorMessage(error)}`);
+  } finally {
+    if (isCurrent()) detailLoading.value = false;
   }
 };
 
 const closeDetail = () => {
+  detailRequestId += 1;
+  detailLoading.value = false;
   selectedWorkOrder.value = null;
   detailVehicleOptions.value = [];
   detailVehicleId.value = null;
@@ -1527,7 +1548,7 @@ const closeDetail = () => {
 };
 
 const saveWorkOrder = async () => {
-  if (!selectedWorkOrder.value) return;
+  if (!selectedWorkOrder.value || detailLoading.value) return;
   if (!supervisorReviewLocked.value && detailVehicleOptions.value.length && !detailVehicleId.value) {
     alert('請選擇車輛');
     return;
@@ -1746,7 +1767,7 @@ const toDatetimeLocal = (iso) => {
 
 const getErrorMessage = (error) => {
   const detail = error.response?.data?.detail;
-  if (!detail) return '未知錯誤';
+  if (!detail) return error.message || '讀取失敗，請稍後再試';
   if (typeof detail === 'string') return detail;
   if (Array.isArray(detail)) return detail.map(item => item.msg).join('\n');
   return JSON.stringify(detail);
@@ -1789,6 +1810,15 @@ watch(() => promotionLineKey(createLineItems.value), () => {
 watch(() => promotionLineKey(detailLineItems.value), () => {
   if (selectedWorkOrder.value && !selectedWorkOrder.value.is_historical_backfill && !lineItemEditingLocked.value && !activeRevision.value && !saving.value && !detailLineItems.value.some(item => item.inventory_deducted || item.inventory_consumed_quantity > 0)) refreshPromotionLines(detailLineItems);
 });
+
+watch(
+  () => route.query.work_order_id,
+  (value) => {
+    const id = Number(value);
+    if (Number.isSafeInteger(id) && id > 0) openDetail(id);
+  },
+  { immediate: true }
+);
 
 watch(
   () => route.query,

@@ -272,6 +272,7 @@ class Product(Base):
     description = Column(Text, comment="描述")
     price = Column(Integer, nullable=False, comment="價格")
     vehicle_model = Column(String(200), nullable=True, comment="適用車種")
+    _vehicle_models = Column("vehicle_models", JSON, nullable=True, comment="適用車種複選")
     barcode = Column(String(100), nullable=True, comment="商品條碼")
     model_number = Column(String(200), nullable=True, comment="型號")
     specification = Column(String(500), nullable=True, comment="規格")
@@ -294,6 +295,18 @@ class Product(Base):
     category_info = relationship("ProductCategory", back_populates="products")
     additional_categories = relationship("ProductCategory", secondary=product_category_links)
     extra_categories = relationship("ProductExtraCategory", secondary=product_extra_category_links, order_by="ProductExtraCategory.sort_order, ProductExtraCategory.id")
+
+    @property
+    def vehicle_models(self):
+        if self._vehicle_models is not None:
+            return self._vehicle_models
+        return [self.vehicle_model] if self.vehicle_model else []
+
+    @vehicle_models.setter
+    def vehicle_models(self, value):
+        self._vehicle_models = value
+        if value is not None:
+            self.vehicle_model = value[0] if value else None
 
     @property
     def categories(self):

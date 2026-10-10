@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional
+from typing import Annotated, List, Optional
 from datetime import datetime
 from db.models import InventoryType
 
@@ -66,6 +66,15 @@ class ProductMetadata(BaseModel):
         return (value.strip() or None) if isinstance(value, str) else value
 
     vehicle_model: Optional[str] = Field(None, max_length=200)
+    vehicle_models: Optional[List[Annotated[str, Field(min_length=1, max_length=200)]]] = None
+
+    @field_validator('vehicle_models', mode='before')
+    @classmethod
+    def clean_vehicle_models(cls, value):
+        if isinstance(value, list) and all(isinstance(name, str) for name in value):
+            return list(dict.fromkeys(name.strip() for name in value))
+        return value
+
     model_number: Optional[str] = Field(None, max_length=200)
     specification: Optional[str] = Field(None, max_length=500)
     color: Optional[str] = Field(None, max_length=100)

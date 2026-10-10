@@ -30,7 +30,7 @@ export const confirmAdminPasswordReset = async (data) => {
 };
 
 export const getAdminBookings = async (params) => {
-  return await api.get('/bookings', { params });
+  return await api.get('/bookings/', { params });
 };
 
 export const getWorkOrders = async (params = {}) => {

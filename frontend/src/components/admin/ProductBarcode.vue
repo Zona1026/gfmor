@@ -7,7 +7,7 @@
 <script setup>
 import { nextTick, ref, watch } from 'vue';
 import JsBarcode from 'jsbarcode';
-const props = defineProps({ value: { type: String, required: true } });
+const props = defineProps({ value: { type: String, required: true }, compact: Boolean });
 const barcodeElement = ref(null);
 const error = ref('');
 watch(() => props.value, async value => {
@@ -16,7 +16,8 @@ watch(() => props.value, async value => {
   if (!barcodeElement.value) return;
   try {
     if (!/^[!-~]{1,100}$/.test(value)) throw new Error();
-    JsBarcode(barcodeElement.value, value, { format: 'CODE128', width: 2, height: 52, fontSize: 14, margin: 12, background: '#ffffff', lineColor: '#000000' });
+    JsBarcode(barcodeElement.value, value, { format: 'CODE128', width: 2, height: 52, fontSize: 14, margin: 12, background: '#ffffff', lineColor: '#000000', displayValue: !props.compact });
+    if (props.compact) barcodeElement.value.setAttribute('preserveAspectRatio', 'none');
     barcodeElement.value.setAttribute('viewBox', `0 0 ${parseFloat(barcodeElement.value.getAttribute('width'))} ${parseFloat(barcodeElement.value.getAttribute('height'))}`);
   } catch {
     error.value = '條碼限 100 字以內的英數字或符號，不可包含空白。';

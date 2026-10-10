@@ -283,7 +283,7 @@ class WorkOrderBase(BaseModel):
     vehicle_brand: Optional[str] = None
     vehicle_model: Optional[str] = None
     vehicle_vin: Optional[str] = None
-    vehicle_mileage: Optional[int] = None
+    vehicle_mileage: Optional[int] = Field(default=None, ge=0)
     vehicle_is_new: Optional[bool] = None
     vehicle_purchase_date: Optional[date] = None
     service_type: Optional[WorkOrderServiceType] = None

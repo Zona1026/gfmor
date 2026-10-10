@@ -3,7 +3,7 @@
     <div class="section-header">
       <div>
         <h2>客戶 / 會員管理</h2>
-        <p>集中查看客戶資料、車輛、服務紀錄、消費紀錄、備註與會員點數。</p>
+        <p>集中查看客戶資料、車輛、消費紀錄、備註與會員點數。</p>
       </div>
       <div class="toolbar">
         <input
@@ -88,7 +88,6 @@
         <div class="tabs">
           <button type="button" :class="{ active: activeTab === 'profile' }" @click="activeTab = 'profile'">客戶資料</button>
           <button type="button" :class="{ active: activeTab === 'vehicles' }" @click="activeTab = 'vehicles'">車輛資料</button>
-          <button type="button" :class="{ active: activeTab === 'services' }" @click="activeTab = 'services'">服務紀錄</button>
           <button type="button" :class="{ active: activeTab === 'spending' }" @click="activeTab = 'spending'">消費紀錄</button>
           <button type="button" :class="{ active: activeTab === 'notes' }" @click="activeTab = 'notes'">備註</button>
         </div>
@@ -176,7 +175,7 @@
                     <td>{{ vehicle.license_plate }}</td>
                     <td>{{ vehicle.brand || '未填' }}</td>
                     <td>{{ vehicle.model_name || '未填' }}</td>
-                    <td>{{ vehicle.mileage ? formatNumber(vehicle.mileage) : '未填' }}</td>
+                    <td>{{ vehicle.mileage != null ? formatNumber(vehicle.mileage) : '未填' }}</td>
                     <td>{{ vehicle.vin || '未填' }}</td>
                     <td>{{ vehicle.is_new_vehicle ? `是${vehicle.purchase_date ? ` / ${formatDate(vehicle.purchase_date)}` : ''}` : '否' }}</td>
                     <td class="action-cell">
@@ -215,56 +214,31 @@
             </form>
           </section>
 
-          <section v-if="activeTab === 'services'" class="detail-panel">
-            <table v-if="selectedCustomer.service_records?.length" class="mini-table">
+          <section v-if="activeTab === 'spending'" class="detail-panel consumption-panel">
+            <table v-if="consumptionRecords.length" class="mini-table">
               <thead>
                 <tr>
-                  <th>工單</th>
-                  <th>日期</th>
-                  <th>服務類型</th>
-                  <th>車牌</th>
-                  <th>狀態</th>
-                  <th>付款</th>
-                  <th>負責人</th>
-                  <th>金額</th>
+                  <th>單號</th><th>來源</th><th>日期</th><th>服務類型</th><th>車牌</th>
+                  <th>狀態</th><th>付款</th><th>付款方式</th><th>負責人</th><th>金額</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="record in selectedCustomer.service_records" :key="record.id">
-                  <td>#{{ record.work_order_id }}</td>
-                  <td>{{ formatDate(record.completed_at || record.scheduled_at || record.created_at) }}</td>
-                  <td>{{ serviceTypeMap[record.service_type] || record.service_type }}</td>
-                  <td>{{ record.vehicle_license_plate || '未填' }}</td>
-                  <td>{{ workOrderStatusMap[record.status] || record.status }}</td>
-                  <td>{{ paymentStatusMap[record.payment_status] || record.payment_status }}</td>
-                  <td>{{ record.responsible_staff || '未填' }}</td>
-                  <td class="amount">NT$ {{ formatNumber(record.total_amount) }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <p v-else class="empty-text">尚無服務紀錄。</p>
-          </section>
-
-          <section v-if="activeTab === 'spending'" class="detail-panel">
-            <table v-if="selectedCustomer.spending_records?.length" class="mini-table">
-              <thead>
-                <tr>
-                  <th>來源</th>
-                  <th>日期</th>
-                  <th>金額</th>
-                  <th>付款方式</th>
-                  <th>狀態</th>
-                  <th>單號</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="record in selectedCustomer.spending_records" :key="record.id">
-                  <td>{{ spendingSourceMap[record.source] || record.source }}</td>
-                  <td>{{ formatDateTime(record.paid_at || record.created_at) }}</td>
+                <tr v-for="record in consumptionRecords" :key="record.id">
+                  <td>
+                    <RouterLink v-if="record.source === 'work_order'" class="record-link"
+                      :to="{ path: '/admin/work-orders', query: { work_order_id: record.source_id } }"
+                      :aria-label="`查看工單 #${record.source_id}`">#{{ record.source_id }}</RouterLink>
+                    <span v-else>#{{ record.source_id }}</span>
+                  </td>
+                  <td>{{ record.source === 'work_order' ? '工單' : '線上商城' }}</td>
+                  <td>{{ formatDate(record.date) }}</td>
+                  <td>{{ serviceTypeMap[record.service_type] || record.service_type || '—' }}</td>
+                  <td>{{ record.vehicle_license_plate || '—' }}</td>
+                  <td>{{ record.source === 'work_order' ? (workOrderStatusMap[record.status] || record.status) : (orderStatusMap[record.status] || record.status) }}</td>
+                  <td>{{ paymentStatusMap[record.payment_status] || '—' }}</td>
+                  <td>{{ record.method || '—' }}</td>
+                  <td>{{ record.responsible_staff || '—' }}</td>
                   <td class="amount">NT$ {{ formatNumber(record.amount) }}</td>
-                  <td>{{ record.method || '未填' }}</td>
-                  <td>{{ orderStatusMap[record.status] || paymentStatusMap[record.status] || record.status }}</td>
-                  <td>{{ record.source_label }}</td>
                 </tr>
               </tbody>
             </table>
@@ -288,6 +262,8 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
+import { RouterLink } from 'vue-router';
+import { buildConsumptionRecords } from '../../utils/customerConsumption';
 import { storeToRefs } from 'pinia';
 import {
   createGuestMotor,
@@ -360,10 +336,7 @@ const orderStatusMap = {
   CANCELED: '已取消'
 };
 
-const spendingSourceMap = {
-  order: '商城訂單',
-  work_order_payment: '工單付款'
-};
+const consumptionRecords = computed(() => buildConsumptionRecords(selectedCustomer.value));
 
 function defaultVehicle() {
   return {
@@ -920,6 +893,9 @@ onMounted(fetchCustomers);
   .detail-panel {
     min-height: 260px;
   }
+
+  .consumption-panel { overflow-x: auto; }
+  .record-link { color: $primary-light; text-decoration: underline; text-underline-offset: 3px; }
 
   .detail-loading {
     padding: 2rem;

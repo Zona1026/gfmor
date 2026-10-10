@@ -182,6 +182,49 @@ class ProductPricingFieldsTest(unittest.TestCase):
             self.assertEqual(response.status_code, 422, response.data)
         self.assertEqual(self.db.query(models.Product).count(), 0)
 
+    def test_multiple_vehicle_models_save_reload_edit_clear_and_legacy(self):
+        created = self.create(product_metadata=json.dumps({'vehicle_models': [' 勁戰六代 ', 'JET SL', 'JET SL']}))
+        self.assertEqual(created.status_code, 200, created.data)
+        product_id = created.data['id']
+        self.db.expire_all()
+        for endpoint in (f'/products/{product_id}', '/inventory/items?type=part'):
+            response = self.client.request('GET', endpoint, headers=self.headers())
+            self.assertEqual(response.status_code, 200, response.data)
+            payload = response.data[0] if isinstance(response.data, list) else response.data
+            self.assertEqual(payload['vehicle_models'], ['勁戰六代', 'JET SL'])
+        options = self.client.request('GET', '/products/admin/vehicle-models', headers=self.headers()).data
+        self.assertIn('JET SL', options)
+        updated = self.client.request('PUT', f'/products/{product_id}', headers=self.headers(), data={'name': '改名'})
+        self.assertEqual(updated.data['vehicle_models'], ['勁戰六代', 'JET SL'])
+        legacy = self.client.request('PUT', f'/products/{product_id}', headers=self.headers(), data={
+            'product_metadata': json.dumps({'vehicle_model': '舊版單選'}),
+        })
+        self.assertEqual(legacy.data['vehicle_models'], ['舊版單選'])
+        cleared = self.client.request('PUT', f'/products/{product_id}', headers=self.headers(), data={
+            'product_metadata': json.dumps({'vehicle_models': []}),
+        })
+        self.assertEqual(cleared.data['vehicle_models'], [])
+        self.assertIsNone(cleared.data['vehicle_model'])
+        old = models.Product(name='既有零件', price=100, stock=0, vehicle_model='既有車種')
+        self.db.add(old)
+        self.db.commit()
+        self.assertEqual(self.client.request('GET', f'/products/{old.id}').data['vehicle_models'], ['既有車種'])
+        for value in ([''], ['x' * 201], 'JET SL', [3]):
+            invalid = self.create(product_metadata=json.dumps({'vehicle_models': value}))
+            self.assertEqual(invalid.status_code, 422, invalid.data)
+
+    def test_vehicle_models_migration_preserves_existing_single_model(self):
+        path = Path(__file__).resolve().parents[1] / 'migrations/versions/20261010_0026_product_vehicle_models.py'
+        spec = importlib.util.spec_from_file_location('vehicle_models_migration', path)
+        migration = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(migration)
+        with self.engine.begin() as connection:
+            connection.execute(text("INSERT INTO products (name, price, stock, vehicle_model) VALUES ('既有', 100, 2, 'JET SL')"))
+            with patch.object(migration, 'op', Operations(MigrationContext.configure(connection))):
+                migration.downgrade()
+                migration.upgrade()
+            self.assertEqual(connection.execute(text('SELECT vehicle_model, vehicle_models FROM products')).one(), ('JET SL', None))
+
     def test_model_number_persists_separately_and_can_be_cleared(self):
         created = self.create(product_metadata=json.dumps({'model_number': 'ABC-123', 'specification': '245 mm'}))
         self.assertEqual(created.status_code, 200, created.data)
