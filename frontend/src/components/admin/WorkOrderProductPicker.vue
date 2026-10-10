@@ -15,7 +15,7 @@
       </select>
     </label>
     <label>
-      <span>進貨廠商</span>
+      <span>廠商</span>
       <select v-model="item.picker_supplier" :disabled="disabled || item.type !== 'PART' || isManual" @change="changeFilters">
         <option value="">{{ item.type === 'PART' && !isManual ? '全部廠商' : '不適用' }}</option>
         <option v-for="name in suppliers" :key="name" :value="name">{{ name }}</option>
