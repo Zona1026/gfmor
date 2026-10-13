@@ -68,7 +68,7 @@
     </div>
 
     <!-- 新增現場訂單 Modal -->
-    <div class="modal-overlay" v-if="showCreateModal && canManageOrders" @click.self="showCreateModal = false">
+    <div class="modal-overlay" v-if="showCreateModal && canManageOrders" v-backdrop-close="() => (showCreateModal = false)">
       <div class="modal">
         <h3>新增現場訂單</h3>
         <form @submit.prevent="handleCreate">
@@ -119,7 +119,7 @@
     </div>
 
     <!-- 訂單詳情 Modal -->
-    <div class="modal-overlay" v-if="showDetailModal" @click.self="showDetailModal = false">
+    <div class="modal-overlay" v-if="showDetailModal" v-backdrop-close="() => (showDetailModal = false)">
       <div class="modal order-detail-modal">
         <div class="detail-header">
           <div>
@@ -231,7 +231,7 @@
     </div>
 
     <!-- 編輯現場訂單 Modal -->
-    <div class="modal-overlay" v-if="showEditModal && canManageOrders" @click.self="showEditModal = false">
+    <div class="modal-overlay" v-if="showEditModal && canManageOrders" v-backdrop-close="() => (showEditModal = false)">
       <div class="modal">
         <h3>編輯現場訂單 #{{ editForm.id }}</h3>
         <form @submit.prevent="handleEdit">
@@ -262,7 +262,7 @@
     </div>
 
     <!-- 散客合併 Modal -->
-    <div class="modal-overlay" v-if="showMergeModal && canManageOrders" @click.self="showMergeModal = false">
+    <div class="modal-overlay" v-if="showMergeModal && canManageOrders" v-backdrop-close="() => (showMergeModal = false)">
       <div class="modal">
         <h3>合併散客紀錄</h3>
         <form @submit.prevent="handleMerge">

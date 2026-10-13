@@ -97,7 +97,7 @@
       <div v-else class="empty-state">目前沒有資料</div>
     </div>
 
-    <div v-if="showCreateForm" class="modal-overlay" @click.self="closeCreateForm">
+    <div v-if="showCreateForm" class="modal-overlay" v-backdrop-close="closeCreateForm">
       <form class="modal-content small" @submit.prevent="submitCreate">
         <div class="modal-header">
           <h3>新增採購單</h3>
@@ -139,7 +139,7 @@
       </form>
     </div>
 
-    <div v-if="selectedRequest" class="modal-overlay" @click.self="closeDetail">
+    <div v-if="selectedRequest" class="modal-overlay" v-backdrop-close="closeDetail">
       <div class="modal-content">
         <div class="modal-header">
           <div>
@@ -252,7 +252,7 @@
       </div>
     </div>
 
-    <div v-if="orderingRequest" class="modal-overlay" @click.self="closeOrderForm">
+    <div v-if="orderingRequest" class="modal-overlay" v-backdrop-close="closeOrderForm">
       <form class="modal-content small" @submit.prevent="submitOrder">
         <div class="modal-header">
           <h3>登記已叫貨</h3>
@@ -285,7 +285,7 @@
       </form>
     </div>
 
-    <div v-if="receivingRequest" class="modal-overlay" @click.self="closeReceiveForm">
+    <div v-if="receivingRequest" class="modal-overlay" v-backdrop-close="closeReceiveForm">
       <form class="modal-content small" @submit.prevent="submitReceive">
         <div class="modal-header">
           <h3>登記到貨</h3>

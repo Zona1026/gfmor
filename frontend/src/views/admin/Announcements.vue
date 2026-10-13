@@ -24,7 +24,7 @@
     </div>
 
     <!-- 新增 / 編輯 Modal -->
-    <div class="modal-overlay" v-if="showModal && canManageAnnouncements" @click.self="showModal = false">
+    <div class="modal-overlay" v-if="showModal && canManageAnnouncements" v-backdrop-close="() => (showModal = false)">
       <div class="modal">
         <h3>{{ isEditing ? '編輯公告' : '新增公告' }}</h3>
         <form @submit.prevent="handleSubmit">

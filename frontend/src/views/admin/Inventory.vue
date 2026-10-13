@@ -230,7 +230,7 @@
       <InventoryTable :items="lowStockItems" :can-edit="canManageInventory" @edit="openEditModal" />
     </section>
 
-    <div v-if="showCreateModal && canManageInventory" class="modal-overlay" @click.self="closeCreateModal">
+    <div v-if="showCreateModal && canManageInventory" class="modal-overlay" v-backdrop-close="closeCreateModal">
       <div class="modal" role="dialog" aria-modal="true" :aria-label="itemModalTitle">
         <div class="modal-header">
           <h3>{{ itemModalTitle }}</h3>

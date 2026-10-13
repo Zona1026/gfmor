@@ -38,7 +38,7 @@
     </div>
 
     <!-- 新增 / 編輯 Modal -->
-    <div class="modal-overlay" v-if="showModal" @click.self="showModal = false">
+    <div class="modal-overlay" v-if="showModal" v-backdrop-close="() => (showModal = false)">
       <div class="modal">
         <h3>{{ isEditing ? '編輯作品' : '新增作品' }}</h3>
         <form @submit.prevent="handleSubmit">

@@ -77,7 +77,7 @@
     </div>
 
     <!-- 新增管理員 Modal -->
-    <div class="modal-overlay" v-if="showCreateModal" @click.self="showCreateModal = false">
+    <div class="modal-overlay" v-if="showCreateModal" v-backdrop-close="() => (showCreateModal = false)">
       <div class="modal">
         <h3>新增管理員帳號</h3>
         <form @submit.prevent="handleCreate">
@@ -116,7 +116,7 @@
     </div>
 
     <!-- 編輯管理員 Modal -->
-    <div v-if="showEditModal" class="modal-overlay" @click.self="showEditModal = false">
+    <div v-if="showEditModal" class="modal-overlay" v-backdrop-close="() => (showEditModal = false)">
       <div class="modal">
         <h3>編輯管理員</h3>
         <form @submit.prevent="handleUpdate">
@@ -155,7 +155,7 @@
     </div>
 
     <!-- 重設密碼 Modal -->
-    <div v-if="showResetPasswordModal" class="modal-overlay" @click.self="closeResetPasswordModal">
+    <div v-if="showResetPasswordModal" class="modal-overlay" v-backdrop-close="closeResetPasswordModal">
       <div class="modal">
         <h3>重設管理員密碼</h3>
         <p class="modal-note">

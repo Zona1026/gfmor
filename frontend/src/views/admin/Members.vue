@@ -72,7 +72,7 @@
       </table>
     </div>
 
-    <div v-if="showDetailModal" class="modal-overlay" @click.self="closeDetail">
+    <div v-if="showDetailModal" class="modal-overlay" v-backdrop-close="closeDetail">
       <div class="modal modal-wide">
         <div class="modal-header">
           <div>

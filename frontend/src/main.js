@@ -2,11 +2,13 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import router from './router'
 import App from './App.vue'
+import backdropClose from './directives/backdropClose'
 import './assets/main.scss'
 import vue3GoogleLogin from 'vue3-google-login'
 import { ADMIN_IDLE_TIMEOUT_HOURS, useAuthStore } from './store/auth'
 
 const app = createApp(App)
+app.directive('backdrop-close', backdropClose)
 
 app.config.errorHandler = (err, instance, info) => {
   console.error("Vue Global Error:", err, info);

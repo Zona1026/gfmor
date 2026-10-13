@@ -28,7 +28,7 @@
         </div>
       </section>
     </template>
-    <div v-if="showForm" class="modal-overlay" @click.self="!saving && (showForm = false)">
+    <div v-if="showForm" class="modal-overlay" v-backdrop-close="() => (!saving && (showForm = false))">
       <section class="activity-modal" role="dialog" aria-modal="true" aria-labelledby="activity-form-title">
         <h3 id="activity-form-title">{{ editingId ? '編輯活動' : '新增活動' }}</h3>
         <form @submit.prevent="save">

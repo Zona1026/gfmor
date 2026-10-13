@@ -26,7 +26,7 @@
     </div>
     <button v-if="hasMore" class="btn load-more" :disabled="loading" @click="fetchReviews(true)">載入更多</button>
 
-    <div v-if="selectedWorkOrder" class="modal-overlay" @click.self="closeReview">
+    <div v-if="selectedWorkOrder" class="modal-overlay" v-backdrop-close="closeReview">
       <div class="review-modal" role="dialog" aria-modal="true" aria-labelledby="review-title">
         <div class="section-header">
           <div><h3 id="review-title">復核工單 #{{ selectedWorkOrder.id }}</h3><p>{{ selectedWorkOrder.customer_name || '-' }} / {{ selectedWorkOrder.vehicle_license_plate || '-' }}</p></div>

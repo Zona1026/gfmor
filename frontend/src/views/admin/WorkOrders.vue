@@ -100,7 +100,7 @@
       <div v-else class="empty-state">目前沒有符合條件的工單。</div>
     </div>
 
-    <div v-if="showCreateModal && canCreateWorkOrder" class="modal-overlay" @click.self="closeCreateModal">
+    <div v-if="showCreateModal && canCreateWorkOrder" class="modal-overlay" v-backdrop-close="closeCreateModal">
       <div class="modal-content large work-order-sheet">
         <div class="modal-header">
           <div>
@@ -319,7 +319,7 @@
       </div>
     </div>
 
-    <div v-if="selectedWorkOrder" class="modal-overlay" @click.self="closeDetail">
+    <div v-if="selectedWorkOrder" class="modal-overlay" v-backdrop-close="closeDetail">
       <div class="modal-content xlarge work-order-sheet">
         <div class="modal-header">
           <div>
@@ -603,7 +603,7 @@
       </div>
     </div>
 
-    <div v-if="showDeleteModal" class="modal-overlay confirm-overlay" @click.self="closeDeleteModal">
+    <div v-if="showDeleteModal" class="modal-overlay confirm-overlay" v-backdrop-close="closeDeleteModal">
       <div class="modal-content confirm-modal">
         <div class="modal-header">
           <div>
@@ -632,7 +632,7 @@
       </div>
     </div>
 
-    <div v-if="showReopenModal" class="modal-overlay confirm-overlay" @click.self="closeReopenModal">
+    <div v-if="showReopenModal" class="modal-overlay confirm-overlay" v-backdrop-close="closeReopenModal">
       <div class="modal-content confirm-modal">
         <div class="modal-header">
           <div><h3>退回工單 #{{ selectedWorkOrder?.id }} 修改</h3><p>原審核紀錄會保留，修改後需重新審核。</p></div>
@@ -646,7 +646,7 @@
       </div>
     </div>
 
-    <div v-if="showRefundModal" class="modal-overlay confirm-overlay" @click.self="closeRefundModal">
+    <div v-if="showRefundModal" class="modal-overlay confirm-overlay" v-backdrop-close="closeRefundModal">
       <div class="modal-content confirm-modal">
         <div class="modal-header">
           <div>
@@ -685,7 +685,7 @@
       </div>
     </div>
 
-    <div v-if="showRewardQrModal" class="modal-overlay reward-qr-overlay" @click.self="closeRewardQrModal">
+    <div v-if="showRewardQrModal" class="modal-overlay reward-qr-overlay" v-backdrop-close="closeRewardQrModal">
       <div class="modal-content reward-qr-modal">
         <div class="modal-header">
           <div>

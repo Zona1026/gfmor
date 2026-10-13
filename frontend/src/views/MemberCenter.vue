@@ -244,7 +244,7 @@
         </div>
       </div>
 
-      <div v-if="selectedMaintenanceRecord" class="record-modal-overlay" @click.self="closeMaintenanceDetail">
+      <div v-if="selectedMaintenanceRecord" class="record-modal-overlay" v-backdrop-close="closeMaintenanceDetail">
         <section class="record-modal" role="dialog" aria-modal="true" aria-labelledby="record-modal-title">
           <header class="record-modal-header">
             <div>
@@ -284,7 +284,7 @@
         </section>
       </div>
 
-      <div v-if="selectedVehicleMaintenance" class="record-modal-overlay" @click.self="closeVehicleMaintenance">
+      <div v-if="selectedVehicleMaintenance" class="record-modal-overlay" v-backdrop-close="closeVehicleMaintenance">
         <section class="record-modal vehicle-maintenance-modal" role="dialog" aria-modal="true" aria-labelledby="vehicle-maintenance-title">
           <header class="record-modal-header">
             <div>

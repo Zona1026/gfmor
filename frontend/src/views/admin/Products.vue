@@ -248,7 +248,7 @@
       </div>
     </section>
 
-    <div class="modal-overlay" v-if="showProductModal && canManageShop" @click.self="closeProductModal">
+    <div class="modal-overlay" v-if="showProductModal && canManageShop" v-backdrop-close="closeProductModal">
       <div class="modal">
         <div class="modal-header">
           <h3>{{ editingProductId ? '編輯商品' : '新增商品' }}</h3>
@@ -294,7 +294,7 @@
       </div>
     </div>
 
-    <div class="modal-overlay" v-if="selectedOrder" @click.self="selectedOrder = null">
+    <div class="modal-overlay" v-if="selectedOrder" v-backdrop-close="() => (selectedOrder = null)">
       <div class="modal modal-wide">
         <div class="modal-header">
           <div>

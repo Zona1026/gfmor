@@ -102,7 +102,7 @@
       <div v-else class="empty-state">目前沒有符合條件的預約。</div>
     </div>
 
-    <div v-if="showAddModal && canCreateBooking" class="modal-overlay" @click.self="showAddModal = false">
+    <div v-if="showAddModal && canCreateBooking" class="modal-overlay" v-backdrop-close="() => (showAddModal = false)">
       <div class="modal-content">
         <h3>新增預約</h3>
         <div class="form-group row">
@@ -162,7 +162,7 @@
       </div>
     </div>
 
-    <div v-if="showCloseModal && canManageBookings" class="modal-overlay" @click.self="showCloseModal = false">
+    <div v-if="showCloseModal && canManageBookings" class="modal-overlay" v-backdrop-close="() => (showCloseModal = false)">
       <div class="modal-content">
         <h3>封鎖時段</h3>
         <p class="text-muted">封鎖後該時段會顯示為不可預約。</p>

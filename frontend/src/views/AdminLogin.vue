@@ -37,7 +37,7 @@
       <router-link class="back-home" to="/">返回網站首頁</router-link>
     </section>
 
-    <div v-if="showForgotModal" class="modal-overlay" @click.self="closeForgotModal">
+    <div v-if="showForgotModal" class="modal-overlay" v-backdrop-close="closeForgotModal">
       <div class="modal">
         <h2>自助重設密碼</h2>
         <p class="modal-copy">
