@@ -676,6 +676,24 @@ def _has_blocking_approval(db_work_order, target_status=None):
     return bool(pending)
 
 
+def _assign_line_item_order(work_order, submitted_items=None):
+    if submitted_items is not None:
+        remaining = list(work_order.line_items)
+        ordered = []
+        for submitted in submitted_items:
+            gift_id = submitted.get("promotion_gift_id")
+            match = next((item for item in remaining if (
+                item.promotion_gift_id == gift_id
+                and (not gift_id or item.product_id == submitted.get("product_id"))
+            )), None)
+            if match is not None:
+                remaining.remove(match)
+                ordered.append(match)
+        work_order.line_items = ordered + remaining
+    for position, item in enumerate(work_order.line_items):
+        item.sort_order = position
+
+
 def _build_line_item(db: Session, item_in: WorkOrderLineItemCreate):
     item_data = _schema_dict(item_in)
     item_type = item_data["type"]
@@ -1119,6 +1137,7 @@ def create_work_order(db: Session, work_order: WorkOrderCreate):
         line_items=line_items,
     )
     promotion_service.sync_gifts(db, db_work_order)
+    _assign_line_item_order(db_work_order, [_schema_dict(item) for item in work_order.line_items])
     if db_booking:
         _hydrate_from_booking(db_work_order, db_booking)
         if work_order.vehicle_mileage is not None:
@@ -1224,6 +1243,7 @@ def create_historical_work_order(
         line_items=line_items,
     )
     _hydrate_direct_customer(db, db_work_order, work_order)
+    _assign_line_item_order(db_work_order)
     _recalculate_work_order_total(db_work_order)
     if db_work_order.total_amount <= 0:
         raise ValueError("歷史工單總金額必須大於 0")
@@ -1343,6 +1363,8 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
                     "is_confirmed", "counts_toward_membership", "points_redeemed",
                 ):
                     setattr(existing_item, field, item_data.get(field))
+            db_work_order.line_items = [existing_line_items[item["id"]] for item in line_items_data]
+            _assign_line_item_order(db_work_order)
         else:
             if any(item.inventory_deducted or (item.inventory_consumed_quantity or 0) > 0 for item in db_work_order.line_items):
                 raise ValueError("已扣庫存的工單明細不可整批覆蓋，請用追加明細處理")
@@ -1362,6 +1384,7 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
             db_work_order.line_items = rebuilt_line_items
             if not db_work_order.is_historical_backfill:
                 promotion_service.sync_gifts(db, db_work_order)
+            _assign_line_item_order(db_work_order, line_items_data)
             _recalculate_work_order_total(db_work_order)
             _sync_payment_status(db_work_order)
             _sync_work_order_approvals(db_work_order)
@@ -1455,10 +1478,27 @@ def add_work_order_line_item(db: Session, work_order_id: int, item: WorkOrderLin
         raise ValueError("主管已審核，不能新增工單明細")
     db_item = _build_line_item(db, item)
     db_work_order.line_items.append(db_item)
+    _assign_line_item_order(db_work_order)
     points_service.sync_work_order_point_redemption(db, db_work_order)
     _recalculate_work_order_total(db_work_order)
     _sync_payment_status(db_work_order)
     _sync_work_order_approvals(db_work_order)
+    db.commit()
+    return get_work_order(db, work_order_id)
+
+
+def reorder_work_order_line_items(db: Session, work_order_id: int, line_item_ids):
+    work_order = get_work_order(db, work_order_id)
+    if not work_order:
+        return None
+    if work_order.deleted_at:
+        raise ValueError("已刪除工單不可調整明細順序")
+    existing = {item.id: item for item in work_order.line_items}
+    if len(line_item_ids) != len(existing) or set(line_item_ids) != set(existing):
+        raise ValueError("請提供此工單全部明細 ID 各一次；明細可能已變更，請重新載入工單")
+    work_order.line_items = [existing[item_id] for item_id in line_item_ids]
+    _assign_line_item_order(work_order)
+    # 排序不重建明細，也不重算庫存、點數、金額或主管審核。
     db.commit()
     return get_work_order(db, work_order_id)
 

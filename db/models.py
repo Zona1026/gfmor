@@ -660,7 +660,7 @@ class WorkOrder(Base):
     # 建立與 WorkOrderItem (工單項目) 的一對多關聯
     # 當刪除一張工單時，與它關聯的所有工單項目也會被一併刪除 (cascade)
     items = relationship("WorkOrderItem", back_populates="work_order", cascade="all, delete-orphan")
-    line_items = relationship("WorkOrderLineItem", back_populates="work_order", cascade="all, delete-orphan")
+    line_items = relationship("WorkOrderLineItem", back_populates="work_order", cascade="all, delete-orphan", order_by="WorkOrderLineItem.sort_order, WorkOrderLineItem.id")
     payments = relationship("WorkOrderPayment", back_populates="work_order", cascade="all, delete-orphan")
     approvals = relationship("WorkOrderApproval", back_populates="work_order", cascade="all, delete-orphan")
     purchase_requests = relationship("PurchaseRequest", back_populates="work_order")
@@ -809,6 +809,7 @@ class WorkOrderLineItem(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     work_order_id = Column(Integer, ForeignKey("work_orders.id"), nullable=False, index=True)
+    sort_order = Column(Integer, nullable=False, default=0, server_default="0")
     type = Column(Enum(WorkOrderLineItemType), nullable=False)
     name = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)

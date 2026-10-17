@@ -145,6 +145,7 @@ class WorkOrderPurchaseRequestSummary(BaseModel):
 
 class WorkOrderLineItem(WorkOrderLineItemBase):
     id: int
+    sort_order: int = 0
     inventory_reserved_quantity: int = 0
     inventory_consumed_quantity: int = 0
     inventory_shortage_quantity: int = 0
@@ -162,6 +163,10 @@ class WorkOrderLineItem(WorkOrderLineItemBase):
 
 class WorkOrderLineItemFulfillmentStatusUpdate(BaseModel):
     status: Literal["PENDING", "RESERVED", "ORDERED", "ARRIVED"]
+
+
+class WorkOrderLineItemOrderUpdate(BaseModel):
+    line_item_ids: List[int]
 
 
 class WorkOrderPaymentCreate(BaseModel):

@@ -271,7 +271,7 @@
               <button type="button" class="btn btn-outline" @click="addCreateLineItem">新增明細</button>
             </div>
             <div class="line-editor">
-              <div v-for="(item, index) in createLineItems" :key="index" class="line-row" :class="{ 'membership-controls': canManageMembershipFields }">
+              <div v-for="(item, index) in createLineItems" :key="lineItemKey(item)" class="line-row" :class="{ 'membership-controls': canManageMembershipFields }">
                 <WorkOrderProductPicker class="line-picker" :item="item" :products="products" :types="lineItemTypeMap" :disabled="Boolean(item.promotion_gift_id)"
                   @select-product="applyProductToLine" @change-type="handleLineTypeChange" />
                 <label v-if="['LABOR', 'DISCOUNT'].includes(item.type)" class="line-field line-name">
@@ -296,7 +296,11 @@
                   <span>小計</span>
                   <strong>NT$ {{ lineItemTotal(item).toLocaleString() }}</strong>
                 </div>
-                <button type="button" class="icon-btn danger" :disabled="Boolean(item.promotion_gift_id)" @click="removeCreateLineItem(index)">×</button>
+                <div class="line-actions">
+                  <button type="button" class="icon-btn" title="上移" aria-label="明細上移" :disabled="saving || index === 0" @click="moveLineItem(createLineItems, index, -1)">↑</button>
+                  <button type="button" class="icon-btn" title="下移" aria-label="明細下移" :disabled="saving || index === createLineItems.length - 1" @click="moveLineItem(createLineItems, index, 1)">↓</button>
+                  <button type="button" class="icon-btn danger" title="刪除明細" :disabled="Boolean(item.promotion_gift_id)" @click="removeCreateLineItem(index)">×</button>
+                </div>
               </div>
             </div>
             <div class="total-row">
@@ -449,11 +453,12 @@
               <h4>施工 / 零件 / 工資 / 折扣明細</h4>
               <div v-if="canEditWorkOrder" class="detail-section-actions">
                 <button type="button" class="btn btn-outline" :disabled="lineItemEditingLocked || activeRevision" @click="addDetailLineItem">新增明細</button>
+                <button type="button" class="btn btn-outline" :disabled="!canSaveLineOrder || saving || detailLoading || promotionPreviewLoading" @click="saveLineOrder">儲存順序</button>
                 <button type="button" class="btn btn-primary" :disabled="saving || detailLoading" @click="saveWorkOrder">儲存工單</button>
               </div>
             </div>
             <div class="line-editor">
-              <div v-for="(item, index) in detailLineItems" :key="item.id || index" class="line-row detail-line-row" :class="{ 'membership-controls': canManageMembershipFields }">
+              <div v-for="(item, index) in detailLineItems" :key="lineItemKey(item)" class="line-row detail-line-row" :class="{ 'membership-controls': canManageMembershipFields }">
                 <WorkOrderProductPicker class="line-picker" :item="item" :products="products" :types="lineItemTypeMap"
                   :disabled="!canEditWorkOrder || lineItemEditingLocked || activeRevision || isLineItemInventoryLocked(item)"
                   @select-product="applyProductToLine" @change-type="handleLineTypeChange" />
@@ -502,9 +507,14 @@
                   <span>小計</span>
                   <strong>NT$ {{ lineItemTotal(item).toLocaleString() }}</strong>
                 </div>
-                <button v-if="canEditWorkOrder" type="button" class="icon-btn danger" :disabled="lineItemEditingLocked || activeRevision || isLineItemInventoryLocked(item)" @click="removeDetailLineItem(index)">×</button>
+                <div v-if="canEditWorkOrder" class="line-actions">
+                  <button type="button" class="icon-btn" title="上移" aria-label="明細上移" :disabled="saving || detailLoading || selectedWorkOrder.deleted_at || index === 0" @click="moveLineItem(detailLineItems, index, -1)">↑</button>
+                  <button type="button" class="icon-btn" title="下移" aria-label="明細下移" :disabled="saving || detailLoading || selectedWorkOrder.deleted_at || index === detailLineItems.length - 1" @click="moveLineItem(detailLineItems, index, 1)">↓</button>
+                  <button type="button" class="icon-btn danger" title="刪除明細" :disabled="lineItemEditingLocked || activeRevision || isLineItemInventoryLocked(item)" @click="removeDetailLineItem(index)">×</button>
+                </div>
               </div>
             </div>
+            <p v-if="canEditWorkOrder" class="muted-line">用 ↑ ↓ 調整後按「儲存順序」。若有新增或刪除明細，請先儲存工單。</p>
             <div class="total-row">
               <span>總金額</span>
               <strong>NT$ {{ detailTotal.toLocaleString() }}</strong>
@@ -742,11 +752,13 @@ import {
   getWorkOrders,
   searchUsersByName,
   reopenWorkOrder,
-  updateWorkOrder
+  updateWorkOrder,
+  reorderWorkOrderLineItems
 } from '../../api/admin';
 import { useAuthStore } from '../../store/auth';
 import { formatTaipeiDateTime } from '../../utils/dateTime';
 import { lineItemTotal, calculateTotal, calculateMembershipTotal } from '../../utils/workOrderAmounts';
+import { moveLineItem, promotionLineKey, mergePromotionGifts } from '../../utils/workOrderLineOrder';
 
 const route = useRoute();
 const router = useRouter();
@@ -1288,6 +1300,37 @@ const toggleLineItemPoints = (item, checked) => {
   item.points_redeemed = checked ? Math.max(1, Number(item.points_redeemed) || 0) : 0;
 };
 
+const lineItemKeys = new WeakMap();
+let nextLineItemKey = 0;
+function lineItemKey(item) {
+  if (!lineItemKeys.has(item)) lineItemKeys.set(item, ++nextLineItemKey);
+  return lineItemKeys.get(item);
+}
+
+const canSaveLineOrder = computed(() => {
+  const savedIds = new Set((selectedWorkOrder.value?.line_items || []).map(item => item.id));
+  const draftIds = detailLineItems.value.map(item => item.id);
+  return canEditWorkOrder.value && !selectedWorkOrder.value?.deleted_at
+    && draftIds.length === savedIds.size && new Set(draftIds).size === savedIds.size
+    && draftIds.every(id => savedIds.has(id));
+});
+
+const saveLineOrder = async () => {
+  if (!selectedWorkOrder.value || !canSaveLineOrder.value || saving.value || detailLoading.value) return;
+  saving.value = true;
+  try {
+    selectedWorkOrder.value = normalizeWorkOrderResponsibleStaff(await reorderWorkOrderLineItems(
+      selectedWorkOrder.value.id, detailLineItems.value.map(item => item.id)
+    ));
+    await fetchWorkOrders();
+    alert('明細順序已儲存');
+  } catch (error) {
+    alert(`儲存順序失敗：${getErrorMessage(error)}`);
+  } finally {
+    saving.value = false;
+  }
+};
+
 const addCreateLineItem = () => {
   createLineItems.value.push({
     ...defaultLineItem(),
@@ -1588,7 +1631,11 @@ const saveWorkOrder = async () => {
     if (!membershipSelectionLocked.value) {
       payload.line_items = detailLineItems.value.map(cleanLineItem);
     }
-    selectedWorkOrder.value = normalizeWorkOrderResponsibleStaff(await updateWorkOrder(selectedWorkOrder.value.id, payload));
+    let updatedOrder = await updateWorkOrder(selectedWorkOrder.value.id, payload);
+    if (supervisorReviewLocked.value && canSaveLineOrder.value) {
+      updatedOrder = await reorderWorkOrderLineItems(updatedOrder.id, detailLineItems.value.map(item => item.id));
+    }
+    selectedWorkOrder.value = normalizeWorkOrderResponsibleStaff(updatedOrder);
     detailLineItems.value = (selectedWorkOrder.value.line_items || []).map(item => ({ ...item }));
     originalDetailRedeemedPoints.value = detailLineItems.value.reduce(
       (total, item) => total + Number(item.points_redeemed || 0),
@@ -1776,7 +1823,6 @@ const getErrorMessage = (error) => {
 const promotionPreviewLoading = ref(false);
 const promotionPreviewError = ref(false);
 let previewRequestId = 0;
-const promotionLineKey = lines => JSON.stringify(lines.filter(item => !item.promotion_gift_id).map(item => [item.product_id, item.type, item.quantity, item.is_confirmed]));
 async function refreshPromotionLines(linesRef) {
   const requestId = ++previewRequestId;
   const key = promotionLineKey(linesRef.value);
@@ -1795,7 +1841,7 @@ async function refreshPromotionLines(linesRef) {
       }
       item.promotion_auto_price = quote.unit_price;
     }
-    linesRef.value = [...purchased, ...result.gifts];
+    linesRef.value = mergePromotionGifts(linesRef.value, result.gifts);
   } catch {
     if (requestId !== previewRequestId) return;
     promotionPreviewError.value = true;
@@ -2402,7 +2448,7 @@ watch(
       }
     }
 
-    > .icon-btn {
+    > .line-actions {
       grid-column: 8;
       grid-row: 1;
     }
@@ -2412,7 +2458,7 @@ watch(
 
       .points-redemption { grid-column: 7; }
       .line-total { grid-column: 8; }
-      > .icon-btn { grid-column: 9; }
+      > .line-actions { grid-column: 9; }
     }
   }
 
@@ -2717,7 +2763,7 @@ watch(
         min-width: 96px;
       }
 
-      > .icon-btn {
+      > .line-actions {
         grid-column: 12;
         grid-row: 2;
         justify-self: end;
@@ -2747,13 +2793,13 @@ watch(
       .membership-toggle,
       .points-redemption,
       .line-total,
-      > .icon-btn {
+      > .line-actions {
         grid-column: 1;
         grid-row: auto;
         justify-self: stretch;
       }
 
-      > .icon-btn {
+      > .line-actions {
         justify-self: end;
       }
     }
@@ -2942,7 +2988,7 @@ watch(
       .line-total,
       .membership-toggle,
       .points-redemption,
-      > .icon-btn {
+      > .line-actions {
         grid-column: auto;
         grid-row: auto;
       }
@@ -2960,6 +3006,9 @@ watch(
 </style>
 
 <style scoped>
+.line-actions { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.line-actions .icon-btn { width: 32px; height: 28px; min-height: 28px; padding: 0; }
+.line-actions .icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 .line-field .line-value { display: flex; align-items: center; height: 38px; padding: 0.45rem 0.65rem; border: 1px solid #444; border-radius: 6px; background: #202124; box-sizing: border-box; font-size: 0.9rem; font-weight: 400; color: #eee; }
 .line-row { grid-template-columns: minmax(140px, 1fr) 80px 64px 92px 32px !important; }
 .line-row.membership-controls { grid-template-columns: minmax(140px, 1fr) 80px 64px 112px 92px 32px !important; }
@@ -2972,7 +3021,7 @@ watch(
 .line-row > .membership-toggle { grid-column: 4 !important; grid-row: 2 !important; white-space: nowrap; min-height: 38px; padding: 0.45rem 0.5rem; }
 .line-row > .points-redemption { grid-column: 5 !important; grid-row: 2 !important; min-height: 38px; }
 .line-row > .line-total { grid-column: -3 !important; grid-row: 2 !important; }
-.line-row > .icon-btn { grid-column: -2 !important; grid-row: 2 !important; }
+.line-row > .line-actions { grid-column: -2 !important; grid-row: 2 !important; }
 @container (max-width: 760px) {
   .line-row, .line-row.membership-controls, .line-row.detail-line-row.membership-controls { grid-template-columns: repeat(12, minmax(0, 1fr)) !important; }
   .line-row > .line-name { grid-column: 1 / span 8 !important; }
@@ -2982,19 +3031,21 @@ watch(
   .line-row > .membership-toggle { grid-column: 1 / span 3 !important; grid-row: 3 !important; }
   .line-row > .points-redemption { grid-column: 4 / span 5 !important; grid-row: 3 !important; }
   .line-row > .line-total { grid-column: 9 / span 3 !important; grid-row: 3 !important; }
-  .line-row > .icon-btn { grid-column: 12 !important; grid-row: 3 !important; }
+  .line-row > .line-actions { grid-column: 12 !important; grid-row: 3 !important; }
 }
 @container (max-width: 520px) {
+  .line-row > .line-actions { flex-direction: row; }
   .line-row, .line-row.membership-controls, .line-row.detail-line-row.membership-controls { grid-template-columns: minmax(0, 1fr) !important; }
   .line-row > .line-picker, .line-row > .line-name, .line-row > .line-price,
-  .line-row > .line-quantity, .line-row > .line-total, .line-row > .icon-btn,
+  .line-row > .line-quantity, .line-row > .line-total, .line-row > .line-actions,
   .line-row > .membership-toggle, .line-row > .points-redemption { grid-column: 1 !important; grid-row: auto !important; }
   .line-row > .line-price.wide-price { grid-column: 1 !important; grid-row: auto !important; }
 }
 @media (max-width: 600px) {
+  .line-row > .line-actions { flex-direction: row; }
   .line-row, .line-row.membership-controls, .line-row.detail-line-row.membership-controls { grid-template-columns: minmax(0, 1fr) !important; }
   .line-row > .line-picker, .line-row > .line-name, .line-row > .line-price,
-  .line-row > .line-quantity, .line-row > .line-total, .line-row > .icon-btn,
+  .line-row > .line-quantity, .line-row > .line-total, .line-row > .line-actions,
   .line-row > .membership-toggle, .line-row > .points-redemption { grid-column: 1 !important; grid-row: auto !important; }
   .line-row > .line-price.wide-price { grid-column: 1 !important; grid-row: auto !important; }
 }

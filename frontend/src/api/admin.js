@@ -61,6 +61,10 @@ export const updateWorkOrder = async (id, data) => {
   return await api.put(`/work-orders/${id}`, data, adminAuthConfig());
 };
 
+export const reorderWorkOrderLineItems = async (id, lineItemIds) => {
+  return await api.put(`/work-orders/${id}/line-items/order`, { line_item_ids: lineItemIds }, adminAuthConfig());
+};
+
 export const confirmWorkOrderReview = async (id, data = {}) => {
   return await api.post(`/work-orders/${id}/confirm-review`, data, adminAuthConfig());
 };

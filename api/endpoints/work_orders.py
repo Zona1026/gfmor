@@ -367,6 +367,23 @@ def update_work_order_line_item_fulfillment_status(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
+@router.put("/{work_order_id}/line-items/order", response_model=work_order_schema.WorkOrder, summary="調整工單明細順序")
+def reorder_work_order_line_items(
+    work_order_id: int,
+    order: work_order_schema.WorkOrderLineItemOrderUpdate,
+    admin=Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    try:
+        work_order = crud.reorder_work_order_line_items(db, work_order_id, order.line_item_ids)
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+    if work_order is None:
+        raise HTTPException(status_code=404, detail="找不到該工單")
+    return work_order
+
+
 @router.post("/{work_order_id}/payments", response_model=work_order_schema.WorkOrder, summary="新增工單付款")
 def add_work_order_payment(
     work_order_id: int,
