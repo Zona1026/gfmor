@@ -47,13 +47,13 @@
       <p class="panel-description">預設單價可填 0，工單明細可依案件調整單價。</p>
       <div class="table-wrap">
         <table class="data-table">
-          <thead><tr><th>品項名稱</th><th>分類</th><th>預設單價</th><th v-if="canManageInventory">操作</th></tr></thead>
+          <thead><tr><th>品項名稱</th><th>預設單價</th><th v-if="canManageInventory">操作</th></tr></thead>
           <tbody>
             <tr v-for="item in laborItems" :key="item.id">
-              <td>{{ item.name }}</td><td>{{ productCategory(item) }}</td><td>NT$ {{ formatNumber(item.price) }}</td>
+              <td>{{ item.name }}</td><td>NT$ {{ formatNumber(item.price) }}</td>
               <td v-if="canManageInventory"><button class="btn btn-sm btn-outline" type="button" @click="openEditModal(item)">編輯</button></td>
             </tr>
-            <tr v-if="!laborItems.length"><td :colspan="canManageInventory ? 4 : 3" class="empty-row">尚無工資/服務費品項。</td></tr>
+            <tr v-if="!laborItems.length"><td :colspan="canManageInventory ? 3 : 2" class="empty-row">尚無工資/服務費品項。</td></tr>
           </tbody>
         </table>
       </div>
@@ -260,7 +260,6 @@
           <div v-if="createItemType === 'LABOR'" class="form-grid">
             <label>品項名稱<input v-model.trim="createForm.name" type="text" maxlength="100" required /></label>
             <label>預設單價<input v-model.number="createForm.price" type="number" min="0" step="1" required /></label>
-            <label>分類<select v-model="createForm.category_id"><option value="">未分類</option><option v-for="category in activeCategories" :key="category.id" :value="String(category.id)">{{ category.name }}</option></select></label>
             <p class="panel-description">可填 0；工單明細仍可自行編輯單價，不會更動此處的預設值。</p>
           </div>
           <div v-else-if="activeTab !== 'parts'" class="form-grid">
@@ -786,7 +785,7 @@ async function submitCreateItem() {
     formData.append('low_stock_threshold', Number(createForm.low_stock_threshold) || 0);
     formData.append('description', createForm.description || '');
     formData.append('is_active', Number(createForm.is_active));
-    if (createForm.category_id) formData.append('category_id', Number(createForm.category_id));
+    if (createItemType.value !== 'LABOR' && createForm.category_id) formData.append('category_id', Number(createForm.category_id));
     else formData.append('category', '');
     if (selectedCreateFile.value) formData.append('file', selectedCreateFile.value);
 

@@ -1,12 +1,12 @@
 <template>
-  <div class="product-picker">
+  <div class="product-picker" :class="{ 'labor-picker': item.type === 'LABOR' }">
     <label>
       <span>類型</span>
       <select v-model="item.type" :disabled="disabled" @change="changeType">
         <option v-for="(label, value) in types" :key="value" :value="value">{{ label }}</option>
       </select>
     </label>
-    <label>
+    <label v-if="item.type !== 'LABOR'">
       <span>分類</span>
       <select v-model="item.picker_category" :disabled="disabled || !['PART', 'LABOR'].includes(item.type)" @change="changeCategory">
         <option value="">{{ ['PART', 'LABOR'].includes(item.type) ? '全部分類' : '不適用' }}</option>
@@ -51,7 +51,9 @@ const parts = computed(() => props.products.filter(product => (props.item.type =
   || product.id === Number(props.item.product_id)));
 const categories = computed(() => categoryOptions(parts.value));
 const suppliers = computed(() => supplierOptions(parts.value, props.item.picker_category));
-const matchingProducts = computed(() => filterPickerProducts(parts.value, props.item.picker_category, props.item.picker_supplier));
+const matchingProducts = computed(() => props.item.type === 'LABOR'
+  ? parts.value
+  : filterPickerProducts(parts.value, props.item.picker_category, props.item.picker_supplier));
 function changeFilters() {
   if (props.item.product_id && !matchingProducts.value.some(product => product.id === Number(props.item.product_id))) {
     props.item.product_id = null;
@@ -79,11 +81,12 @@ function changeType() {
 </script>
 <style scoped>
 .product-picker { display: grid; grid-template-columns: minmax(90px, 0.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.6fr); gap: 0.5rem; min-width: 0; }
+.labor-picker { grid-template-columns: minmax(90px, 0.6fr) minmax(0, 1fr) minmax(0, 1.6fr); }
 label { display: grid; gap: 0.28rem; min-width: 0; }
 span { font-size: 0.78rem; font-weight: 700; color: #ddd; }
 input, select { width: 100%; min-width: 0; height: 38px; box-sizing: border-box; border: 1px solid #444; border-radius: 6px; background: #202124; color: #eee; padding: 0.45rem 0.65rem; }
 select:disabled, input:disabled { opacity: 0.6; }
 .picker-quote { grid-column: 1 / -1; font-size: 0.78rem; line-height: 1.5; overflow-wrap: anywhere; color: #ddd; }
-@media (max-width: 700px) { .product-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 420px) { .product-picker { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 700px) { .product-picker, .labor-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 420px) { .product-picker, .labor-picker { grid-template-columns: minmax(0, 1fr); } }
 </style>
