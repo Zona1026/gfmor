@@ -1009,7 +1009,7 @@ function defaultLineItem() {
     description: '',
     product_id: null,
     picker_category: '',
-    picker_supplier: '',
+    picker_manufacturer: '',
     quantity: 1,
     unit_price: 0,
     is_confirmed: 1,

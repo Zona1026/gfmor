@@ -16,9 +16,9 @@
     </label>
     <label>
       <span>廠商</span>
-      <select v-model="item.picker_supplier" :disabled="disabled || item.type !== 'PART' || isManual" @change="changeFilters">
+      <select v-model="item.picker_manufacturer" :disabled="disabled || item.type !== 'PART' || isManual" @change="changeFilters">
         <option value="">{{ item.type === 'PART' && !isManual ? '全部廠商' : '不適用' }}</option>
-        <option v-for="name in suppliers" :key="name" :value="name">{{ name }}</option>
+        <option v-for="name in manufacturers" :key="name" :value="name">{{ name }}</option>
       </select>
     </label>
     <label>
@@ -34,7 +34,7 @@
 </template>
 <script setup>
 import { computed, watch } from 'vue';
-import { categoryOptions, supplierOptions, filterPickerProducts, MANUAL_PRODUCT_CATEGORY } from '../../utils/workOrderProductPicker';
+import { categoryOptions, manufacturerOptions, filterWorkOrderProducts, MANUAL_PRODUCT_CATEGORY } from '../../utils/workOrderProductPicker';
 const props = defineProps({
   item: { type: Object, required: true }, products: { type: Array, required: true },
   types: { type: Object, required: true }, disabled: { type: Boolean, default: false }
@@ -42,7 +42,7 @@ const props = defineProps({
 const emit = defineEmits(['select-product', 'change-type']);
 watch(() => props.item, item => {
   item.picker_category ??= item.type === 'PART' && !item.product_id ? MANUAL_PRODUCT_CATEGORY : '';
-  item.picker_supplier ??= '';
+  item.picker_manufacturer ??= '';
 }, { immediate: true });
 const isManual = computed(() => props.item.type === 'PART' && props.item.picker_category === MANUAL_PRODUCT_CATEGORY);
 const parts = computed(() => props.products.filter(product => (['LABOR', 'MAJOR_MAINTENANCE'].includes(props.item.type)
@@ -50,10 +50,10 @@ const parts = computed(() => props.products.filter(product => (['LABOR', 'MAJOR_
   : ['PART', 'BOTH'].includes(product.inventory_type))
   || product.id === Number(props.item.product_id)));
 const categories = computed(() => categoryOptions(parts.value));
-const suppliers = computed(() => supplierOptions(parts.value, props.item.picker_category));
+const manufacturers = computed(() => manufacturerOptions(parts.value, props.item.picker_category));
 const matchingProducts = computed(() => ['LABOR', 'MAJOR_MAINTENANCE'].includes(props.item.type)
   ? parts.value
-  : filterPickerProducts(parts.value, props.item.picker_category, props.item.picker_supplier));
+  : filterWorkOrderProducts(parts.value, props.item.picker_category, props.item.picker_manufacturer));
 function changeFilters() {
   if (props.item.product_id && !matchingProducts.value.some(product => product.id === Number(props.item.product_id))) {
     props.item.product_id = null;
@@ -69,12 +69,12 @@ function changeCategory() {
     props.item.promotion_name = '';
     delete props.item.promotion_auto_price;
   }
-  if (!suppliers.value.includes(props.item.picker_supplier)) props.item.picker_supplier = '';
+  if (!manufacturers.value.includes(props.item.picker_manufacturer)) props.item.picker_manufacturer = '';
   changeFilters();
 }
 function changeType() {
   props.item.picker_category = '';
-  props.item.picker_supplier = '';
+  props.item.picker_manufacturer = '';
   props.item.product_id = null;
   emit('change-type', props.item);
 }

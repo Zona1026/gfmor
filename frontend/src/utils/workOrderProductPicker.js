@@ -27,3 +27,15 @@ export function filterPickerProducts(products, category = '', supplier = '') {
   return products.filter(product => (!category || productCategories(product).some(entry => entry.value === category))
     && (!supplier || (product.supplier_wholesale_prices || []).some(row => row.supplier_name === supplier)));
 }
+
+export function manufacturerOptions(products, category = '') {
+  const names = filterPickerProducts(products, category)
+    .map(product => (product.manufacturer || '').trim())
+    .filter(Boolean);
+  return [...new Set(names)].sort((a, b) => a.localeCompare(b, 'zh-TW'));
+}
+
+export function filterWorkOrderProducts(products, category = '', manufacturer = '') {
+  return filterPickerProducts(products, category)
+    .filter(product => !manufacturer || (product.manufacturer || '').trim() === manufacturer);
+}
