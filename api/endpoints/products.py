@@ -44,7 +44,7 @@ def _inventory_type(value: Optional[str]):
     try:
         return models.InventoryType(value)
     except ValueError:
-        raise HTTPException(status_code=400, detail="inventory_type must be SHOP, PART, BOTH, or LABOR")
+        raise HTTPException(status_code=400, detail="inventory_type must be SHOP, PART, BOTH, LABOR, or MAJOR_MAINTENANCE")
 
 
 def _category_payload(category):

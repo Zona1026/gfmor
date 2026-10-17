@@ -105,7 +105,7 @@ const actionError = ref('');
 const pageSize = 50;
 const pendingApprovals = computed(() => (selectedWorkOrder.value?.approvals || []).filter(item => item.status === 'PENDING'));
 const approvalTypeMap = { DISCOUNT: '折扣', HIGH_QUOTE: '高額報價', STATUS_CHANGE: '狀態變更', INVENTORY_RESERVATION: '確認預留', INVENTORY_CONSUMPTION: '確認扣庫存' };
-const lineItemTypeMap = { PART: '零件 / 耗材', LABOR: '工資', SERVICE: '施工 / 服務', DISCOUNT: '折扣' };
+const lineItemTypeMap = { PART: '零件 / 耗材', LABOR: '工資', MAJOR_MAINTENANCE: '大保養', SERVICE: '施工 / 服務', DISCOUNT: '折扣' };
 const serviceTypeMap = { REPAIR: '維修', MAINTENANCE: '保養', MODIFICATION: '改裝' };
 const reviewReasons = (order) => {
   const labels = (order.approvals || []).filter(item => item.status === 'PENDING').map(item => approvalTypeMap[item.type] || item.type);

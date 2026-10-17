@@ -403,6 +403,7 @@ const lineItemTypeMap = {
   'SERVICE': '施工項目',
   'PART': '零件 / 耗材',
   'LABOR': '工資 / 服務費',
+  'MAJOR_MAINTENANCE': '大保養',
   'DISCOUNT': '折扣'
 };
 

@@ -126,6 +126,7 @@ class WorkOrderLineItemType(str, enum.Enum):
     SERVICE = 'SERVICE'
     PART = 'PART'
     LABOR = 'LABOR'
+    MAJOR_MAINTENANCE = 'MAJOR_MAINTENANCE'
     DISCOUNT = 'DISCOUNT'
 
 class WorkOrderApprovalStatus(str, enum.Enum):
@@ -142,6 +143,7 @@ class WorkOrderApprovalType(str, enum.Enum):
 
 class InventoryType(str, enum.Enum):
     LABOR = 'LABOR'
+    MAJOR_MAINTENANCE = 'MAJOR_MAINTENANCE'
     SHOP = 'SHOP'
     PART = 'PART'
     BOTH = 'BOTH'

@@ -177,6 +177,12 @@ const routes = [
         meta: { title: '庫存管理 / 工資/服務費列表', inventorySection: 'labor' }
       },
       {
+        path: 'inventory/major-maintenance',
+        name: 'AdminInventoryMajorMaintenance',
+        component: AdminInventory,
+        meta: { title: '庫存管理 / 大保養列表', inventorySection: 'majorMaintenance' }
+      },
+      {
         path: 'inventory/stocktake',
         name: 'AdminInventoryStocktake',
         component: AdminInventory,

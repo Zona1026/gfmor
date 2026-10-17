@@ -526,7 +526,7 @@ const openCreateForm = async () => {
   showCreateForm.value = true;
   if (!inventoryItems.value.length) {
     try {
-      inventoryItems.value = (await getInventoryItems({ type: 'all' })).filter(item => item.inventory_type !== 'LABOR');
+      inventoryItems.value = (await getInventoryItems({ type: 'all' })).filter(item => !['LABOR', 'MAJOR_MAINTENANCE'].includes(item.inventory_type));
     } catch (error) {
       alert(error.response?.data?.detail || '載入庫存品項失敗');
       showCreateForm.value = false;
@@ -630,7 +630,7 @@ const openReceiveForm = async (request) => {
   receiveForm.actor = adminUser.value?.full_name || adminUser.value?.username || '';
   receiveForm.note = '';
   try {
-    inventoryItems.value = (await getInventoryItems({ type: 'all' })).filter(item => item.inventory_type !== 'LABOR');
+    inventoryItems.value = (await getInventoryItems({ type: 'all' })).filter(item => !['LABOR', 'MAJOR_MAINTENANCE'].includes(item.inventory_type));
   } catch (error) {
     receivingRequest.value = null;
     alert(error.response?.data?.detail || '載入庫存品項失敗');

@@ -339,7 +339,7 @@ def get_products(db: Session, skip: int = 0, limit: int = 100):
     """
     獲取商品列表，支援分頁。
     """
-    return db.query(models.Product).filter(models.Product.inventory_type != models.InventoryType.LABOR).order_by(models.Product.id).offset(skip).limit(limit).all()
+    return db.query(models.Product).filter(models.Product.inventory_type.notin_([models.InventoryType.LABOR, models.InventoryType.MAJOR_MAINTENANCE])).order_by(models.Product.id).offset(skip).limit(limit).all()
 
 def create_product(db: Session, product: ProductCreate):
     """
@@ -694,7 +694,22 @@ def _assign_line_item_order(work_order, submitted_items=None):
         item.sort_order = position
 
 
-def _build_line_item(db: Session, item_in: WorkOrderLineItemCreate):
+def _major_maintenance_price(item_data, product, existing_item=None):
+    if item_data["type"] == models.WorkOrderLineItemType.MAJOR_MAINTENANCE:
+        if not product or product.inventory_type != models.InventoryType.MAJOR_MAINTENANCE:
+            raise ValueError("請選擇大保養列表中的品項")
+        # Existing quotes retain their price when the catalog changes later.
+        unchanged_product = existing_item and existing_item.type == models.WorkOrderLineItemType.MAJOR_MAINTENANCE and existing_item.product_id == product.id
+        expected = existing_item.unit_price if unchanged_product else product.price
+        if "unit_price" in item_data and item_data["unit_price"] != expected:
+            raise ValueError("大保養單價只能在庫存管理編輯，請重新選取品項以取得最新價格")
+        return expected
+    if product and product.inventory_type == models.InventoryType.MAJOR_MAINTENANCE:
+        raise ValueError("大保養品項只能用於大保養明細")
+    return None
+
+
+def _build_line_item(db: Session, item_in: WorkOrderLineItemCreate, existing_item=None):
     item_data = _schema_dict(item_in)
     item_type = item_data["type"]
     if item_data.get("quantity", 0) <= 0:
@@ -717,6 +732,11 @@ def _build_line_item(db: Session, item_in: WorkOrderLineItemCreate):
             item_data["unit_price"] = db_product.price
         if not item_data.get("name"):
             item_data["name"] = db_product.name
+
+    major_data = {key: value for key, value in item_data.items() if key != "unit_price" or key in item_in.model_fields_set}
+    major_price = _major_maintenance_price(major_data, db_product, existing_item)
+    if major_price is not None:
+        item_data["unit_price"] = major_price
 
     item_data["name"] = (item_data.get("name") or "").strip()
     if not item_data["name"]:
@@ -1360,6 +1380,7 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
                 incoming_product_id = item_data.get("product_id")
                 if incoming_product_id != existing_item.product_id:
                     raise ValueError("替代料件必須由採購單的到貨流程更換，才能保留訂購與實收紀錄。")
+                _major_maintenance_price(item_data, get_product(db, incoming_product_id) if incoming_product_id else None, existing_item)
                 if existing_item.inventory_reserved_quantity:
                     inventory_service.release_work_order_line_item(db, existing_item)
                 for field in (
@@ -1379,7 +1400,7 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
                 if item.get('promotion_gift_id'):
                     continue
                 item_id = item.get("id")
-                rebuilt_item = _build_line_item(db, WorkOrderLineItemCreate(**item))
+                rebuilt_item = _build_line_item(db, WorkOrderLineItemCreate(**item), existing_line_items.get(item_id))
                 existing_item = existing_line_items.get(item_id)
                 if existing_item:
                     rebuilt_item.fulfillment_status = existing_item.fulfillment_status

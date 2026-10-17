@@ -65,6 +65,7 @@
             <router-link to="/admin/inventory/products" active-class="active" @click="closeSidebar">商品列表</router-link>
             <router-link to="/admin/inventory/parts" active-class="active" @click="closeSidebar">零件列表</router-link>
             <router-link to="/admin/inventory/labor" active-class="active" @click="closeSidebar">工資/服務費列表</router-link>
+            <router-link to="/admin/inventory/major-maintenance" active-class="active" @click="closeSidebar">大保養列表</router-link>
             <router-link to="/admin/inventory/stocktake" active-class="active" @click="closeSidebar">盤點表</router-link>
           </div>
         </div>

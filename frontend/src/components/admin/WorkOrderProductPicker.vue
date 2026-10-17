@@ -1,12 +1,12 @@
 <template>
-  <div class="product-picker" :class="{ 'labor-picker': item.type === 'LABOR' }">
+  <div class="product-picker" :class="{ 'labor-picker': ['LABOR', 'MAJOR_MAINTENANCE'].includes(item.type) }">
     <label>
       <span>類型</span>
       <select v-model="item.type" :disabled="disabled" @change="changeType">
         <option v-for="(label, value) in types" :key="value" :value="value">{{ label }}</option>
       </select>
     </label>
-    <label v-if="item.type !== 'LABOR'">
+    <label v-if="!['LABOR', 'MAJOR_MAINTENANCE'].includes(item.type)">
       <span>分類</span>
       <select v-model="item.picker_category" :disabled="disabled || !['PART', 'LABOR'].includes(item.type)" @change="changeCategory">
         <option value="">{{ ['PART', 'LABOR'].includes(item.type) ? '全部分類' : '不適用' }}</option>
@@ -23,7 +23,7 @@
     </label>
     <label>
       <span>商品名稱</span>
-      <select v-if="['PART', 'LABOR'].includes(item.type) && !isManual" v-model.number="item.product_id" :disabled="disabled" @change="$emit('select-product', item)">
+      <select v-if="['PART', 'LABOR', 'MAJOR_MAINTENANCE'].includes(item.type) && !isManual" v-model.number="item.product_id" :disabled="disabled" @change="$emit('select-product', item)">
         <option :value="null" disabled>請選擇商品</option>
         <option v-for="product in matchingProducts" :key="product.id" :value="product.id">{{ product.name }}{{ product.model_number ? `（${product.model_number}）` : '' }}</option>
       </select>
@@ -45,13 +45,13 @@ watch(() => props.item, item => {
   item.picker_supplier ??= '';
 }, { immediate: true });
 const isManual = computed(() => props.item.type === 'PART' && props.item.picker_category === MANUAL_PRODUCT_CATEGORY);
-const parts = computed(() => props.products.filter(product => (props.item.type === 'LABOR'
-  ? product.inventory_type === 'LABOR'
+const parts = computed(() => props.products.filter(product => (['LABOR', 'MAJOR_MAINTENANCE'].includes(props.item.type)
+  ? product.inventory_type === props.item.type
   : ['PART', 'BOTH'].includes(product.inventory_type))
   || product.id === Number(props.item.product_id)));
 const categories = computed(() => categoryOptions(parts.value));
 const suppliers = computed(() => supplierOptions(parts.value, props.item.picker_category));
-const matchingProducts = computed(() => props.item.type === 'LABOR'
+const matchingProducts = computed(() => ['LABOR', 'MAJOR_MAINTENANCE'].includes(props.item.type)
   ? parts.value
   : filterPickerProducts(parts.value, props.item.picker_category, props.item.picker_supplier));
 function changeFilters() {

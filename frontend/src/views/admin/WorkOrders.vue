@@ -878,6 +878,7 @@ const lineItemTypeMap = {
   SERVICE: '請選擇類型',
   PART: '零件 / 耗材',
   LABOR: '工資 / 服務費',
+  MAJOR_MAINTENANCE: '大保養',
   DISCOUNT: '折扣'
 };
 
@@ -1389,7 +1390,7 @@ const cleanLineItem = (item) => ({
   type: item.type,
   name: item.name || (item.type === 'DISCOUNT' ? '折扣' : ''),
   description: item.description || '',
-  product_id: ['PART', 'LABOR'].includes(item.type) ? Number(item.product_id) || null : null,
+  product_id: ['PART', 'LABOR', 'MAJOR_MAINTENANCE'].includes(item.type) ? Number(item.product_id) || null : null,
   promotion_gift_id: item.promotion_gift_id || null,
   quantity: Number(item.quantity),
   unit_price: Number(item.unit_price) || 0,
@@ -1411,6 +1412,7 @@ const validateLineItems = (items) => {
   if (promotionPreviewError.value) return '活動與贈品載入失敗，請重新選取商品後再儲存';
   for (const [index, item] of items.entries()) {
     if (item.type === 'LABOR' && !item.product_id && !item.id) return `第 ${index + 1} 項明細：請選擇工資 / 服務費品項`;
+    if (item.type === 'MAJOR_MAINTENANCE' && !item.product_id) return `第 ${index + 1} 項明細：請選擇大保養品項`;
     if (item.type === 'SERVICE') return `第 ${index + 1} 項明細：請選擇類型`;
     if (item.type === 'PART' && !item.product_id && item.picker_category !== MANUAL_PRODUCT_CATEGORY) return `第 ${index + 1} 項明細：請選擇商品，或選擇「不綁商品 / 不扣庫存」分類`;
     if (item.promotion_loading) return `第 ${index + 1} 項明細：活動價格載入中，請稍候再儲存`;
