@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 import unittest
 
 from sqlalchemy import create_engine
@@ -169,6 +169,45 @@ class GuestMemberMergeTest(unittest.TestCase):
         crud.update_user(self.db, "member", UserUpdate(admin_notes="note"))
         crud.update_motor(self.db, motor.id, MotorUpdate(mileage=500))
         self.assertEqual(order.guest_customer_id, guest.id)
+
+    def test_plate_merge_preserves_paid_work_order_and_awards_consumption_and_points_once(self):
+        motor = self.motor()
+        guest, order = self.guest(plates=("abc1234",))
+        guest_motor = self.db.query(models.GuestMotor).filter_by(guest_customer_id=guest.id).one()
+        work_order = models.WorkOrder(
+            guest_customer_id=guest.id, guest_motor_id=guest_motor.id,
+            ordered_date=date.today(), consumption_date=date.today(),
+            status=models.WorkOrderStatus.COMPLETED, total_amount=2000,
+            completed_at=datetime.now(), supervisor_reviewed_at=datetime.now(),
+            supervisor_reviewed_by="Reviewer",
+            line_items=[models.WorkOrderLineItem(
+                type="LABOR", name="Service", quantity=1, unit_price=2000,
+                counts_toward_membership=True,
+            )],
+            payments=[models.WorkOrderPayment(amount=2000, method="現金")],
+        )
+        self.db.add(work_order)
+        self.db.commit()
+        line_id = work_order.line_items[0].id
+        payment_id = work_order.payments[0].id
+        reviewed_at = work_order.supervisor_reviewed_at
+
+        crud.update_motor(self.db, motor.id, MotorUpdate(license_plate="ABC-1234"))
+        crud.update_user(self.db, "member", UserUpdate(phone=self.member.phone))
+        self.db.expire_all()
+        self.assertEqual(work_order.google_id, "member")
+        self.assertEqual(work_order.motor_id, motor.id)
+        self.assertEqual(work_order.total_amount, 2000)
+        self.assertEqual(work_order.paid_amount, 2000)
+        self.assertEqual(work_order.line_items[0].id, line_id)
+        self.assertEqual(work_order.payments[0].id, payment_id)
+        self.assertEqual(work_order.supervisor_reviewed_at, reviewed_at)
+        self.assertEqual(work_order.status, models.WorkOrderStatus.COMPLETED)
+        self.assertEqual(self.member.cumulative_consumption, 2100)
+        self.assertEqual(work_order.membership_consumption_amount, 2000)
+        points = self.db.query(models.PointTransaction).filter_by(work_order_id=work_order.id).all()
+        self.assertEqual(len(points), 1)
+        self.assertEqual(points[0].points, 2)
 
 
 if __name__ == "__main__":

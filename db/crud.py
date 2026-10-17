@@ -1349,7 +1349,7 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
         active_revision = _active_work_order_revision(db_work_order)
         if active_revision:
             incoming_ids = {item.get("id") for item in line_items_data}
-            if None in incoming_ids or incoming_ids != set(existing_line_items):
+            if None in incoming_ids or incoming_ids != set(existing_line_items) or len(line_items_data) != len(existing_line_items):
                 raise ValueError("退回修改期間不可新增或刪除明細；如需換料請由採購到貨登記替代料件。")
             for item_data in line_items_data:
                 existing_item = existing_line_items[item_data["id"]]

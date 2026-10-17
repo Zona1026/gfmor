@@ -15,7 +15,7 @@ from sqlalchemy.pool import StaticPool
 from api.endpoints import work_orders
 from core.config import settings
 from db import crud, models
-from schemas.work_order import WorkOrder, WorkOrderCreate, WorkOrderLineItemCreate, WorkOrderUpdate
+from schemas.work_order import HistoricalWorkOrderCreate, WorkOrder, WorkOrderCreate, WorkOrderLineItemCreate, WorkOrderUpdate
 from test_work_order_review_access import ASGIClient
 
 
@@ -126,6 +126,45 @@ class WorkOrderLineOrderTest(unittest.TestCase):
         crud.reorder_work_order_line_items(self.db, self.order.id, list(reversed(self.ids)))
         crud.add_work_order_line_item(self.db, self.order.id, WorkOrderLineItemCreate(type="LABOR", name="New"))
         self.assertEqual([item.name for item in self.reload().line_items], ["Third", "Second", "First", "New"])
+
+    def test_historical_order_retains_order_and_payment_after_reordering(self):
+        order = crud.create_historical_work_order(self.db, HistoricalWorkOrderCreate(
+            guest_name="Guest", guest_phone="Other", vehicle_license_plate="HIST-123",
+            vehicle_model="Model", vehicle_mileage=100, responsible_staff="Tester",
+            ordered_date=date(2026, 1, 1), completed_date=date(2026, 1, 2), paid_date=date(2026, 1, 2),
+            backfill_reason="Import", award_points=False,
+            line_items=[{"type": "LABOR", "name": name, "unit_price": 200} for name in ("Z", "A")],
+        ), actor="Tester")
+        self.db.expire_all()
+        order = crud.get_work_order(self.db, order.id)
+        self.assertEqual([item.name for item in order.line_items], ["Z", "A"])
+        ids = [item.id for item in order.line_items]
+        payment_id = order.payments[0].id
+        crud.reorder_work_order_line_items(self.db, order.id, list(reversed(ids)))
+        self.db.expire_all()
+        order = crud.get_work_order(self.db, order.id)
+        self.assertEqual([item.name for item in order.line_items], ["A", "Z"])
+        self.assertEqual(order.payments[0].id, payment_id)
+        self.assertEqual(order.paid_amount, 400)
+        self.assertEqual(order.total_amount, 400)
+        self.assertEqual(order.status, models.WorkOrderStatus.COMPLETED)
+
+    def test_revision_reordering_keeps_ids_and_rejects_duplicate_lines(self):
+        self.order.revisions.append(models.WorkOrderRevision(
+            reason="Change", previous_status="IN_PROGRESS", previous_snapshot="{}",
+            previous_total_amount=600, previous_paid_amount=0,
+        ))
+        self.db.commit()
+        data = [{"id": item.id, "type": item.type, "name": item.name, "unit_price": item.unit_price,
+                 "quantity": item.quantity, "is_confirmed": item.is_confirmed,
+                 "counts_toward_membership": item.counts_toward_membership, "points_redeemed": item.points_redeemed}
+                for item in reversed(self.order.line_items)]
+        with self.assertRaises(ValueError):
+            crud.update_work_order(self.db, self.order.id, WorkOrderUpdate(line_items=data + data[:1]))
+        self.db.rollback()
+        crud.update_work_order(self.db, self.order.id, WorkOrderUpdate(line_items=data))
+        self.assertEqual([item.id for item in self.reload().line_items], list(reversed(self.ids)))
+        self.assertEqual(self.order.total_amount, 600)
 
     def test_gift_keeps_submitted_position_when_rebuilt(self):
         gift = models.WorkOrderLineItem(type="PART", name="Gift", promotion_gift_id=10, product_id=20)

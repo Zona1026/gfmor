@@ -1317,15 +1317,18 @@ const canSaveLineOrder = computed(() => {
 
 const saveLineOrder = async () => {
   if (!selectedWorkOrder.value || !canSaveLineOrder.value || saving.value || detailLoading.value) return;
+  const workOrderId = selectedWorkOrder.value.id;
+  const requestId = detailRequestId;
+  const isCurrent = () => requestId === detailRequestId && selectedWorkOrder.value?.id === workOrderId;
   saving.value = true;
   try {
-    selectedWorkOrder.value = normalizeWorkOrderResponsibleStaff(await reorderWorkOrderLineItems(
-      selectedWorkOrder.value.id, detailLineItems.value.map(item => item.id)
-    ));
+    const workOrder = await reorderWorkOrderLineItems(workOrderId, detailLineItems.value.map(item => item.id));
+    if (!isCurrent()) return;
+    selectedWorkOrder.value = normalizeWorkOrderResponsibleStaff(workOrder);
     await fetchWorkOrders();
-    alert('明細順序已儲存');
+    if (isCurrent()) alert('明細順序已儲存');
   } catch (error) {
-    alert(`儲存順序失敗：${getErrorMessage(error)}`);
+    if (isCurrent()) alert(`儲存順序失敗：${getErrorMessage(error)}`);
   } finally {
     saving.value = false;
   }
@@ -1592,6 +1595,9 @@ const closeDetail = () => {
 
 const saveWorkOrder = async () => {
   if (!selectedWorkOrder.value || detailLoading.value) return;
+  const workOrderId = selectedWorkOrder.value.id;
+  const requestId = detailRequestId;
+  const isCurrent = () => requestId === detailRequestId && selectedWorkOrder.value?.id === workOrderId;
   if (!supervisorReviewLocked.value && detailVehicleOptions.value.length && !detailVehicleId.value) {
     alert('請選擇車輛');
     return;
@@ -1631,10 +1637,13 @@ const saveWorkOrder = async () => {
     if (!membershipSelectionLocked.value) {
       payload.line_items = detailLineItems.value.map(cleanLineItem);
     }
-    let updatedOrder = await updateWorkOrder(selectedWorkOrder.value.id, payload);
-    if (supervisorReviewLocked.value && canSaveLineOrder.value) {
-      updatedOrder = await reorderWorkOrderLineItems(updatedOrder.id, detailLineItems.value.map(item => item.id));
+    const saveOrderOnly = supervisorReviewLocked.value && canSaveLineOrder.value;
+    const lineItemIds = detailLineItems.value.map(item => item.id);
+    let updatedOrder = await updateWorkOrder(workOrderId, payload);
+    if (saveOrderOnly) {
+      updatedOrder = await reorderWorkOrderLineItems(workOrderId, lineItemIds);
     }
+    if (!isCurrent()) return;
     selectedWorkOrder.value = normalizeWorkOrderResponsibleStaff(updatedOrder);
     detailLineItems.value = (selectedWorkOrder.value.line_items || []).map(item => ({ ...item }));
     originalDetailRedeemedPoints.value = detailLineItems.value.reduce(
@@ -1642,12 +1651,14 @@ const saveWorkOrder = async () => {
       0
     );
     await fetchDetailVehicleOptions(selectedWorkOrder.value);
+    if (!isCurrent()) return;
     await fetchWorkOrders();
+    if (!isCurrent()) return;
     if (!showRewardQrIfOilItems(selectedWorkOrder.value.line_items)) {
       alert('工單已儲存');
     }
   } catch (error) {
-    alert(`儲存失敗：${getErrorMessage(error)}`);
+    if (isCurrent()) alert(`儲存失敗：${getErrorMessage(error)}`);
   } finally {
     saving.value = false;
   }
