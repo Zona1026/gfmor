@@ -62,7 +62,7 @@ class PurchaseAssignment(BaseModel):
     id: int
     purchase_request_id: int
     work_order_id: int
-    work_order_line_item_id: int
+    work_order_line_item_id: Optional[int] = None
     quantity: int
     actor: Optional[str] = None
     note: Optional[str] = None

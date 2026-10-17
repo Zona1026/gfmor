@@ -119,6 +119,53 @@ def _sync_status(request):
     return request.status
 
 
+def release_work_order_assignments(db: Session, work_order, actor: str, reason: str):
+    """Reverse this work order's allocations without removing purchase history."""
+    assignments = db.query(models.PurchaseAssignment).filter(
+        models.PurchaseAssignment.work_order_id == work_order.id,
+    ).all()
+    quantities = {}
+    for assignment in assignments:
+        key = (assignment.purchase_request_id, assignment.work_order_line_item_id)
+        quantities[key] = quantities.get(key, 0) + assignment.quantity
+    for (request_id, line_id), quantity in quantities.items():
+        if quantity <= 0:
+            continue
+        request = db.get(models.PurchaseRequest, request_id)
+        released = min(quantity, request.assigned_quantity or 0)
+        if not released:
+            continue
+        request.assigned_quantity -= released
+        db.add(models.PurchaseAssignment(
+            purchase_request_id=request_id, work_order_id=work_order.id,
+            work_order_line_item_id=line_id, quantity=-released, actor=actor,
+            note=f"退回修改解除分配：{reason}",
+        ))
+        _sync_status(request)
+
+    for request in work_order.purchase_requests:
+        # Legacy allocations may have no assignment ledger rows.
+        if not request.assignments and request.assigned_quantity:
+            db.add(models.PurchaseAssignment(
+                purchase_request_id=request.id, work_order_id=work_order.id,
+                work_order_line_item_id=request.work_order_line_item_id,
+                quantity=request.assigned_quantity, actor=actor,
+                note="退回修改前補記舊分配",
+            ))
+            db.add(models.PurchaseAssignment(
+                purchase_request_id=request.id, work_order_id=work_order.id,
+                work_order_line_item_id=request.work_order_line_item_id,
+                quantity=-request.assigned_quantity, actor=actor,
+                note=f"退回修改解除舊分配：{reason}",
+            ))
+            request.assigned_quantity = 0
+        request.work_order_line_item = None
+        if not any((request.ordered_quantity, request.arrived_quantity, request.assigned_quantity)):
+            request.status = models.PurchaseRequestStatus.CANCELED
+        else:
+            _sync_status(request)
+
+
 def _remaining_needed(line_item):
     return max(
         0,

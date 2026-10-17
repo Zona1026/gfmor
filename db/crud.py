@@ -1372,24 +1372,41 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
         existing_line_items = {item.id: item for item in db_work_order.line_items}
         active_revision = _active_work_order_revision(db_work_order)
         if active_revision:
-            incoming_ids = {item.get("id") for item in line_items_data}
-            if None in incoming_ids or incoming_ids != set(existing_line_items) or len(line_items_data) != len(existing_line_items):
-                raise ValueError("退回修改期間不可新增或刪除明細；如需換料請由採購到貨登記替代料件。")
+            incoming_ids = [item["id"] for item in line_items_data if item.get("id")]
+            if len(incoming_ids) != len(set(incoming_ids)) or not set(incoming_ids).issubset(existing_line_items):
+                raise ValueError("工單明細 ID 重複或不屬於此工單，請重新載入工單。")
+            if any(item.inventory_deducted or (item.inventory_consumed_quantity or 0) > 0 for item in db_work_order.line_items):
+                raise ValueError("已扣庫存的工單明細不可整批覆蓋，請用追加明細處理")
+            _detach_work_order_purchase_requests(db, db_work_order)
+            _release_work_order_inventory(db, db_work_order)
+            revised_line_items = []
             for item_data in line_items_data:
-                existing_item = existing_line_items[item_data["id"]]
-                incoming_product_id = item_data.get("product_id")
-                if incoming_product_id != existing_item.product_id:
-                    raise ValueError("替代料件必須由採購單的到貨流程更換，才能保留訂購與實收紀錄。")
-                _major_maintenance_price(item_data, get_product(db, incoming_product_id) if incoming_product_id else None, existing_item)
-                if existing_item.inventory_reserved_quantity:
-                    inventory_service.release_work_order_line_item(db, existing_item)
-                for field in (
-                    "type", "name", "description", "quantity", "unit_price",
-                    "is_confirmed", "counts_toward_membership", "points_redeemed",
-                ):
-                    setattr(existing_item, field, item_data.get(field))
-            db_work_order.line_items = [existing_line_items[item["id"]] for item in line_items_data]
-            _assign_line_item_order(db_work_order)
+                if item_data.get("promotion_gift_id"):
+                    continue
+                existing_item = existing_line_items.get(item_data.get("id"))
+                validated_item = _build_line_item(db, WorkOrderLineItemCreate(**item_data), existing_item)
+                if existing_item:
+                    if existing_item.product_id != validated_item.product_id or existing_item.type != validated_item.type:
+                        existing_item.fulfillment_status = None
+                        existing_item.fulfillment_status_updated_at = None
+                    for field in WorkOrderLineItemCreate.model_fields:
+                        setattr(existing_item, field, getattr(validated_item, field))
+                    existing_item.product = validated_item.product
+                    revised_line_items.append(existing_item)
+                else:
+                    revised_line_items.append(validated_item)
+            retained_ids = {item.id for item in revised_line_items if item.id}
+            removed_ids = set(existing_line_items) - retained_ids
+            if removed_ids:
+                # Allocation events remain auditable after their original line is deleted.
+                for assignment in db.query(models.PurchaseAssignment).filter(
+                    models.PurchaseAssignment.work_order_line_item_id.in_(removed_ids),
+                ).all():
+                    assignment.work_order_line_item_id = None
+            db_work_order.line_items = revised_line_items
+            if not db_work_order.is_historical_backfill:
+                promotion_service.sync_gifts(db, db_work_order)
+            _assign_line_item_order(db_work_order, line_items_data)
         else:
             if any(item.inventory_deducted or (item.inventory_consumed_quantity or 0) > 0 for item in db_work_order.line_items):
                 raise ValueError("已扣庫存的工單明細不可整批覆蓋，請用追加明細處理")
@@ -1686,8 +1703,6 @@ def reopen_work_order(db: Session, work_order_id: int, reopen, actor: str = None
         raise ValueError("已完工或已取消的工單不可退回修改。")
     if any(item.inventory_deducted or (item.inventory_consumed_quantity or 0) > 0 for item in db_work_order.line_items):
         raise ValueError("工單已有實際扣庫存紀錄，不能退回修改；請改走退料或調整流程。")
-    if any((request.assigned_quantity or 0) > 0 for request in db_work_order.purchase_requests):
-        raise ValueError("工單已有到貨料件分配，請先解除分配後再退回修改。")
     if _active_work_order_revision(db_work_order):
         raise ValueError("此工單已在退回修改流程中。")
 
@@ -1697,6 +1712,8 @@ def reopen_work_order(db: Session, work_order_id: int, reopen, actor: str = None
     snapshot = {
         "status": db_work_order.status.value,
         "total_amount": db_work_order.total_amount or 0,
+        "supervisor_reviewed_at": db_work_order.supervisor_reviewed_at.isoformat(),
+        "supervisor_reviewed_by": db_work_order.supervisor_reviewed_by,
         "line_items": [
             {
                 "id": item.id,
@@ -1719,11 +1736,21 @@ def reopen_work_order(db: Session, work_order_id: int, reopen, actor: str = None
         previous_snapshot=json.dumps(snapshot, ensure_ascii=False),
     )
     db.add(revision)
+    purchase_service.release_work_order_assignments(db, db_work_order, actor or reopen.actor, reason)
     _release_work_order_inventory(db, db_work_order)
+    for line_item in db_work_order.line_items:
+        line_item.fulfillment_status = None
+        line_item.fulfillment_status_updated_at = None
     db_work_order.status = models.WorkOrderStatus.QUOTE_PENDING
     db_work_order.supervisor_reviewed_at = None
     db_work_order.supervisor_reviewed_by = None
     db_work_order.completed_at = None
+    for approval in db_work_order.approvals:
+        if approval.status == models.WorkOrderApprovalStatus.PENDING:
+            approval.status = models.WorkOrderApprovalStatus.REJECTED
+            approval.reviewed_by = actor or reopen.actor
+            approval.reviewed_at = datetime.utcnow()
+            approval.note = f"退回修改，原待審核項目作廢：{reason}"
     _ensure_work_order_approval(
         db_work_order,
         models.WorkOrderApprovalType.STATUS_CHANGE,
@@ -1732,6 +1759,7 @@ def reopen_work_order(db: Session, work_order_id: int, reopen, actor: str = None
         active_statuses=[models.WorkOrderApprovalStatus.PENDING],
     )
     _sync_work_order_approvals(db_work_order)
+    db_work_order.status = models.WorkOrderStatus.QUOTE_PENDING
     db.commit()
     return get_work_order(db, work_order_id)
 

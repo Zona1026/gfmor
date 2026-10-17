@@ -452,7 +452,7 @@
             <div class="section-title-row">
               <h4>施工 / 零件 / 工資 / 折扣明細</h4>
               <div v-if="canEditWorkOrder" class="detail-section-actions">
-                <button type="button" class="btn btn-outline" :disabled="lineItemEditingLocked || activeRevision" @click="addDetailLineItem">新增明細</button>
+                <button type="button" class="btn btn-outline" :disabled="lineItemEditingLocked" @click="addDetailLineItem">新增明細</button>
                 <button type="button" class="btn btn-outline" :disabled="!canSaveLineOrder || saving || detailLoading || promotionPreviewLoading" @click="saveLineOrder">儲存順序</button>
                 <button type="button" class="btn btn-primary" :disabled="saving || detailLoading" @click="saveWorkOrder">儲存工單</button>
               </div>
@@ -460,7 +460,7 @@
             <div class="line-editor">
               <div v-for="(item, index) in detailLineItems" :key="lineItemKey(item)" class="line-row detail-line-row" :class="{ 'membership-controls': canManageMembershipFields }">
                 <WorkOrderProductPicker class="line-picker" :item="item" :products="products" :types="lineItemTypeMap"
-                  :disabled="!canEditWorkOrder || lineItemEditingLocked || activeRevision || isLineItemInventoryLocked(item)"
+                  :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)"
                   @select-product="applyProductToLine" @change-type="handleLineTypeChange" />
                 <label v-if="['LABOR', 'DISCOUNT'].includes(item.type)" class="line-field line-name">
                   <span>明細名稱</span>
@@ -510,7 +510,7 @@
                 <div v-if="canEditWorkOrder" class="line-actions">
                   <button type="button" class="icon-btn" title="上移" aria-label="明細上移" :disabled="saving || detailLoading || selectedWorkOrder.deleted_at || index === 0" @click="moveLineItem(detailLineItems, index, -1)">↑</button>
                   <button type="button" class="icon-btn" title="下移" aria-label="明細下移" :disabled="saving || detailLoading || selectedWorkOrder.deleted_at || index === detailLineItems.length - 1" @click="moveLineItem(detailLineItems, index, 1)">↓</button>
-                  <button type="button" class="icon-btn danger" title="刪除明細" :disabled="lineItemEditingLocked || activeRevision || isLineItemInventoryLocked(item)" @click="removeDetailLineItem(index)">×</button>
+                  <button type="button" class="icon-btn danger" title="刪除明細" :disabled="lineItemEditingLocked || isLineItemInventoryLocked(item)" @click="removeDetailLineItem(index)">×</button>
                 </div>
               </div>
             </div>
@@ -528,7 +528,7 @@
               <strong>{{ detailRedeemedPoints.toLocaleString() }} 點</strong>
             </div>
             <div v-if="supervisorReviewLocked" class="muted-line">主管已審核，工單明細與會員累積資格已鎖定。</div>
-            <div v-else-if="activeRevision" class="warning-text">工單已退回修改。換料請從對應採購單登記替代料件；修改後需重新主管審核。</div>
+            <div v-else-if="activeRevision" class="warning-text">工單已退回待報價，可新增、刪除或更換明細；採購分配與庫存預留已解除，修改後需重新主管審核。</div>
           </section>
 
           <section class="form-section">
@@ -645,7 +645,7 @@
     <div v-if="showReopenModal" class="modal-overlay confirm-overlay" v-backdrop-close="closeReopenModal">
       <div class="modal-content confirm-modal">
         <div class="modal-header">
-          <div><h3>退回工單 #{{ selectedWorkOrder?.id }} 修改</h3><p>原審核紀錄會保留，修改後需重新審核。</p></div>
+          <div><h3>退回工單 #{{ selectedWorkOrder?.id }} 修改</h3><p>將回到待報價並解除採購分配與庫存預留；保留原審核、付款與採購紀錄，修改後需重新審核。</p></div>
           <button class="icon-btn" type="button" @click="closeReopenModal">×</button>
         </div>
         <label>退回原因<textarea v-model.trim="reopenForm.reason" rows="4" placeholder="例如：原廠以通用料件 B 替代 A，客戶同意退差價"></textarea></label>
@@ -1870,7 +1870,7 @@ watch(() => promotionLineKey(createLineItems.value), () => {
   if (showCreateModal.value && createMode.value === 'normal' && !saving.value) refreshPromotionLines(createLineItems);
 });
 watch(() => promotionLineKey(detailLineItems.value), () => {
-  if (selectedWorkOrder.value && !selectedWorkOrder.value.is_historical_backfill && !lineItemEditingLocked.value && !activeRevision.value && !saving.value && !detailLineItems.value.some(item => item.inventory_deducted || item.inventory_consumed_quantity > 0)) refreshPromotionLines(detailLineItems);
+  if (selectedWorkOrder.value && !selectedWorkOrder.value.is_historical_backfill && !lineItemEditingLocked.value && !saving.value && !detailLineItems.value.some(item => item.inventory_deducted || item.inventory_consumed_quantity > 0)) refreshPromotionLines(detailLineItems);
 });
 
 watch(

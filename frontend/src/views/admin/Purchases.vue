@@ -235,15 +235,16 @@
           </form>
           <table v-if="selectedRequest.assignments?.length" class="mini-table">
             <thead>
-              <tr><th>時間</th><th>工單</th><th>明細</th><th>數量</th><th>操作者</th></tr>
+              <tr><th>時間</th><th>工單</th><th>明細</th><th>數量</th><th>操作者</th><th>備註</th></tr>
             </thead>
             <tbody>
               <tr v-for="assignment in selectedRequest.assignments" :key="assignment.id">
                 <td>{{ formatDateTime(assignment.assigned_at) }}</td>
                 <td>#{{ assignment.work_order_id }}</td>
-                <td>#{{ assignment.work_order_line_item_id }}</td>
+                <td>{{ assignment.work_order_line_item_id ? `#${assignment.work_order_line_item_id}` : '原明細已移除' }}</td>
                 <td>{{ assignment.quantity }}</td>
                 <td>{{ assignment.actor || '-' }}</td>
+                <td>{{ assignment.note || '-' }}</td>
               </tr>
             </tbody>
           </table>

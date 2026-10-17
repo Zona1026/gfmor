@@ -927,7 +927,7 @@ class PurchaseAssignment(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     purchase_request_id = Column(Integer, ForeignKey("purchase_requests.id"), nullable=False, index=True)
     work_order_id = Column(Integer, ForeignKey("work_orders.id"), nullable=False, index=True)
-    work_order_line_item_id = Column(Integer, ForeignKey("work_order_line_items.id"), nullable=False, index=True)
+    work_order_line_item_id = Column(Integer, ForeignKey("work_order_line_items.id"), nullable=True, index=True)
     quantity = Column(Integer, nullable=False)
     actor = Column(String(50), nullable=True)
     note = Column(Text, nullable=True)
