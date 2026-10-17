@@ -103,12 +103,20 @@ def create_user(db: Session, user: UserCreate):
     return db_user
 
 
-def merge_guest_customers_to_user_by_phone(db: Session, user: models.User, phone: str):
+def _normalized_license_plate(column):
+    normalized = func.upper(func.coalesce(column, ""))
+    for separator in ("-", " ", "\t", "\r", "\n", "\u3000"):
+        normalized = func.replace(normalized, separator, "")
+    return normalized
+
+
+def merge_guest_customers_to_user(db: Session, user: models.User):
     """
-    將同電話散客的消費、工單與車輛資料併入會員。
+    電話或有效車牌任一相同，就將散客的消費、工單與車輛資料併入會員。
     呼叫端負責提交交易，方便和會員資料更新維持同一個 commit。
     """
-    cleaned_phone = (phone or "").strip()
+    db.flush()  # Session 關閉 autoflush，先讓本次新增或修改的車牌可被查詢。
+    cleaned_phone = (user.phone or "").strip()
     summary = {
         "matched_guests": 0,
         "moved_orders": 0,
@@ -116,10 +124,22 @@ def merge_guest_customers_to_user_by_phone(db: Session, user: models.User, phone
         "moved_motors": 0,
         "added_consumption": 0,
     }
-    if not cleaned_phone:
-        return summary
+    member_plate = _normalized_license_plate(models.Motor.license_plate)
+    member_plates = db.query(member_plate).filter(
+        models.Motor.google_id == user.google_id,
+        models.Motor.status.is_(None),
+        member_plate != "",
+    )
+    matching_guest_ids = db.query(models.GuestMotor.guest_customer_id).filter(
+        models.GuestMotor.status.is_(None),
+        _normalized_license_plate(models.GuestMotor.license_plate).in_(member_plates),
+    )
+    conditions = [models.GuestCustomer.id.in_(matching_guest_ids)]
+    if cleaned_phone:
+        conditions.append(models.GuestCustomer.phone == cleaned_phone)
 
-    guests = db.query(models.GuestCustomer).filter(models.GuestCustomer.phone == cleaned_phone).all()
+    # 先固定符合條件的散客，避免轉入車輛後又連鎖擴大合併對象。
+    guests = db.query(models.GuestCustomer).filter(or_(*conditions)).all()
     for guest in guests:
         guest_summary = merge_guest_customer_to_user(db, guest, user)
         if guest_summary["moved_orders"] or guest_summary["moved_work_orders"] or guest_summary["moved_motors"]:
@@ -157,11 +177,12 @@ def merge_guest_customer_to_user(db: Session, guest: models.GuestCustomer, user:
         summary["moved_orders"] += 1
 
     for guest_motor in guest_motors:
+        normalized_plate = _normalized_license_plate(guest_motor.license_plate)
         member_motor = (
             db.query(models.Motor)
             .filter(
                 models.Motor.google_id == user.google_id,
-                models.Motor.license_plate == guest_motor.license_plate,
+                _normalized_license_plate(models.Motor.license_plate) == normalized_plate,
                 models.Motor.status.is_(None),
             )
             .first()
@@ -169,7 +190,10 @@ def merge_guest_customer_to_user(db: Session, guest: models.GuestCustomer, user:
         if not member_motor:
             plate_owner = (
                 db.query(models.Motor)
-                .filter(models.Motor.license_plate == guest_motor.license_plate, models.Motor.status.is_(None))
+                .filter(
+                    _normalized_license_plate(models.Motor.license_plate) == normalized_plate,
+                    models.Motor.status.is_(None),
+                )
                 .first()
             )
             if not plate_owner:
@@ -261,8 +285,8 @@ def update_user(db: Session, google_id: str, user_update: UserUpdate):
             db.flush()
             new_vehicle_service.ensure_maintenance_schedule(db, new_motor)
 
-    if update_data.get("phone"):
-        merge_guest_customers_to_user_by_phone(db, db_user, update_data["phone"])
+    if "phone" in update_data or motors_data:
+        merge_guest_customers_to_user(db, db_user)
 
     if "name" in update_data and db_user.name is not None:
         # 工單保留獨立的客戶姓名欄位；會員改名時一併同步既有工單。
@@ -1732,6 +1756,10 @@ def update_motor(db: Session, motor_id: int, motor_update: MotorUpdate):
 
     db.add(db_motor)
     new_vehicle_service.ensure_maintenance_schedule(db, db_motor)
+    if "license_plate" in update_data and db_motor.status is None:
+        user = get_user(db, google_id=db_motor.google_id)
+        if user:
+            merge_guest_customers_to_user(db, user)
     db.commit()
     db.refresh(db_motor)
     return db_motor
