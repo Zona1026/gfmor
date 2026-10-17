@@ -82,7 +82,7 @@ function discountLabel(activity) { if (activity.discount_type === 'BOGO') return
 function message(err) { return typeof err.response?.data?.detail === 'string' ? err.response.data.detail : '操作失敗，請確認設定後重試。'; }
 async function load() {
   loading.value = true; error.value = '';
-  try { const data = await Promise.all([getPromotions(), getInventoryItems({ type: 'all' })]); activities.value = data[0]; products.value = data[1]; }
+  try { const data = await Promise.all([getPromotions(), getInventoryItems({ type: 'all' })]); activities.value = data[0]; products.value = data[1].filter(item => item.inventory_type !== 'LABOR'); }
   catch (err) { error.value = message(err); }
   finally { loading.value = false; }
 }

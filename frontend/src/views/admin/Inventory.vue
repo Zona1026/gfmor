@@ -39,6 +39,26 @@
       <InventoryTable :items="partItems" :can-edit="canManageInventory" @edit="openEditModal" />
     </section>
 
+    <section v-if="activeTab === 'labor'" class="inventory-panel">
+      <div class="panel-title list-heading">
+        <h3>工資/服務費列表</h3>
+        <button v-if="canManageInventory" class="btn btn-primary" type="button" @click="openCreateModal('LABOR')">＋ 新增工資/服務費</button>
+      </div>
+      <p class="panel-description">預設單價可填 0，工單明細可依案件調整單價。</p>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>品項名稱</th><th>分類</th><th>預設單價</th><th v-if="canManageInventory">操作</th></tr></thead>
+          <tbody>
+            <tr v-for="item in laborItems" :key="item.id">
+              <td>{{ item.name }}</td><td>{{ productCategory(item) }}</td><td>NT$ {{ formatNumber(item.price) }}</td>
+              <td v-if="canManageInventory"><button class="btn btn-sm btn-outline" type="button" @click="openEditModal(item)">編輯</button></td>
+            </tr>
+            <tr v-if="!laborItems.length"><td :colspan="canManageInventory ? 4 : 3" class="empty-row">尚無工資/服務費品項。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
     <section v-if="activeTab === 'movements'" class="panel">
       <div class="panel-title">
         <h3>庫存異動紀錄</h3>
@@ -237,7 +257,13 @@
           <button class="btn btn-outline" type="button" @click="closeCreateModal">關閉</button>
         </div>
         <form class="create-form" @submit.prevent="submitCreateItem">
-          <div v-if="activeTab !== 'parts'" class="form-grid">
+          <div v-if="createItemType === 'LABOR'" class="form-grid">
+            <label>品項名稱<input v-model.trim="createForm.name" type="text" maxlength="100" required /></label>
+            <label>預設單價<input v-model.number="createForm.price" type="number" min="0" step="1" required /></label>
+            <label>分類<select v-model="createForm.category_id"><option value="">未分類</option><option v-for="category in activeCategories" :key="category.id" :value="String(category.id)">{{ category.name }}</option></select></label>
+            <p class="panel-description">可填 0；工單明細仍可自行編輯單價，不會更動此處的預設值。</p>
+          </div>
+          <div v-else-if="activeTab !== 'parts'" class="form-grid">
             <label>
               品項名稱
               <input v-model.trim="createForm.name" type="text" required />
@@ -293,7 +319,7 @@
               {{ savingCategory ? '新增中...' : '建立分類' }}
             </button>
           </div>
-          <ProductDetailsFields :form="createForm" :parts-layout="activeTab === 'parts'">
+          <ProductDetailsFields v-if="createItemType !== 'LABOR'" :form="createForm" :parts-layout="activeTab === 'parts'">
             <template #name>
             <label>
               商品名稱
@@ -358,7 +384,7 @@
             描述
             <textarea v-model.trim="createForm.description" rows="3"></textarea>
           </label>
-          <label>
+          <label v-if="createItemType !== 'LABOR'">
             圖片
             <input type="file" accept="image/*" @change="onCreateFileChange" />
           </label>
@@ -408,10 +434,11 @@ const managerRoles = ['最高級', '管理層'];
 const canManageInventory = computed(() => managerRoles.includes(adminUser.value?.role));
 const canUseCriticalInventory = computed(() => adminUser.value?.role === '最高級');
 
-const routeTabMap = { products: 'shop', parts: 'parts', stocktake: 'stocktake' };
+const routeTabMap = { products: 'shop', parts: 'parts', labor: 'labor', stocktake: 'stocktake' };
 const tabRouteMap = {
   shop: 'AdminInventoryProducts',
   parts: 'AdminInventoryParts',
+  labor: 'AdminInventoryLabor',
   stocktake: 'AdminInventoryStocktake'
 };
 const activeTab = ref(routeTabMap[route.meta.inventorySection] || 'shop');
@@ -430,6 +457,7 @@ const editingItemId = ref(null);
 const itemPreviewUrl = ref('');
 const shopItems = ref([]);
 const partItems = ref([]);
+const laborItems = ref([]);
 const allItems = ref([]);
 const lowStockItems = ref([]);
 const movements = ref([]);
@@ -460,6 +488,7 @@ const scrapForm = reactive({
 const tabs = [
   { key: 'shop', label: '商品列表' },
   { key: 'parts', label: '零件列表' },
+  { key: 'labor', label: '工資/服務費列表' },
   { key: 'stocktake', label: '盤點表' },
   { key: 'movements', label: '庫存異動紀錄' },
   { key: 'reservations', label: '庫存預留紀錄' },
@@ -531,7 +560,7 @@ function productCategory(item) {
 
 const activeCategories = computed(() => categories.value.filter(category => category.is_active));
 const itemModalTitle = computed(() => {
-  const itemLabel = createItemType.value === 'PART' ? '零件' : '商品';
+  const itemLabel = createItemType.value === 'LABOR' ? '工資/服務費' : createItemType.value === 'PART' ? '零件' : '商品';
   return `${editingItemId.value ? '編輯' : '新增'}${itemLabel}`;
 });
 
@@ -598,7 +627,8 @@ async function fetchItems() {
   ]);
   shopItems.value = shop;
   partItems.value = parts;
-  allItems.value = all;
+  laborItems.value = all.filter(item => item.inventory_type === 'LABOR');
+  allItems.value = all.filter(item => item.inventory_type !== 'LABOR');
   lowStockItems.value = low;
   all.forEach(item => {
     const current = stocktakeDrafts[item.id];
@@ -683,7 +713,7 @@ async function openEditModal(item) {
   try {
     const [product, supplierPrices] = await Promise.all([getProduct(item.id), getProductSupplierPrices(item.id)]);
     editingItemId.value = product.id;
-    createItemType.value = product.inventory_type === 'PART' ? 'PART' : 'SHOP';
+    createItemType.value = product.inventory_type === 'LABOR' ? 'LABOR' : product.inventory_type === 'PART' ? 'PART' : 'SHOP';
     Object.assign(createForm, defaultCreateForm(product.inventory_type), {
       ...productDetailsForm(product, supplierPrices),
       name: product.name || '',

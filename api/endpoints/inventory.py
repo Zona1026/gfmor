@@ -28,7 +28,7 @@ def _product_payload(product, can_view_detail: bool, reserved: int):
         "inventory_type": product.inventory_type,
         "low_stock_threshold": product.low_stock_threshold or 5,
         "available_stock": available,
-        "is_low_stock": available <= (product.low_stock_threshold or 5),
+        "is_low_stock": product.inventory_type != models.InventoryType.LABOR and available <= (product.low_stock_threshold or 5),
     }
     if can_view_detail:
         payload["stock"] = product.stock or 0
@@ -58,8 +58,10 @@ def read_inventory_items(
             models.InventoryType.PART,
             models.InventoryType.BOTH,
         ]))
+    elif type == "labor":
+        query = query.filter(models.Product.inventory_type == models.InventoryType.LABOR)
     elif type != "all":
-        raise HTTPException(status_code=400, detail="type must be shop, part, or all")
+        raise HTTPException(status_code=400, detail="type must be shop, part, labor, or all")
 
     products = query.order_by(models.Product.id.asc()).all()
     reserved_by_product = {}

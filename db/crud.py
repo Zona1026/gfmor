@@ -339,7 +339,7 @@ def get_products(db: Session, skip: int = 0, limit: int = 100):
     """
     獲取商品列表，支援分頁。
     """
-    return db.query(models.Product).order_by(models.Product.id).offset(skip).limit(limit).all()
+    return db.query(models.Product).filter(models.Product.inventory_type != models.InventoryType.LABOR).order_by(models.Product.id).offset(skip).limit(limit).all()
 
 def create_product(db: Session, product: ProductCreate):
     """
@@ -709,7 +709,11 @@ def _build_line_item(db: Session, item_in: WorkOrderLineItemCreate):
         db_product = get_product(db, product_id=item_data["product_id"])
         if not db_product:
             raise ValueError(f"找不到ID為 {item_data['product_id']} 的商品")
-        if item_type == models.WorkOrderLineItemType.PART and 'unit_price' not in item_in.model_fields_set:
+        if db_product.inventory_type == models.InventoryType.LABOR and item_type != models.WorkOrderLineItemType.LABOR:
+            raise ValueError('工資 / 服務費品項只能用於工資 / 服務費明細')
+        if item_type == models.WorkOrderLineItemType.LABOR and db_product.inventory_type != models.InventoryType.LABOR:
+            raise ValueError('請選擇工資 / 服務費列表中的品項')
+        if item_type in (models.WorkOrderLineItemType.PART, models.WorkOrderLineItemType.LABOR) and 'unit_price' not in item_in.model_fields_set:
             item_data["unit_price"] = db_product.price
         if not item_data.get("name"):
             item_data["name"] = db_product.name

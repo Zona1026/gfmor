@@ -1360,10 +1360,12 @@ const removeDetailLineItem = (index) => {
 };
 
 const handleLineTypeChange = (item) => {
-  if (item.type !== 'PART') {
-    item.product_id = null;
-    item.points_redeemed = 0;
-  }
+  item.product_id = null;
+  item.name = '';
+  item.unit_price = 0;
+  item.points_redeemed = 0;
+  item.promotion_name = '';
+  delete item.promotion_auto_price;
 };
 
 const canEnterLineDetails = item => !item.promotion_gift_id && (['LABOR', 'DISCOUNT'].includes(item.type) || (item.type === 'PART' && !item.product_id && item.picker_category === MANUAL_PRODUCT_CATEGORY));
@@ -1387,7 +1389,7 @@ const cleanLineItem = (item) => ({
   type: item.type,
   name: item.name || (item.type === 'DISCOUNT' ? '折扣' : ''),
   description: item.description || '',
-  product_id: item.type === 'PART' ? Number(item.product_id) || null : null,
+  product_id: ['PART', 'LABOR'].includes(item.type) ? Number(item.product_id) || null : null,
   promotion_gift_id: item.promotion_gift_id || null,
   quantity: Number(item.quantity),
   unit_price: Number(item.unit_price) || 0,
@@ -1408,6 +1410,7 @@ const validateLineItems = (items) => {
   if (promotionPreviewLoading.value) return '活動與贈品計算中，請稍候再儲存';
   if (promotionPreviewError.value) return '活動與贈品載入失敗，請重新選取商品後再儲存';
   for (const [index, item] of items.entries()) {
+    if (item.type === 'LABOR' && !item.product_id && !item.id) return `第 ${index + 1} 項明細：請選擇工資 / 服務費品項`;
     if (item.type === 'SERVICE') return `第 ${index + 1} 項明細：請選擇類型`;
     if (item.type === 'PART' && !item.product_id && item.picker_category !== MANUAL_PRODUCT_CATEGORY) return `第 ${index + 1} 項明細：請選擇商品，或選擇「不綁商品 / 不扣庫存」分類`;
     if (item.promotion_loading) return `第 ${index + 1} 項明細：活動價格載入中，請稍候再儲存`;

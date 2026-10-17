@@ -141,6 +141,7 @@ class WorkOrderApprovalType(str, enum.Enum):
     INVENTORY_CONSUMPTION = 'INVENTORY_CONSUMPTION'
 
 class InventoryType(str, enum.Enum):
+    LABOR = 'LABOR'
     SHOP = 'SHOP'
     PART = 'PART'
     BOTH = 'BOTH'

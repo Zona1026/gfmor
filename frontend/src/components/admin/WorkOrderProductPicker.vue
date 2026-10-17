@@ -8,8 +8,8 @@
     </label>
     <label>
       <span>分類</span>
-      <select v-model="item.picker_category" :disabled="disabled || item.type !== 'PART'" @change="changeCategory">
-        <option value="">{{ item.type === 'PART' ? '全部分類' : '不適用' }}</option>
+      <select v-model="item.picker_category" :disabled="disabled || !['PART', 'LABOR'].includes(item.type)" @change="changeCategory">
+        <option value="">{{ ['PART', 'LABOR'].includes(item.type) ? '全部分類' : '不適用' }}</option>
         <option v-if="item.type === 'PART'" :value="MANUAL_PRODUCT_CATEGORY">不綁商品 / 不扣庫存</option>
         <option v-for="category in categories" :key="category.value" :value="category.value">{{ category.name }}</option>
       </select>
@@ -23,7 +23,7 @@
     </label>
     <label>
       <span>商品名稱</span>
-      <select v-if="item.type === 'PART' && !isManual" v-model.number="item.product_id" :disabled="disabled" @change="$emit('select-product', item)">
+      <select v-if="['PART', 'LABOR'].includes(item.type) && !isManual" v-model.number="item.product_id" :disabled="disabled" @change="$emit('select-product', item)">
         <option :value="null" disabled>請選擇商品</option>
         <option v-for="product in matchingProducts" :key="product.id" :value="product.id">{{ product.name }}{{ product.model_number ? `（${product.model_number}）` : '' }}</option>
       </select>
@@ -45,7 +45,9 @@ watch(() => props.item, item => {
   item.picker_supplier ??= '';
 }, { immediate: true });
 const isManual = computed(() => props.item.type === 'PART' && props.item.picker_category === MANUAL_PRODUCT_CATEGORY);
-const parts = computed(() => props.products.filter(product => product.inventory_type !== 'SHOP'
+const parts = computed(() => props.products.filter(product => (props.item.type === 'LABOR'
+  ? product.inventory_type === 'LABOR'
+  : ['PART', 'BOTH'].includes(product.inventory_type))
   || product.id === Number(props.item.product_id)));
 const categories = computed(() => categoryOptions(parts.value));
 const suppliers = computed(() => supplierOptions(parts.value, props.item.picker_category));
@@ -71,6 +73,7 @@ function changeCategory() {
 function changeType() {
   props.item.picker_category = '';
   props.item.picker_supplier = '';
+  props.item.product_id = null;
   emit('change-type', props.item);
 }
 </script>

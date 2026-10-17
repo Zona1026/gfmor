@@ -171,6 +171,12 @@ const routes = [
         meta: { title: '庫存管理 / 零件列表', inventorySection: 'parts' }
       },
       {
+        path: 'inventory/labor',
+        name: 'AdminInventoryLabor',
+        component: AdminInventory,
+        meta: { title: '庫存管理 / 工資/服務費列表', inventorySection: 'labor' }
+      },
+      {
         path: 'inventory/stocktake',
         name: 'AdminInventoryStocktake',
         component: AdminInventory,

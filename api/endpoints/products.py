@@ -44,7 +44,7 @@ def _inventory_type(value: Optional[str]):
     try:
         return models.InventoryType(value)
     except ValueError:
-        raise HTTPException(status_code=400, detail="inventory_type must be SHOP, PART, or BOTH")
+        raise HTTPException(status_code=400, detail="inventory_type must be SHOP, PART, BOTH, or LABOR")
 
 
 def _category_payload(category):
@@ -388,7 +388,7 @@ def read_product(product_id: int, db: Session = Depends(get_db)):
 @router.post("/", response_model=product_schema.Product, summary="建立新商品（含圖片）")
 def create_product_with_image(
     name: str = Form(...),
-    price: int = Form(...),
+    price: int = Form(..., ge=0),
     stock: int = Form(0),
     is_active: int = Form(1, ge=0, le=1),
     inventory_type: Optional[str] = Form(None),
@@ -445,7 +445,7 @@ def create_product_with_image(
 def update_product_with_image(
     product_id: int,
     name: Optional[str] = Form(None),
-    price: Optional[int] = Form(None),
+    price: Optional[int] = Form(None, ge=0),
     stock: Optional[int] = Form(None),
     inventory_type: Optional[str] = Form(None),
     low_stock_threshold: Optional[int] = Form(None),
