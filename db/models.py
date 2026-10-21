@@ -5,6 +5,26 @@ from sqlalchemy.orm import relationship
 # 引入我們在 db/database.py 中建立的 Base
 from .database import Base
 
+
+class AccidentEstimate(Base):
+    __tablename__ = "accident_estimates"
+    id = Column(Integer, primary_key=True)
+    store_name = Column(String(100), nullable=False)
+    customer_name = Column(String(100), nullable=False)
+    phone = Column(String(50), nullable=False, default="")
+    license_plate = Column(String(30), nullable=False, default="")
+    vehicle_model = Column(String(100), nullable=False, default="")
+    engine_number = Column(String(100), nullable=False, default="")
+    estimate_date = Column(Date, nullable=False)
+    opened_date = Column(Date, nullable=False)
+    items = Column(JSON, nullable=False, default=list)
+    labor = Column(Integer, nullable=False, default=0)
+    estimator = Column(String(100), nullable=False, default="")
+    terms = Column(Text, nullable=False, default="")
+    internal_note = Column(Text, nullable=False, default="")
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
 # 為了讓 Python 的 Enum 與資料庫的 ENUM 類型能更好地配合
 import enum
 

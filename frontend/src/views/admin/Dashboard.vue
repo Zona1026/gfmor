@@ -34,6 +34,7 @@
           </button>
           <div v-show="isWorkOrderOpen" class="nav-submenu">
             <router-link to="/admin/work-orders" exact-active-class="active" @click="closeSidebar">工單列表</router-link>
+            <router-link to="/admin/work-orders/accident-estimates" active-class="active" @click="closeSidebar">車禍估價單</router-link>
             <router-link v-if="adminUser?.role === '最高級'" to="/admin/work-orders/reviews" active-class="active" @click="closeSidebar">待復核工單</router-link>
           </div>
         </div>

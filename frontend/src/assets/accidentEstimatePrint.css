@@ -1,0 +1,28 @@
+body.estimate-preview-open { overflow: hidden; }
+.estimate-preview-overlay { display: none; position: fixed; inset: 0; z-index: 10000; overflow: auto; background: #363b43; color: #111; }
+.estimate-preview-overlay.is-visible { display: block; }
+.estimate-preview-toolbar { position: sticky; top: 0; z-index: 1; padding: 14px 24px; display: flex; align-items: center; flex-wrap: wrap; gap: 14px; background: #202630; color: #fff; }
+.estimate-preview-toolbar h3 { margin: 0; font-size: 18px; }.estimate-preview-toolbar span { flex: 1; font-size: 13px; }
+.estimate-preview-toolbar button { padding: 10px 14px; cursor: pointer; }
+.estimate-paper { box-sizing: border-box; width: 190mm; min-height: 270mm; padding: 5mm 3mm; margin: 24px auto; background: #fff; color: #111; font: 11pt/1.25 'Microsoft JhengHei', 'Noto Sans TC', sans-serif; }
+.estimate-paper * { box-sizing: border-box; }
+.estimate-paper-heading { display: flex; align-items: center; gap: 16mm; padding: 0 10mm 4mm; }
+.estimate-paper-brand { width: 18mm; height: 18mm; color: #e2381e; font: italic 900 26pt/1 Arial, sans-serif; display: flex; flex-direction: column; justify-content: center; }
+.estimate-paper-brand span { font-size: 10pt; letter-spacing: 1px; }
+.estimate-paper-heading h1 { margin: 0; font-size: 18pt; color: #000; }.estimate-paper-heading h2 { margin: 1mm 0 0; font-size: 13pt; color: #000; }
+.estimate-paper-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 1mm 6mm; }.estimate-paper-fields span { overflow-wrap: anywhere; white-space: pre-wrap; }
+.estimate-paper-date { text-align: right; margin: 1mm 0; }
+.estimate-paper .estimate-paper-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 10pt; color: #111; }
+.estimate-paper .estimate-paper-table th, .estimate-paper .estimate-paper-table td { border: 1px solid #333; padding: .4mm 1mm; height: 5mm; text-align: center; line-height: 1.15; overflow-wrap: anywhere; white-space: pre-wrap; color: #111; }
+.estimate-paper .estimate-paper-table th { font-weight: normal; }.estimate-paper .estimate-paper-table .part-name { text-align: left; }
+.estimate-paper-table tr { break-inside: avoid; }.estimate-paper-table thead { display: table-header-group; }.estimate-paper-totals { break-inside: avoid; }
+.estimate-paper-footer { break-inside: avoid; font-size: 10pt; padding: 2mm 1mm; }
+.estimate-paper-terms { white-space: pre-wrap; overflow-wrap: anywhere; }.estimate-paper-signatures { display: grid; grid-template-columns: 1fr 1fr; padding-top: 5mm; gap: 8mm; overflow-wrap: anywhere; }
+@page { size: A4 portrait; margin: 10mm; }
+@media print {
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body.accident-estimate-page > :not(.estimate-preview-overlay) { display: none !important; }
+  body.accident-estimate-page .estimate-preview-overlay { display: block; position: static; overflow: visible; background: #fff; }
+  .estimate-preview-toolbar { display: none !important; }
+  .estimate-paper { width: 100%; min-height: 0; margin: 0; padding: 0; }
+}

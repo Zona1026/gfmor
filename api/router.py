@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from .endpoints import (
+    accident_estimates,
     accounting,
     admin,
     admins,
@@ -24,6 +25,7 @@ from .endpoints import (
 )
 
 api_router = APIRouter()
+api_router.include_router(accident_estimates.router, prefix="/admin/accident-estimates", tags=["Accident Estimates"])
 
 api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 api_router.include_router(users.router, prefix="/users", tags=["Users"])

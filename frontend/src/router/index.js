@@ -120,6 +120,12 @@ const routes = [
         meta: { requiresWorkOrderReview: true, title: '待復核工單' }
       },
       {
+        path: 'work-orders/accident-estimates',
+        name: 'AdminAccidentEstimates',
+        component: () => import('../views/admin/AccidentEstimates.vue'),
+        meta: { title: '車禍估價單' }
+      },
+      {
         path: 'approvals',
         name: 'AdminApprovals',
         redirect: { name: 'AdminWorkOrderReviews' },
