@@ -68,7 +68,6 @@ import { onBeforeRouteLeave } from 'vue-router';
 import api from '../../api';
 import { useSiteStore } from '../../store/site';
 import printStyles from '../../assets/accidentEstimatePrint.css?inline';
-import '../../assets/accidentEstimatePrint.css';
 
 const site = useSiteStore();
 const estimates = ref([]), search = ref(''), page = ref(0), loading = ref(false), busy = ref(false);
@@ -76,6 +75,7 @@ const listError = ref(''), editorError = ref(''), notice = ref(''), draft = ref(
 const editor = ref(null), showPreview = ref(false), printDocument = ref(null), previewClose = ref(null);
 const pageSize = 50, endpoint = '/admin/accident-estimates';
 let printFrame = null;
+let pagePrintStyle = null;
 let requestSequence = 0;
 const blankItem = () => ({ name: '', unit_price: 0, freight: 0, quantity: 1, unit: '', internal_note: '' });
 const money = value => Number(value || 0).toLocaleString('zh-TW');
@@ -141,8 +141,22 @@ async function printEstimate() {
 function beforeUnload(event) { if (dirty.value) { event.preventDefault(); event.returnValue = ''; } }
 watch(showPreview, value => { document.body.classList.toggle('estimate-preview-open', value); if (!value) nextTick(() => editor.value?.querySelector('.actions button:last-child')?.focus()); });
 onBeforeRouteLeave(() => !busy.value && canDiscard());
-onMounted(() => { document.body.classList.add('accident-estimate-page'); loadList(); window.addEventListener('beforeunload', beforeUnload); });
-onBeforeUnmount(() => { printFrame?.remove(); document.body.classList.remove('estimate-preview-open', 'accident-estimate-page'); window.removeEventListener('beforeunload', beforeUnload); });
+onMounted(() => {
+  // Remove page-size and print rules when leaving, so existing pages keep their own layout.
+  pagePrintStyle = document.createElement('style');
+  pagePrintStyle.dataset.accidentEstimatePrint = '';
+  pagePrintStyle.textContent = printStyles;
+  document.head.appendChild(pagePrintStyle);
+  document.body.classList.add('accident-estimate-page');
+  loadList();
+  window.addEventListener('beforeunload', beforeUnload);
+});
+onBeforeUnmount(() => {
+  printFrame?.remove();
+  pagePrintStyle?.remove();
+  document.body.classList.remove('estimate-preview-open', 'accident-estimate-page');
+  window.removeEventListener('beforeunload', beforeUnload);
+});
 </script>
 
 <style scoped>
