@@ -230,6 +230,8 @@ def create_instore_order(
             guest = db.query(models.GuestCustomer).filter(models.GuestCustomer.id == order_data.guest_customer_id).first()
             if not guest:
                 raise HTTPException(status_code=400, detail="找不到該散客")
+            if guest.merged_at:
+                raise HTTPException(status_code=400, detail="此散客已合併到會員，請改選會員建立訂單")
         else:
             guest_name = (order_data.guest_name or "").strip()
             guest_phone = (order_data.guest_phone or "").strip()

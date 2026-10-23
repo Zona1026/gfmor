@@ -287,6 +287,7 @@ def read_customers(
     if customer_type in ["all", "guest"]:
         guest_query = (
             db.query(models.GuestCustomer)
+            .filter(models.GuestCustomer.merged_at.is_(None))
             .options(joinedload(models.GuestCustomer.motors))
             .outerjoin(
                 models.GuestMotor,

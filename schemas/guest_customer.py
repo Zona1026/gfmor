@@ -58,6 +58,8 @@ class GuestCustomerUpdate(BaseModel):
 
 class GuestCustomer(GuestCustomerBase):
     id: int
+    merged_at: Optional[datetime] = None
+    merged_into_google_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     motors: List[GuestMotor] = []

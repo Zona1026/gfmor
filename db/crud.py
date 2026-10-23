@@ -139,7 +139,7 @@ def merge_guest_customers_to_user(db: Session, user: models.User):
         conditions.append(models.GuestCustomer.phone == cleaned_phone)
 
     # 先固定符合條件的散客，避免轉入車輛後又連鎖擴大合併對象。
-    guests = db.query(models.GuestCustomer).filter(or_(*conditions)).all()
+    guests = db.query(models.GuestCustomer).filter(models.GuestCustomer.merged_at.is_(None), or_(*conditions)).all()
     for guest in guests:
         guest_summary = merge_guest_customer_to_user(db, guest, user)
         if guest_summary["moved_orders"] or guest_summary["moved_work_orders"] or guest_summary["moved_motors"]:
@@ -159,6 +159,11 @@ def merge_guest_customer_to_user(db: Session, guest: models.GuestCustomer, user:
         "moved_motors": 0,
         "added_consumption": 0,
     }
+
+    if guest.merged_at:
+        if guest.merged_into_google_id and guest.merged_into_google_id != user.google_id:
+            raise ValueError("此散客已合併到其他會員")
+        return summary
 
     guest_orders = db.query(models.Order).filter(models.Order.guest_customer_id == guest.id).all()
     guest_work_orders = db.query(models.WorkOrder).filter(models.WorkOrder.guest_customer_id == guest.id).all()
@@ -235,6 +240,8 @@ def merge_guest_customer_to_user(db: Session, guest: models.GuestCustomer, user:
     if summary["added_consumption"]:
         user.cumulative_consumption = (user.cumulative_consumption or 0) + summary["added_consumption"]
 
+    guest.merged_at = datetime.utcnow()
+    guest.merged_into_google_id = user.google_id
     return summary
 
 
@@ -889,6 +896,7 @@ def find_guest_customer_by_exact_profile(db: Session, guest_name: str, guest_pho
     return (
         db.query(models.GuestCustomer)
         .filter(
+            models.GuestCustomer.merged_at.is_(None),
             models.GuestCustomer.phone == cleaned_phone,
             models.GuestCustomer.name == cleaned_name,
         )
@@ -926,6 +934,8 @@ def _hydrate_direct_customer(db: Session, db_work_order, work_order: WorkOrderCr
             guest = db.query(models.GuestCustomer).filter(models.GuestCustomer.id == work_order.guest_customer_id).first()
             if not guest:
                 raise ValueError(f"找不到散客 ID={work_order.guest_customer_id}")
+            if guest.merged_at:
+                raise ValueError("此散客已合併到會員，請改選會員建立工單")
         else:
             guest_name = (work_order.guest_name or "").strip()
             guest_phone = (work_order.guest_phone or "").strip()
@@ -1463,7 +1473,17 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
                     line_item.points_redeemed = 0
                 points_service.sync_work_order_point_redemption(db, db_work_order, desired_points=0)
             if target_status == models.WorkOrderStatus.COMPLETED and not _inventory_fully_consumed(db_work_order):
-                raise ValueError("工單仍有零件 / 耗材尚未完成主管確認扣庫存，不能結案。")
+                missing = [
+                    f"{item.name}（需 {item.quantity}，已扣 {item.inventory_consumed_quantity or 0}，預留 {item.inventory_reserved_quantity or 0}）"
+                    for item in db_work_order.line_items
+                    if item.type == models.WorkOrderLineItemType.PART and item.product_id and item.is_confirmed
+                    and (item.inventory_consumed_quantity or 0) < (item.quantity or 0)
+                ]
+                raise ValueError(
+                    "無法設為已完工：" + "、".join(missing)
+                    + "尚未完成實際扣庫存。請先至叫貨管理完成到貨入庫並分配至此工單，再儲存已完工狀態；"
+                    "若為既有現貨，請先核對庫存與預留。明細的手動狀態不會建立實際庫存預留，主管復核也不代表缺料已到貨。"
+                )
             if target_status == models.WorkOrderStatus.COMPLETED and not db_work_order.completed_at:
                 _mark_work_order_completed(db_work_order)
         setattr(db_work_order, key, value)
@@ -1866,6 +1886,8 @@ def create_guest_motor(db: Session, guest_id: int, motor_in: GuestMotorCreate):
     guest = db.query(models.GuestCustomer).filter(models.GuestCustomer.id == guest_id).first()
     if not guest:
         return None
+    if guest.merged_at:
+        raise ValueError("此散客已合併到會員，請至會員資料新增車輛")
 
     existing = (
         db.query(models.GuestMotor)

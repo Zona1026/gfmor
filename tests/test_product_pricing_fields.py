@@ -85,6 +85,18 @@ class ProductPricingFieldsTest(unittest.TestCase):
         })
         return response
 
+    def test_free_text_category_is_created_and_reused_when_saving_parts(self):
+        first = self.create(inventory_type="PART", category=" 新分類 ")
+        self.assertEqual(first.status_code, 200, first.data)
+        second = self.create(inventory_type="PART", category="新分類")
+        self.assertEqual(second.status_code, 200, second.data)
+        self.assertEqual(first.data["category_id"], second.data["category_id"])
+        self.assertEqual(first.data["category"], "新分類")
+        self.assertEqual(self.db.query(models.ProductCategory).filter_by(name="新分類").count(), 1)
+        updated = self.client.request("PUT", f"/products/{first.data['id']}", headers=self.headers(), data={"category": "另一分類"})
+        self.assertEqual(updated.status_code, 200, updated.data)
+        self.assertEqual(updated.data["category"], "另一分類")
+
     def test_create_reload_inventory_and_public_prices_without_exposing_costs(self):
         created = self.create()
         self.assertEqual(created.status_code, 200, created.data)

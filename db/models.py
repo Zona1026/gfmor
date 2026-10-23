@@ -266,6 +266,9 @@ class GuestCustomer(Base):
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
 
+    merged_at = Column(DateTime, nullable=True, index=True)
+    merged_into_google_id = Column(String(255), ForeignKey("users.Google ID"), nullable=True)
+
     orders = relationship("Order", back_populates="guest_customer")
     motors = relationship("GuestMotor", back_populates="guest_customer", cascade="all, delete-orphan")
     work_orders = relationship("WorkOrder", back_populates="guest_customer")

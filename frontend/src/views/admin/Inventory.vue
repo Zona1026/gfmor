@@ -270,12 +270,7 @@
             <label>
               分類
               <span class="category-control">
-                <select v-model="createForm.category_id">
-                  <option value="">未分類</option>
-                  <option v-for="category in activeCategories" :key="category.id" :value="String(category.id)">
-                    {{ category.name }}
-                  </option>
-                </select>
+                <input v-model.trim="createForm.category_name" type="text" list="inventory-category-options" maxlength="50" placeholder="選擇既有分類或直接輸入新分類" />
                 <button class="btn btn-outline" type="button" :aria-expanded="showCategoryForm" aria-controls="new-product-category" @click="toggleCategoryForm">
                   ＋ 新增分類
                 </button>
@@ -309,6 +304,9 @@
               </select>
             </label>
           </div>
+          <datalist id="inventory-category-options">
+            <option v-for="category in activeCategories" :key="category.id" :value="category.name" />
+          </datalist>
           <div v-if="showCategoryForm" id="new-product-category" class="category-create-row">
             <label>
               新分類名稱
@@ -329,12 +327,7 @@
             <label>
               分類
               <span class="category-control">
-                <select v-model="createForm.category_id">
-                  <option value="">未分類</option>
-                  <option v-for="category in activeCategories" :key="category.id" :value="String(category.id)">
-                    {{ category.name }}
-                  </option>
-                </select>
+                <input v-model.trim="createForm.category_name" type="text" list="inventory-category-options" maxlength="50" placeholder="選擇既有分類或直接輸入新分類" />
                 <button class="btn btn-outline" type="button" :aria-expanded="showCategoryForm" aria-controls="new-product-category" @click="toggleCategoryForm">
                   ＋ 新增分類
                 </button>
@@ -473,7 +466,7 @@ const stocktakeDrafts = reactive({});
 const defaultCreateForm = (inventoryType = 'SHOP') => ({
   ...productDetailsForm(),
   name: '',
-  category_id: '',
+  category_name: '',
   price: 0,
   stock: 0,
   inventory_type: inventoryType,
@@ -723,7 +716,7 @@ async function openEditModal(item) {
     Object.assign(createForm, defaultCreateForm(product.inventory_type), {
       ...productDetailsForm(product, supplierPrices),
       name: product.name || '',
-      category_id: product.category_id ? String(product.category_id) : '',
+      category_name: product.category_info?.name || product.category || '',
       price: product.price || 0,
       stock: product.stock || 0,
       inventory_type: product.inventory_type || 'BOTH',
@@ -770,7 +763,7 @@ async function submitCreateCategory() {
   try {
     const category = await createProductCategory({ name, sort_order: 0, is_active: 1 });
     await fetchCategories();
-    createForm.category_id = String(category.id);
+    createForm.category_name = category.name;
     newCategoryName.value = '';
     showCategoryForm.value = false;
   } catch (error) {
@@ -792,14 +785,15 @@ async function submitCreateItem() {
     formData.append('low_stock_threshold', Number(createForm.low_stock_threshold) || 0);
     formData.append('description', createForm.description || '');
     formData.append('is_active', Number(createForm.is_active));
-    if (!['LABOR', 'MAJOR_MAINTENANCE'].includes(createItemType.value) && createForm.category_id) formData.append('category_id', Number(createForm.category_id));
-    else formData.append('category', '');
+    const categoryName = ['LABOR', 'MAJOR_MAINTENANCE'].includes(createItemType.value) ? '' : createForm.category_name.trim();
+    if (categoryName) formData.append('category', categoryName);
+    else formData.append('category_ids', '[]');
     if (selectedCreateFile.value) formData.append('file', selectedCreateFile.value);
 
     if (editingItemId.value) await updateProduct(editingItemId.value, formData);
     else await createProduct(formData);
     closeCreateModal();
-    await fetchItems();
+    await Promise.all([fetchItems(), fetchCategories()]);
   } catch (error) {
     alert(`儲存失敗：${error.response?.data?.detail || error.message}`);
   } finally {
@@ -1190,7 +1184,7 @@ textarea {
   gap: 10px;
 }
 
-.category-control select,
+.category-control input,
 .category-create-row label {
   flex: 1 1 auto;
 }

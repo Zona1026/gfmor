@@ -20,6 +20,7 @@ def get_guest_customers(
 ):
     query = (
         db.query(models.GuestCustomer)
+        .filter(models.GuestCustomer.merged_at.is_(None))
         .outerjoin(models.GuestMotor, models.GuestMotor.guest_customer_id == models.GuestCustomer.id)
         .options(joinedload(models.GuestCustomer.motors))
     )
@@ -108,6 +109,9 @@ def update_guest_customer(
     if not guest:
         raise HTTPException(status_code=404, detail="找不到該散客")
 
+    if guest.merged_at:
+        raise HTTPException(status_code=400, detail="此散客已合併到會員，請至會員資料修改")
+
     for key, value in update_data.dict(exclude_unset=True).items():
         setattr(guest, key, value)
 
@@ -131,8 +135,12 @@ def merge_guest_to_member(
     if not user:
         raise HTTPException(status_code=404, detail="找不到目標會員")
 
-    summary = crud.merge_guest_customer_to_user(db, guest, user)
-    db.commit()
+    try:
+        summary = crud.merge_guest_customer_to_user(db, guest, user)
+        db.commit()
+    except ValueError as error:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(error))
 
     return {
         "message": "散客已合併到會員",

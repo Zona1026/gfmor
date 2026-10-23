@@ -48,6 +48,29 @@ class GuestMemberMergeTest(unittest.TestCase):
         self.db.commit()
         return motor
 
+    def test_merged_profile_is_archived_hidden_and_cannot_be_reassigned(self):
+        from api.endpoints.guest_customers import get_guest_customers
+        from api.endpoints.customers import read_customers
+        guest, order = self.guest(phone=self.member.phone)
+        crud.update_user(self.db, "member", UserUpdate(phone=self.member.phone))
+        self.assertIsNotNone(guest.merged_at)
+        self.assertEqual(guest.merged_into_google_id, "member")
+        self.assertNotIn(guest.id, [g.id for g in get_guest_customers(q=None, db=self.db, admin={})])
+        customers = read_customers(q=None, customer_type="guest", skip=0, limit=200, db=self.db, admin={})
+        self.assertEqual(customers, [])
+        self.assertIsNone(crud.find_guest_customer_by_exact_profile(self.db, guest.name, guest.phone))
+        archived_at = guest.merged_at
+        summary = crud.merge_guest_customer_to_user(self.db, guest, self.member)
+        self.assertEqual(summary["added_consumption"], 0)
+        self.assertEqual(guest.merged_at, archived_at)
+        other = models.User(google_id="other", name="Other", email="other@example.com")
+        self.db.add(other)
+        self.db.flush()
+        with self.assertRaisesRegex(ValueError, "已合併到其他會員"):
+            crud.merge_guest_customer_to_user(self.db, guest, other)
+        self.assertEqual(order.google_id, "member")
+        self.assertEqual(self.db.query(models.GuestCustomer).count(), 1)
+
     def test_phone_alone_merges_different_name(self):
         guest, order = self.guest(phone=self.member.phone)
         crud.update_user(self.db, "member", UserUpdate(phone=self.member.phone))
