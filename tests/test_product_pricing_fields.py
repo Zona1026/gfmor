@@ -86,16 +86,36 @@ class ProductPricingFieldsTest(unittest.TestCase):
         return response
 
     def test_free_text_category_is_created_and_reused_when_saving_parts(self):
-        first = self.create(inventory_type="PART", category=" 新分類 ")
+        first = self.create(inventory_type="PART", category=" 新分類 ", category_ids="[]")
         self.assertEqual(first.status_code, 200, first.data)
-        second = self.create(inventory_type="PART", category="新分類")
+        second = self.create(inventory_type="PART", category="新分類", category_ids="[]")
         self.assertEqual(second.status_code, 200, second.data)
         self.assertEqual(first.data["category_id"], second.data["category_id"])
         self.assertEqual(first.data["category"], "新分類")
         self.assertEqual(self.db.query(models.ProductCategory).filter_by(name="新分類").count(), 1)
-        updated = self.client.request("PUT", f"/products/{first.data['id']}", headers=self.headers(), data={"category": "另一分類"})
+        updated = self.client.request("PUT", f"/products/{first.data['id']}", headers=self.headers(), data={"category": "另一分類", "category_ids": "[]"})
         self.assertEqual(updated.status_code, 200, updated.data)
         self.assertEqual(updated.data["category"], "另一分類")
+
+    def test_typed_primary_preserves_additional_categories_and_can_be_cleared(self):
+        extra = models.ProductCategory(name="Additional")
+        self.db.add(extra)
+        self.db.commit()
+        created = self.create(inventory_type="PART", category="Typed primary", category_ids=json.dumps([extra.id]))
+        self.assertEqual(created.status_code, 200, created.data)
+        primary_id = created.data["category_id"]
+        self.assertNotEqual(primary_id, extra.id)
+        self.assertEqual({c["id"] for c in created.data["categories"]}, {primary_id, extra.id})
+        saved = self.client.request("PUT", f"/products/{created.data['id']}", headers=self.headers(), data={
+            "category": "Replacement primary", "category_ids": json.dumps([extra.id]),
+        })
+        self.assertEqual(saved.status_code, 200, saved.data)
+        self.assertEqual(saved.data["category"], "Replacement primary")
+        self.assertEqual({c["name"] for c in saved.data["categories"]}, {"Replacement primary", "Additional"})
+        cleared = self.client.request("PUT", f"/products/{created.data['id']}", headers=self.headers(), data={"category_ids": "[]"})
+        self.assertEqual(cleared.status_code, 200, cleared.data)
+        self.assertIsNone(cleared.data["category_id"])
+        self.assertEqual(cleared.data["categories"], [])
 
     def test_create_reload_inventory_and_public_prices_without_exposing_costs(self):
         created = self.create()

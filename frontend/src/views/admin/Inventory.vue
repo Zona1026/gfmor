@@ -787,7 +787,7 @@ async function submitCreateItem() {
     formData.append('is_active', Number(createForm.is_active));
     const categoryName = ['LABOR', 'MAJOR_MAINTENANCE'].includes(createItemType.value) ? '' : createForm.category_name.trim();
     if (categoryName) formData.append('category', categoryName);
-    else formData.append('category_ids', '[]');
+
     if (selectedCreateFile.value) formData.append('file', selectedCreateFile.value);
 
     if (editingItemId.value) await updateProduct(editingItemId.value, formData);

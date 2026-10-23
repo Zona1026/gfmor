@@ -432,6 +432,11 @@ def create_product_with_image(
         setattr(product, field, value)
     _sync_product_category(db, product, category_id=category_id, category_name=category)
     if selected_categories is not None:
+        # A typed primary category may have just been created. Keep it before
+        # the additional category IDs supplied by the shared product form.
+        if (category_id is not None or category is not None) and product.category_id:
+            primary = _get_category(db, product.category_id)
+            selected_categories = [primary, *[item for item in selected_categories if item.id != primary.id]]
         _sync_product_categories(product, selected_categories)
     if selected_extra_categories is not None:
         _assign_extra_categories(product, selected_extra_categories)
@@ -485,6 +490,11 @@ def update_product_with_image(
     if category_id is not None or category is not None:
         _sync_product_category(db, product, category_id=category_id, category_name=category)
     if selected_categories is not None:
+        # A typed primary category may have just been created. Keep it before
+        # the additional category IDs supplied by the shared product form.
+        if (category_id is not None or category is not None) and product.category_id:
+            primary = _get_category(db, product.category_id)
+            selected_categories = [primary, *[item for item in selected_categories if item.id != primary.id]]
         _sync_product_categories(product, selected_categories)
     if selected_extra_categories is not None:
         _assign_extra_categories(product, selected_extra_categories)
