@@ -36,7 +36,16 @@
           ＋ 新增零件
         </button>
       </div>
-      <InventoryTable :items="partItems" :can-edit="canManageInventory" @edit="openEditModal" />
+      <div class="parts-filters">
+        <label for="parts-category">分類</label>
+        <select id="parts-category" v-model="partCategoryFilter">
+          <option value="">全部分類</option>
+          <option v-for="category in partCategoryOptions" :key="category.value" :value="category.value">{{ category.name }}</option>
+          <option value="uncategorized">未分類</option>
+        </select>
+        <span role="status">顯示 {{ filteredPartItems.length }} / {{ partItems.length }} 項零件</span>
+      </div>
+      <InventoryTable :items="filteredPartItems" :can-edit="canManageInventory" :empty-message="partCategoryFilter ? '此分類尚無零件。' : '尚無庫存資料。'" @edit="openEditModal" />
     </section>
 
     <section v-if="['labor', 'majorMaintenance'].includes(activeTab)" class="inventory-panel">
@@ -398,6 +407,7 @@
 <script setup>
 import ProductDetailsFields from '../../components/admin/ProductDetailsFields.vue';
 import { appendProductDetails, productDetailsForm, supplierWholesaleQuote } from '../../utils/productDetails';
+import { categoryOptions, filterPickerProducts, productCategories } from '../../utils/workOrderProductPicker';
 import { computed, defineComponent, h, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
@@ -450,6 +460,11 @@ const editingItemId = ref(null);
 const itemPreviewUrl = ref('');
 const shopItems = ref([]);
 const partItems = ref([]);
+const partCategoryFilter = ref('');
+const partCategoryOptions = computed(() => categoryOptions(partItems.value));
+const filteredPartItems = computed(() => partCategoryFilter.value === 'uncategorized'
+  ? partItems.value.filter(item => productCategories(item).length === 0)
+  : filterPickerProducts(partItems.value, partCategoryFilter.value));
 const laborItems = ref([]);
 const majorMaintenanceItems = ref([]);
 const serviceLabel = computed(() => activeTab.value === 'majorMaintenance' ? '大保養' : '工資/服務費');
@@ -565,7 +580,8 @@ const itemModalTitle = computed(() => {
 const InventoryTable = defineComponent({
   props: {
     items: { type: Array, required: true },
-    canEdit: { type: Boolean, default: false }
+    canEdit: { type: Boolean, default: false },
+    emptyMessage: { type: String, default: '尚無庫存資料。' }
   },
   emits: ['edit'],
   setup(props, { emit }) {
@@ -590,7 +606,7 @@ const InventoryTable = defineComponent({
             }, '編輯')
           ])] : [])
         ]))
-        : [h('tr', [h('td', { colspan: props.canEdit ? 9 : 8, class: 'empty-row' }, '尚無庫存資料。')])];
+        : [h('tr', [h('td', { colspan: props.canEdit ? 9 : 8, class: 'empty-row' }, props.emptyMessage)])];
 
       return h('div', { class: 'inventory-table-block' }, [
         h('div', { class: 'table-wrap' }, [
@@ -924,6 +940,24 @@ onMounted(fetchAll);
 
 .list-heading {
   margin-bottom: 16px;
+}
+
+.parts-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.parts-filters select {
+  min-width: 160px;
+  max-width: 100%;
+}
+
+.parts-filters span {
+  color: $text-secondary;
+  font-size: 0.88rem;
 }
 
 .inventory-table-block :deep(.panel-title) {
