@@ -1,6 +1,7 @@
 // src/api/products.js
 
 import apiClient from './index';
+import { compareCategories } from '../utils/workOrderProductPicker';
 
 /**
  * 獲取商品列表
@@ -15,8 +16,8 @@ export const getPaginatedProducts = (params = {}) => {
   return apiClient.get('/products/paginated', { params });
 };
 
-export const getProductCategories = (params = {}) => {
-  return apiClient.get('/products/categories/', { params });
+export const getProductCategories = async (params = {}) => {
+  return (await apiClient.get('/products/categories/', { params })).sort(compareCategories);
 };
 
 /**

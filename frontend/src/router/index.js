@@ -189,6 +189,12 @@ const routes = [
         meta: { title: '庫存管理 / 大保養列表', inventorySection: 'majorMaintenance' }
       },
       {
+        path: 'inventory/categories',
+        name: 'AdminInventoryCategories',
+        component: () => import('../views/admin/InventoryCategories.vue'),
+        meta: { title: '庫存管理 / 分類列表及排序' }
+      },
+      {
         path: 'inventory/stocktake',
         name: 'AdminInventoryStocktake',
         component: AdminInventory,

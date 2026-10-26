@@ -5,15 +5,23 @@ export function productCategories(product) {
 }
 
 function primaryCategories(product) {
-  if (product.categories?.length) return product.categories.map(category => ({ value: String(category.id), name: category.name }));
-  if (product.category_id) return [{ value: String(product.category_id), name: product.category_info?.name || product.category || '未命名分類' }];
+  if (product.categories?.length) return product.categories.map(category => ({ ...category, value: String(category.id) }));
+  if (product.category_id) return [{ ...product.category_info, id: product.category_id, value: String(product.category_id), name: product.category_info?.name || product.category || '未命名分類' }];
   return product.category ? [{ value: `name:${product.category}`, name: product.category }] : [];
 }
 
-export function categoryOptions(products) {
+export function compareCategories(a, b) {
+  return (a.sort_order ?? 0) - (b.sort_order ?? 0)
+    || a.name.localeCompare(b.name, 'zh-TW')
+    || (Number(a.id) || 0) - (Number(b.id) || 0);
+}
+
+export function categoryOptions(products, { selectedValue = '', includeInactive = false } = {}) {
   const options = new Map();
   products.forEach(product => productCategories(product).forEach(category => options.set(category.value, category)));
-  return [...options.values()].sort((a, b) => a.name.localeCompare(b.name, 'zh-TW'));
+  return [...options.values()]
+    .filter(category => includeInactive || category.is_active == null || Boolean(category.is_active) || category.value === selectedValue)
+    .sort(compareCategories);
 }
 
 export function supplierOptions(products, category = '') {

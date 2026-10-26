@@ -276,15 +276,31 @@
               品項名稱
               <input v-model.trim="createForm.name" type="text" required />
             </label>
-            <label>
-              分類
-              <span class="category-control">
-                <input v-model.trim="createForm.category_name" type="text" list="inventory-category-options" maxlength="50" placeholder="選擇既有分類或直接輸入新分類" />
-                <button class="btn btn-outline" type="button" :aria-expanded="showCategoryForm" aria-controls="new-product-category" @click="toggleCategoryForm">
-                  ＋ 新增分類
+            <div class="inventory-category-field">
+              <label>
+                分類
+                <span class="category-control">
+                  <select v-model="createForm.category_name" aria-label="分類" :disabled="savingCategory || savingCreate">
+                    <option value="">未分類</option>
+                    <option v-for="category in activeCategories" :key="category.id" :value="category.name">{{ category.name }}{{ category.is_active ? '' : '（已停用）' }}</option>
+                  </select>
+                  <button v-if="canUseCriticalInventory" class="btn btn-outline" type="button" :disabled="savingCategory || savingCreate" :aria-expanded="showCategoryForm" aria-controls="new-product-category" @click="toggleCategoryForm">
+                    ＋ 新增分類
+                  </button>
+                </span>
+              </label>
+              <div v-if="canUseCriticalInventory && showCategoryForm" id="new-product-category" class="category-create-row">
+                <label>
+                  新分類名稱
+                  <input ref="newCategoryInput" v-model.trim="newCategoryName" maxlength="50" type="text" :disabled="savingCategory || savingCreate" placeholder="例如：機油、煞車零件" @keydown.enter.prevent.stop="submitCreateCategory" />
+                </label>
+                <button class="btn btn-primary" type="button" :disabled="savingCategory || savingCreate || !newCategoryName" @click="submitCreateCategory">
+                  {{ savingCategory ? '新增中...' : '建立分類' }}
                 </button>
-              </span>
-            </label>
+              </div>
+              <p v-if="categoryMessage" class="category-message" role="status">{{ categoryMessage }}</p>
+              <p v-if="categoryError" class="category-error" role="alert">{{ categoryError }}</p>
+            </div>
             <label>
               建議售價
               <input v-model.number="createForm.price" type="number" min="0" required />
@@ -313,18 +329,6 @@
               </select>
             </label>
           </div>
-          <datalist id="inventory-category-options">
-            <option v-for="category in activeCategories" :key="category.id" :value="category.name" />
-          </datalist>
-          <div v-if="showCategoryForm" id="new-product-category" class="category-create-row">
-            <label>
-              新分類名稱
-              <input ref="newCategoryInput" v-model.trim="newCategoryName" maxlength="50" type="text" placeholder="例如：機油、煞車零件" @keydown.enter.prevent="submitCreateCategory" />
-            </label>
-            <button class="btn btn-primary" type="button" :disabled="savingCategory || !newCategoryName" @click="submitCreateCategory">
-              {{ savingCategory ? '新增中...' : '建立分類' }}
-            </button>
-          </div>
           <ProductDetailsFields v-if="!['LABOR', 'MAJOR_MAINTENANCE'].includes(createItemType)" :form="createForm" :parts-layout="activeTab === 'parts'">
             <template #name>
             <label>
@@ -333,15 +337,31 @@
             </label>
             </template>
             <template #category>
-            <label>
-              分類
-              <span class="category-control">
-                <input v-model.trim="createForm.category_name" type="text" list="inventory-category-options" maxlength="50" placeholder="選擇既有分類或直接輸入新分類" />
-                <button class="btn btn-outline" type="button" :aria-expanded="showCategoryForm" aria-controls="new-product-category" @click="toggleCategoryForm">
-                  ＋ 新增分類
+            <div class="inventory-category-field">
+              <label>
+                分類
+                <span class="category-control">
+                  <select v-model="createForm.category_name" aria-label="分類" :disabled="savingCategory || savingCreate">
+                    <option value="">未分類</option>
+                    <option v-for="category in activeCategories" :key="category.id" :value="category.name">{{ category.name }}{{ category.is_active ? '' : '（已停用）' }}</option>
+                  </select>
+                  <button v-if="canUseCriticalInventory" class="btn btn-outline" type="button" :disabled="savingCategory || savingCreate" :aria-expanded="showCategoryForm" aria-controls="new-product-category" @click="toggleCategoryForm">
+                    ＋ 新增分類
+                  </button>
+                </span>
+              </label>
+              <div v-if="canUseCriticalInventory && showCategoryForm" id="new-product-category" class="category-create-row">
+                <label>
+                  新分類名稱
+                  <input ref="newCategoryInput" v-model.trim="newCategoryName" maxlength="50" type="text" :disabled="savingCategory || savingCreate" placeholder="例如：機油、煞車零件" @keydown.enter.prevent.stop="submitCreateCategory" />
+                </label>
+                <button class="btn btn-primary" type="button" :disabled="savingCategory || savingCreate || !newCategoryName" @click="submitCreateCategory">
+                  {{ savingCategory ? '新增中...' : '建立分類' }}
                 </button>
-              </span>
-            </label>
+              </div>
+              <p v-if="categoryMessage" class="category-message" role="status">{{ categoryMessage }}</p>
+              <p v-if="categoryError" class="category-error" role="alert">{{ categoryError }}</p>
+            </div>
             </template>
             <template #price>
             <label>
@@ -394,7 +414,7 @@
           </div>
           <div class="form-actions">
             <button class="btn btn-outline" type="button" @click="closeCreateModal">取消</button>
-            <button class="btn btn-primary" type="submit" :disabled="savingCreate">
+            <button class="btn btn-primary" type="submit" :disabled="savingCreate || savingCategory">
               {{ savingCreate ? '儲存中...' : editingItemId ? '儲存變更' : '確認新增' }}
             </button>
           </div>
@@ -407,7 +427,7 @@
 <script setup>
 import ProductDetailsFields from '../../components/admin/ProductDetailsFields.vue';
 import { appendProductDetails, productDetailsForm, supplierWholesaleQuote } from '../../utils/productDetails';
-import { categoryOptions, filterPickerProducts, productCategories } from '../../utils/workOrderProductPicker';
+import { categoryOptions, compareCategories, filterPickerProducts, productCategories } from '../../utils/workOrderProductPicker';
 import { computed, defineComponent, h, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
@@ -454,6 +474,9 @@ const showCreateModal = ref(false);
 const showCategoryForm = ref(false);
 const newCategoryName = ref('');
 const newCategoryInput = ref(null);
+const categoryMessage = ref('');
+const categoryError = ref('');
+let itemModalSession = 0;
 const createItemType = ref('SHOP');
 const selectedCreateFile = ref(null);
 const editingItemId = ref(null);
@@ -461,7 +484,7 @@ const itemPreviewUrl = ref('');
 const shopItems = ref([]);
 const partItems = ref([]);
 const partCategoryFilter = ref('');
-const partCategoryOptions = computed(() => categoryOptions(partItems.value));
+const partCategoryOptions = computed(() => categoryOptions(partItems.value, { includeInactive: true }));
 const filteredPartItems = computed(() => partCategoryFilter.value === 'uncategorized'
   ? partItems.value.filter(item => productCategories(item).length === 0)
   : filterPickerProducts(partItems.value, partCategoryFilter.value));
@@ -571,7 +594,7 @@ function productCategory(item) {
   return (item.categories || []).map(category => category.name).join(' ／ ') || item.category_info?.name || item.category || '未分類';
 }
 
-const activeCategories = computed(() => categories.value.filter(category => category.is_active));
+const activeCategories = computed(() => categories.value.filter(category => category.is_active || (editingItemId.value && category.name === createForm.category_name)));
 const itemModalTitle = computed(() => {
   const itemLabel = createItemType.value === 'MAJOR_MAINTENANCE' ? '大保養' : createItemType.value === 'LABOR' ? '工資/服務費' : createItemType.value === 'PART' ? '零件' : '商品';
   return `${editingItemId.value ? '編輯' : '新增'}${itemLabel}`;
@@ -714,6 +737,9 @@ async function submitStocktake(item) {
 }
 
 function openCreateModal(inventoryType) {
+  itemModalSession += 1;
+  categoryMessage.value = '';
+  categoryError.value = '';
   editingItemId.value = null;
   createItemType.value = inventoryType;
   Object.assign(createForm, defaultCreateForm(inventoryType));
@@ -725,8 +751,12 @@ function openCreateModal(inventoryType) {
 }
 
 async function openEditModal(item) {
+  const session = ++itemModalSession;
+  categoryMessage.value = '';
+  categoryError.value = '';
   try {
     const [product, supplierPrices] = await Promise.all([getProduct(item.id), getProductSupplierPrices(item.id)]);
+    if (session !== itemModalSession) return;
     editingItemId.value = product.id;
     createItemType.value = ['LABOR', 'MAJOR_MAINTENANCE'].includes(product.inventory_type) ? product.inventory_type : product.inventory_type === 'PART' ? 'PART' : 'SHOP';
     Object.assign(createForm, defaultCreateForm(product.inventory_type), {
@@ -746,11 +776,15 @@ async function openEditModal(item) {
     newCategoryName.value = '';
     showCreateModal.value = true;
   } catch (error) {
+    if (session !== itemModalSession) return;
     alert(`載入商品詳情失敗：${error.response?.data?.detail || error.message}`);
   }
 }
 
 function closeCreateModal() {
+  itemModalSession += 1;
+  categoryMessage.value = '';
+  categoryError.value = '';
   showCreateModal.value = false;
   editingItemId.value = null;
   selectedCreateFile.value = null;
@@ -773,23 +807,44 @@ async function toggleCategoryForm() {
 }
 
 async function submitCreateCategory() {
+  if (!canUseCriticalInventory.value || savingCategory.value || savingCreate.value) return;
   const name = newCategoryName.value.trim();
-  if (!name || savingCategory.value) return;
+  if (!name) return;
+  const session = itemModalSession;
+  const isCurrent = () => showCreateModal.value && session === itemModalSession;
+  categoryMessage.value = '';
+  categoryError.value = '';
   savingCategory.value = true;
   try {
-    const category = await createProductCategory({ name, sort_order: 0, is_active: 1 });
-    await fetchCategories();
+    const existing = categories.value.find(category => category.name.trim().toLocaleLowerCase('zh-TW') === name.toLocaleLowerCase('zh-TW'));
+    if (existing && !existing.is_active) {
+      if (isCurrent()) categoryError.value = '此分類已停用，請至「分類列表及排序」重新啟用。';
+      return;
+    }
+    const category = existing || await createProductCategory({ name, is_active: 1 });
+    // Apply the successful write immediately. A failed list refresh must not look like a failed create.
+    categories.value = [...categories.value.filter(entry => entry.id !== category.id), category].sort(compareCategories);
+    if (!isCurrent()) return;
     createForm.category_name = category.name;
     newCategoryName.value = '';
     showCategoryForm.value = false;
+    categoryMessage.value = existing
+      ? `已選取既有分類「${category.name}」。請記得儲存此品項。`
+      : `分類「${category.name}」已建立並選取。請記得儲存此品項。`;
+    try {
+      await fetchCategories();
+    } catch {
+      if (isCurrent()) categoryMessage.value += ' 分類清單暫時無法更新，請稍後重新整理；無須再次新增。';
+    }
   } catch (error) {
-    alert(`新增分類失敗：${error.response?.data?.detail || error.message}`);
+    if (isCurrent()) categoryError.value = `分類尚未選取：${error.response?.data?.detail || '無法確認新增結果，請重新載入分類列表確認後再試。'}`;
   } finally {
     savingCategory.value = false;
   }
 }
 
 async function submitCreateItem() {
+  if (savingCategory.value || savingCreate.value) return;
   savingCreate.value = true;
   try {
     const formData = new FormData();
@@ -1211,6 +1266,10 @@ textarea {
   gap: 16px;
 }
 
+.inventory-category-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.category-message { color: #a9dfb4; line-height: 1.5; }
+.category-error { color: #ff9292; line-height: 1.5; }
+
 .category-control,
 .category-create-row {
   display: flex;
@@ -1219,6 +1278,7 @@ textarea {
 }
 
 .category-control input,
+.category-control select,
 .category-create-row label {
   flex: 1 1 auto;
 }

@@ -73,12 +73,12 @@ class ProductPricingFieldsTest(unittest.TestCase):
                            settings.SECRET_KEY, algorithm=settings.ALGORITHM)
         return {'Authorization': f'Bearer {token}'}
 
-    def create(self, **overrides):
+    def create(self, role='管理層', **overrides):
         metadata = {'vehicle_model': '勁戰六代', 'specification': '245 mm', 'color': '黑色',
                     'manufacturer': '測試製造廠', 'suggested_price': 1800, 'installation_labor': 350,
                     'wholesale_price': 1200}
         suppliers = [{'supplier_name': f'進貨廠商 {index}', 'purchase_price': 1000 + index} for index in range(6)]
-        response = self.client.request('POST', '/products/', headers=self.headers(), data={
+        response = self.client.request('POST', '/products/', headers=self.headers(role), data={
             'name': '測試煞車碟盤', 'price': '1500', 'stock': '3', 'inventory_type': 'BOTH',
             'product_metadata': json.dumps(metadata), 'supplier_prices': json.dumps({'supplier_prices': suppliers}),
             **overrides,
@@ -86,14 +86,14 @@ class ProductPricingFieldsTest(unittest.TestCase):
         return response
 
     def test_free_text_category_is_created_and_reused_when_saving_parts(self):
-        first = self.create(inventory_type="PART", category=" 新分類 ", category_ids="[]")
+        first = self.create(role='最高級', inventory_type="PART", category=" 新分類 ", category_ids="[]")
         self.assertEqual(first.status_code, 200, first.data)
-        second = self.create(inventory_type="PART", category="新分類", category_ids="[]")
+        second = self.create(role='最高級', inventory_type="PART", category="新分類", category_ids="[]")
         self.assertEqual(second.status_code, 200, second.data)
         self.assertEqual(first.data["category_id"], second.data["category_id"])
         self.assertEqual(first.data["category"], "新分類")
         self.assertEqual(self.db.query(models.ProductCategory).filter_by(name="新分類").count(), 1)
-        updated = self.client.request("PUT", f"/products/{first.data['id']}", headers=self.headers(), data={"category": "另一分類", "category_ids": "[]"})
+        updated = self.client.request("PUT", f"/products/{first.data['id']}", headers=self.headers('最高級'), data={"category": "另一分類", "category_ids": "[]"})
         self.assertEqual(updated.status_code, 200, updated.data)
         self.assertEqual(updated.data["category"], "另一分類")
 
@@ -101,18 +101,18 @@ class ProductPricingFieldsTest(unittest.TestCase):
         extra = models.ProductCategory(name="Additional")
         self.db.add(extra)
         self.db.commit()
-        created = self.create(inventory_type="PART", category="Typed primary", category_ids=json.dumps([extra.id]))
+        created = self.create(role='最高級', inventory_type="PART", category="Typed primary", category_ids=json.dumps([extra.id]))
         self.assertEqual(created.status_code, 200, created.data)
         primary_id = created.data["category_id"]
         self.assertNotEqual(primary_id, extra.id)
         self.assertEqual({c["id"] for c in created.data["categories"]}, {primary_id, extra.id})
-        saved = self.client.request("PUT", f"/products/{created.data['id']}", headers=self.headers(), data={
+        saved = self.client.request("PUT", f"/products/{created.data['id']}", headers=self.headers('最高級'), data={
             "category": "Replacement primary", "category_ids": json.dumps([extra.id]),
         })
         self.assertEqual(saved.status_code, 200, saved.data)
         self.assertEqual(saved.data["category"], "Replacement primary")
         self.assertEqual({c["name"] for c in saved.data["categories"]}, {"Replacement primary", "Additional"})
-        cleared = self.client.request("PUT", f"/products/{created.data['id']}", headers=self.headers(), data={"category_ids": "[]"})
+        cleared = self.client.request("PUT", f"/products/{created.data['id']}", headers=self.headers('最高級'), data={"category_ids": "[]"})
         self.assertEqual(cleared.status_code, 200, cleared.data)
         self.assertIsNone(cleared.data["category_id"])
         self.assertEqual(cleared.data["categories"], [])

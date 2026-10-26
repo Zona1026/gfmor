@@ -8,7 +8,7 @@
     </div>
 
     <div class="tabs">
-      <button v-for="tab in tabs" :key="tab.key" type="button" :class="{ active: activeTab === tab.key }" @click="activeTab = tab.key">
+      <button v-for="tab in tabs" :key="tab.key" type="button" :class="{ active: activeTab === tab.key }" @click="changeTab(tab.key)">
         {{ tab.label }}
       </button>
     </div>
@@ -89,61 +89,7 @@
       </div>
     </section>
 
-    <section v-if="activeTab === 'categories'" class="panel">
-      <div class="panel-toolbar">
-        <div>
-          <h3>商品分類</h3>
-          <p>分類會用在商品管理與前台商品瀏覽。</p>
-        </div>
-      </div>
-
-      <form v-if="canManageShop" class="inline-form" @submit.prevent="submitCategory">
-        <input v-model.trim="categoryForm.name" type="text" placeholder="分類名稱" required />
-        <input v-model.number="categoryForm.sort_order" type="number" placeholder="排序" />
-        <button class="btn btn-primary" type="submit" :disabled="savingCategory">{{ savingCategory ? '儲存中...' : '新增分類' }}</button>
-      </form>
-
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>分類名稱</th>
-              <th>排序</th>
-              <th>狀態</th>
-              <th>建立時間</th>
-              <th v-if="canManageShop">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="category in categories" :key="category.id">
-              <template v-if="canManageShop && editingCategoryId === category.id">
-                <td><input v-model.trim="categoryDraft.name" class="inline-input" /></td>
-                <td><input v-model.number="categoryDraft.sort_order" class="inline-input" type="number" /></td>
-                <td>{{ category.is_active ? '啟用' : '停用' }}</td>
-                <td>{{ formatDate(category.created_at) }}</td>
-                <td v-if="canManageShop" class="action-cell">
-                  <button class="btn btn-sm btn-save" type="button" @click="saveCategory(category)">儲存</button>
-                  <button class="btn btn-sm btn-outline" type="button" @click="cancelEditCategory">取消</button>
-                </td>
-              </template>
-              <template v-else>
-                <td><strong>{{ category.name }}</strong></td>
-                <td>{{ category.sort_order }}</td>
-                <td><span class="status-tag" :class="category.is_active ? 'active' : 'inactive'">{{ category.is_active ? '啟用' : '停用' }}</span></td>
-                <td>{{ formatDate(category.created_at) }}</td>
-                <td class="action-cell">
-                  <button class="btn btn-sm" type="button" @click="startEditCategory(category)">編輯</button>
-                  <button class="btn btn-sm" type="button" @click="toggleCategory(category)">{{ category.is_active ? '停用' : '啟用' }}</button>
-                </td>
-              </template>
-            </tr>
-            <tr v-if="categories.length === 0">
-              <td :colspan="canManageShop ? 5 : 4" class="empty-row">尚未建立商品分類。</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <ProductCategoryManager v-if="activeTab === 'categories'" ref="categoryManager" @changed="categoriesChanged" />
 
     <section v-if="activeTab === 'orders'" class="panel">
       <div class="panel-toolbar">
@@ -348,6 +294,7 @@
 <script setup>
 import ProductDetailsFields from '../../components/admin/ProductDetailsFields.vue';
 import { appendProductDetails, productDetailsForm, supplierWholesaleQuote } from '../../utils/productDetails';
+import ProductCategoryManager from '../../components/admin/ProductCategoryManager.vue';
 import { getProductSupplierPrices } from '../../api/admin';
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
@@ -356,17 +303,14 @@ import { useSiteStore } from '../../store/site';
 import {
   cancelOrder,
   createProduct,
-  createProductCategory,
   deleteProduct,
   getProductCategories,
   getPaginatedProducts,
   getShopOrders,
   toggleProductActive,
-  toggleProductCategory,
   updateOrderItemStatus,
   updateOrderStatus,
-  updateProduct,
-  updateProductCategory
+  updateProduct
 } from '../../api/admin';
 
 const siteStore = useSiteStore();
@@ -409,10 +353,16 @@ const productPreviewUrl = ref('');
 const selectedProductFile = ref(null);
 const productForm = reactive(defaultProductForm());
 
-const categoryForm = reactive({ name: '', sort_order: 0 });
-const savingCategory = ref(false);
-const editingCategoryId = ref(null);
-const categoryDraft = reactive({ name: '', sort_order: 0 });
+const categoryManager = ref(null);
+async function changeTab(tab) {
+  if (tab === activeTab.value) return;
+  if (activeTab.value === 'categories' && !await categoryManager.value?.confirmLeave()) return;
+  activeTab.value = tab;
+}
+function categoriesChanged(values) {
+  categories.value = values;
+  fetchProducts();
+}
 
 const selectedOrder = ref(null);
 const savingSettings = ref(false);
@@ -442,7 +392,7 @@ const itemStatusMap = {
   COMPLETED: '已結案'
 };
 
-const activeCategories = computed(() => categories.value.filter(category => category.is_active));
+const activeCategories = computed(() => categories.value.filter(category => category.is_active || String(category.id) === String(productForm.category_id)));
 
 const filteredShopOrders = computed(() => {
   const keyword = orderSearch.value.toLowerCase();
@@ -649,59 +599,6 @@ const removeProduct = async (product) => {
     await fetchProducts();
   } catch (error) {
     alert(`刪除商品失敗：${getErrorMessage(error)}`);
-  }
-};
-
-const submitCategory = async () => {
-  savingCategory.value = true;
-  try {
-    await createProductCategory({
-      name: categoryForm.name,
-      sort_order: Number(categoryForm.sort_order) || 0,
-      is_active: 1
-    });
-    categoryForm.name = '';
-    categoryForm.sort_order = 0;
-    await fetchCategories();
-  } catch (error) {
-    alert(`新增分類失敗：${getErrorMessage(error)}`);
-  } finally {
-    savingCategory.value = false;
-  }
-};
-
-const startEditCategory = (category) => {
-  editingCategoryId.value = category.id;
-  categoryDraft.name = category.name;
-  categoryDraft.sort_order = category.sort_order || 0;
-};
-
-const cancelEditCategory = () => {
-  editingCategoryId.value = null;
-  categoryDraft.name = '';
-  categoryDraft.sort_order = 0;
-};
-
-const saveCategory = async (category) => {
-  try {
-    await updateProductCategory(category.id, {
-      name: categoryDraft.name,
-      sort_order: Number(categoryDraft.sort_order) || 0
-    });
-    cancelEditCategory();
-    await fetchCategories();
-    await fetchProducts();
-  } catch (error) {
-    alert(`更新分類失敗：${getErrorMessage(error)}`);
-  }
-};
-
-const toggleCategory = async (category) => {
-  try {
-    const updated = await toggleProductCategory(category.id);
-    Object.assign(category, updated);
-  } catch (error) {
-    alert(`切換分類狀態失敗：${getErrorMessage(error)}`);
   }
 };
 

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from pydantic import ValidationError
@@ -62,9 +62,22 @@ def _get_category(db: Session, category_id: Optional[int]):
     return category
 
 
-def _sync_product_category(db: Session, product, category_id: Optional[int], category_name: Optional[str] = None):
+def _next_category_order(db):
+    return (db.query(func.max(models.ProductCategory.sort_order)).scalar() or 0) + 1
+
+
+def _validate_category_selection(product, categories):
+    retained = {category.id for category in product.additional_categories}
+    if product.category_id:
+        retained.add(product.category_id)
+    if any(not category.is_active and category.id not in retained for category in categories):
+        raise HTTPException(status_code=422, detail="不可選取已停用的分類")
+
+
+def _sync_product_category(db: Session, product, category_id: Optional[int], category_name: Optional[str] = None, *, allow_create=False):
     category = _get_category(db, category_id)
     if category:
+        _validate_category_selection(product, [category])
         product.category_id = category.id
         product.category = category.name
         return
@@ -77,9 +90,14 @@ def _sync_product_category(db: Session, product, category_id: Optional[int], cat
             return
         existing = db.query(models.ProductCategory).filter(models.ProductCategory.name == cleaned_name).first()
         if not existing:
-            existing = models.ProductCategory(name=cleaned_name, sort_order=0, is_active=1)
+            if not allow_create:
+                raise HTTPException(status_code=403, detail="僅最高級管理員可新增分類，請選擇既有分類")
+            if len(cleaned_name) > 50:
+                raise HTTPException(status_code=422, detail="分類名稱不可超過 50 字")
+            existing = models.ProductCategory(name=cleaned_name, sort_order=_next_category_order(db), is_active=1)
             db.add(existing)
             db.flush()
+        _validate_category_selection(product, [existing])
         product.category_id = existing.id
         product.category = existing.name
 
@@ -109,6 +127,7 @@ def _assign_extra_categories(product, categories):
 
 
 def _sync_product_categories(product, categories):
+    _validate_category_selection(product, categories)
     product.additional_categories = categories
     primary = next((category for category in categories if category.id == product.category_id), None)
     primary = primary or (categories[0] if categories else None)
@@ -188,40 +207,69 @@ def read_product_categories(active_only: bool = False, db: Session = Depends(get
     query = db.query(models.ProductCategory)
     if active_only:
         query = query.filter(models.ProductCategory.is_active == 1)
-    return query.order_by(models.ProductCategory.sort_order.asc(), models.ProductCategory.name.asc()).all()
+    return query.order_by(models.ProductCategory.sort_order.asc(), models.ProductCategory.name.asc(), models.ProductCategory.id.asc()).all()
 
 
 @router.post("/categories", response_model=product_schema.ProductCategory, include_in_schema=False)
 @router.post("/categories/", response_model=product_schema.ProductCategory, summary="新增商品分類")
 def create_product_category(
     category: product_schema.ProductCategoryCreate,
-    admin=Depends(require_manager_admin),
+    admin=Depends(require_super_admin),
     db: Session = Depends(get_db),
 ):
     data = _category_payload(category)
     name = data.get("name", "").strip()
-    if not name:
-        raise HTTPException(status_code=400, detail="分類名稱為必填")
+    if not name or len(name) > 50:
+        raise HTTPException(status_code=400, detail="分類名稱須為 1 至 50 字")
+    if data.get("is_active", 1) not in (0, 1):
+        raise HTTPException(status_code=422, detail="分類狀態須為 0 或 1")
     existing = db.query(models.ProductCategory).filter(models.ProductCategory.name == name).first()
     if existing:
         raise HTTPException(status_code=400, detail="分類名稱已存在")
 
     db_category = models.ProductCategory(
         name=name,
-        sort_order=data.get("sort_order", 0),
+        sort_order=data.get("sort_order") if data.get("sort_order") is not None else _next_category_order(db),
         is_active=data.get("is_active", 1),
     )
     db.add(db_category)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="分類名稱已存在，請重新載入")
     db.refresh(db_category)
     return db_category
+
+
+@router.put("/categories/reorder", response_model=List[product_schema.ProductCategory], summary="儲存完整分類排序")
+def reorder_product_categories(
+    data: product_schema.ProductCategoryReorder,
+    admin=Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    try:
+        categories = db.query(models.ProductCategory).order_by(models.ProductCategory.id).with_for_update().all()
+        ids = data.category_ids
+        if len(ids) != len(set(ids)):
+            raise HTTPException(status_code=422, detail="分類不可重複")
+        if set(ids) != {category.id for category in categories}:
+            raise HTTPException(status_code=409, detail="分類清單已變動，請重新載入後再排序")
+        by_id = {category.id: category for category in categories}
+        for position, category_id in enumerate(ids):
+            by_id[category_id].sort_order = position
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return read_product_categories(db=db)
 
 
 @router.put("/categories/{category_id}", response_model=product_schema.ProductCategory, summary="更新商品分類")
 def update_product_category(
     category_id: int,
     category: product_schema.ProductCategoryUpdate,
-    admin=Depends(require_manager_admin),
+    admin=Depends(require_super_admin),
     db: Session = Depends(get_db),
 ):
     db_category = db.query(models.ProductCategory).filter(models.ProductCategory.id == category_id).first()
@@ -231,8 +279,8 @@ def update_product_category(
     data = _category_payload(category)
     if "name" in data and data["name"] is not None:
         name = data["name"].strip()
-        if not name:
-            raise HTTPException(status_code=400, detail="分類名稱為必填")
+        if not name or len(name) > 50:
+            raise HTTPException(status_code=400, detail="分類名稱須為 1 至 50 字")
         duplicate = (
             db.query(models.ProductCategory)
             .filter(models.ProductCategory.name == name, models.ProductCategory.id != category_id)
@@ -247,9 +295,15 @@ def update_product_category(
     if "sort_order" in data and data["sort_order"] is not None:
         db_category.sort_order = data["sort_order"]
     if "is_active" in data and data["is_active"] is not None:
+        if data["is_active"] not in (0, 1):
+            raise HTTPException(status_code=422, detail="分類狀態須為 0 或 1")
         db_category.is_active = data["is_active"]
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="分類名稱已存在，請重新載入")
     db.refresh(db_category)
     return db_category
 
@@ -257,7 +311,7 @@ def update_product_category(
 @router.patch("/categories/{category_id}/toggle", response_model=product_schema.ProductCategory, summary="啟用/停用商品分類")
 def toggle_product_category(
     category_id: int,
-    admin=Depends(require_manager_admin),
+    admin=Depends(require_super_admin),
     db: Session = Depends(get_db),
 ):
     db_category = db.query(models.ProductCategory).filter(models.ProductCategory.id == category_id).first()
@@ -430,7 +484,7 @@ def create_product_with_image(
     )
     for field, value in details.items():
         setattr(product, field, value)
-    _sync_product_category(db, product, category_id=category_id, category_name=category)
+    _sync_product_category(db, product, category_id=category_id, category_name=category, allow_create=admin.get("is_super", False))
     if selected_categories is not None:
         # A typed primary category may have just been created. Keep it before
         # the additional category IDs supplied by the shared product form.
@@ -488,7 +542,7 @@ def update_product_with_image(
     if description is not None:
         product.description = description
     if category_id is not None or category is not None:
-        _sync_product_category(db, product, category_id=category_id, category_name=category)
+        _sync_product_category(db, product, category_id=category_id, category_name=category, allow_create=admin.get("is_super", False))
     if selected_categories is not None:
         # A typed primary category may have just been created. Keep it before
         # the additional category IDs supplied by the shared product form.

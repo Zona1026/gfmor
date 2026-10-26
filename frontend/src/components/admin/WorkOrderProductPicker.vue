@@ -49,7 +49,7 @@ const parts = computed(() => props.products.filter(product => (['LABOR', 'MAJOR_
   ? product.inventory_type === props.item.type
   : ['PART', 'BOTH'].includes(product.inventory_type))
   || product.id === Number(props.item.product_id)));
-const categories = computed(() => categoryOptions(parts.value));
+const categories = computed(() => categoryOptions(parts.value, { selectedValue: props.item.picker_category }));
 const manufacturers = computed(() => manufacturerOptions(parts.value, props.item.picker_category));
 const matchingProducts = computed(() => ['LABOR', 'MAJOR_MAINTENANCE'].includes(props.item.type)
   ? parts.value

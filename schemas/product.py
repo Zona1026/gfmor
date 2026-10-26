@@ -11,13 +11,17 @@ class ProductCategoryBase(BaseModel):
 
 
 class ProductCategoryCreate(ProductCategoryBase):
-    pass
+    sort_order: Optional[int] = None
 
 
 class ProductCategoryUpdate(BaseModel):
     name: Optional[str] = None
     sort_order: Optional[int] = None
     is_active: Optional[int] = None
+
+
+class ProductCategoryReorder(BaseModel):
+    category_ids: List[Annotated[int, Field(strict=True, gt=0)]]
 
 
 class ProductCategory(ProductCategoryBase):

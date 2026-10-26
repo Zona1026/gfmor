@@ -1,4 +1,5 @@
 import api from './index';
+import { compareCategories } from '../utils/workOrderProductPicker';
 
 const adminAuthConfig = () => {
   const adminToken = localStorage.getItem('adminToken');
@@ -257,7 +258,7 @@ export const getPaginatedProducts = async (params = {}) => {
 };
 
 export const getProductCategories = async (params = {}) => {
-  return await api.get('/products/categories/', { params });
+  return (await api.get('/products/categories/', { params })).sort(compareCategories);
 };
 
 export const createProductCategory = async (data) => {
@@ -270,6 +271,10 @@ export const updateProductCategory = async (id, data) => {
 
 export const toggleProductCategory = async (id) => {
   return await api.patch(`/products/categories/${id}/toggle`);
+};
+
+export const reorderProductCategories = async (categoryIds) => {
+  return await api.put('/products/categories/reorder', { category_ids: categoryIds });
 };
 
 export const createProduct = async (formData) => {
