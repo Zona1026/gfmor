@@ -511,6 +511,8 @@ def _sync_payment_status(db_work_order):
     total_amount = db_work_order.total_amount or 0
     if paid_amount <= 0 and db_work_order.paid_amount > 0:
         db_work_order.payment_status = models.WorkOrderPaymentStatus.REFUNDED
+    elif total_amount == 0 and db_work_order.status == models.WorkOrderStatus.COMPLETED:
+        db_work_order.payment_status = models.WorkOrderPaymentStatus.PAID
     elif paid_amount <= 0:
         db_work_order.payment_status = models.WorkOrderPaymentStatus.UNPAID
     elif paid_amount < total_amount:
