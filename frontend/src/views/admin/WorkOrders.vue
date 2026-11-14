@@ -1013,7 +1013,7 @@ function defaultLineItem() {
     quantity: 1,
     unit_price: 0,
     is_confirmed: 1,
-    counts_toward_membership: false,
+    counts_toward_membership: true,
     points_redeemed: 0
   };
 }
@@ -1338,7 +1338,7 @@ const saveLineOrder = async () => {
 const addCreateLineItem = () => {
   createLineItems.value.push({
     ...defaultLineItem(),
-    counts_toward_membership: createMode.value === 'historical' && createForm.value.award_points
+    counts_toward_membership: createMode.value !== 'historical' || createForm.value.award_points
   });
 };
 
