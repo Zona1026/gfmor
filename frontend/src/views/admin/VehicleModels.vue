@@ -14,9 +14,11 @@
         <tbody><tr v-for="row in rows" :key="row.id">
           <td><input v-if="canManage" v-model.trim="row.draftName" :aria-label="`車種名稱 ${row.name}`" maxlength="200" /><span v-else>{{ row.name }}</span></td>
           <td>{{ row.is_active ? '啟用' : '停用' }}</td>
-          <td v-if="canManage" class="actions">
+          <td v-if="canManage">
+            <div class="actions">
             <button class="btn btn-outline" :disabled="busy || !row.draftName || row.draftName === row.name" @click="save(row, { name: row.draftName })">儲存名稱</button>
             <button class="btn btn-outline" :disabled="busy" @click="save(row, { is_active: !row.is_active })">{{ row.is_active ? '停用' : '啟用' }}</button>
+            </div>
           </td>
         </tr></tbody>
       </table>
@@ -56,10 +58,10 @@ onMounted(load);
 <style scoped>
 .vehicle-models { display: grid; gap: 1rem; }
 h2, p { margin: 0; }
-.toolbar, .actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.toolbar, .actions { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
 .table-scroll { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
-th, td { text-align: left; padding: .75rem; border-bottom: 1px solid #ddd; }
+th, td { text-align: left; vertical-align: middle; padding: .75rem; border-bottom: 1px solid #ddd; }
 input { max-width: 100%; box-sizing: border-box; padding: .65rem; border: 1px solid #424242; border-radius: 8px; background: #212121; color: #eee; font: inherit; }
 [role=alert] { color: #ffb4ab; }
 </style>
