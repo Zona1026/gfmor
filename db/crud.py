@@ -469,10 +469,6 @@ def _resolve_responsible_staff(db: Session, responsible_staff_id=None, responsib
     if not canonical_name:
         return None, None
 
-    # Receiving people are independent of admin accounts, even when names match.
-    if canonical_name in {"江子暢", "林書宇", "老闆"}:
-        return None, canonical_name
-
     variants = staff_name_variants(canonical_name)
     admin = (
         db.query(models.Admin)
