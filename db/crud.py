@@ -469,6 +469,10 @@ def _resolve_responsible_staff(db: Session, responsible_staff_id=None, responsib
     if not canonical_name:
         return None, None
 
+    # Receiving people are independent of admin accounts, even when names match.
+    if canonical_name in {"江子暢", "林書宇", "老闆"}:
+        return None, canonical_name
+
     variants = staff_name_variants(canonical_name)
     admin = (
         db.query(models.Admin)
@@ -972,6 +976,12 @@ def _hydrate_direct_customer(db: Session, db_work_order, work_order: WorkOrderCr
     if work_order.vehicle_mileage is not None:
         db_work_order.vehicle_mileage = work_order.vehicle_mileage
 
+    if work_order.vehicle_is_new and db_work_order.motor_id:
+        vehicle = db.get(models.Motor, db_work_order.motor_id)
+        vehicle.is_new_vehicle = True
+        vehicle.purchase_date = work_order.vehicle_purchase_date or vehicle.purchase_date
+        new_vehicle_service.ensure_maintenance_schedule(db, vehicle)
+
     if db_work_order.guest_customer_id:
         _upsert_guest_motor_for_work_order(db, db_work_order.guest_customer_id, work_order, db_work_order)
 
@@ -1166,6 +1176,7 @@ def create_work_order(db: Session, work_order: WorkOrderCreate):
         inspection_result=work_order.inspection_result,
         responsible_staff=responsible_staff_name,
         responsible_staff_id=responsible_staff_id,
+        technician=work_order.technician,
         scheduled_at=work_order.scheduled_at,
         ordered_date=ordered_date,
         consumption_date=work_order.consumption_date or ordered_date,
@@ -1262,6 +1273,7 @@ def create_historical_work_order(
         inspection_result=work_order.inspection_result,
         responsible_staff=responsible_staff_name,
         responsible_staff_id=responsible_staff_id,
+        technician=work_order.technician,
         scheduled_at=work_order.scheduled_at,
         ordered_date=ordered_date,
         consumption_date=work_order.completed_date,
@@ -1315,6 +1327,16 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
 
     update_data = _schema_dict(work_order_update, exclude_unset=True)
     line_items_data = update_data.pop("line_items", None)
+    completed_date = update_data.pop("completed_date", None)
+    create_schedule = update_data.pop("vehicle_is_new", False)
+    purchase_date = update_data.pop("vehicle_purchase_date", None)
+    if create_schedule and db_work_order.supervisor_reviewed_at:
+        raise ValueError("主管已審核，不能修改車輛資料")
+    if "completed_date" in work_order_update.model_fields_set:
+        if completed_date is None:
+            raise ValueError("完工日期不可清空")
+        if not db_work_order.completed_at:
+            raise ValueError("未完工的工單不可更正完工日期")
 
     if "ordered_date" in update_data and update_data["ordered_date"] is None:
         raise ValueError("訂購日不可為空")
@@ -1346,10 +1368,10 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
                 raise ValueError("選擇的車輛不屬於此工單會員")
             update_data.update({
                 "guest_motor_id": None,
-                "vehicle_license_plate": selected_motor.license_plate,
-                "vehicle_brand": selected_motor.brand,
-                "vehicle_model": selected_motor.model_name,
-                "vehicle_vin": selected_motor.vin,
+                "vehicle_license_plate": update_data.get("vehicle_license_plate", selected_motor.license_plate),
+                "vehicle_brand": update_data.get("vehicle_brand", selected_motor.brand),
+                "vehicle_model": update_data.get("vehicle_model", selected_motor.model_name),
+                "vehicle_vin": update_data.get("vehicle_vin", selected_motor.vin),
                 "vehicle_mileage": update_data.get("vehicle_mileage", selected_motor.mileage),
             })
         elif selected_guest_motor_id:
@@ -1362,10 +1384,10 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
                 raise ValueError("選擇的車輛不屬於此工單散客")
             update_data.update({
                 "motor_id": None,
-                "vehicle_license_plate": selected_guest_motor.license_plate,
-                "vehicle_brand": selected_guest_motor.brand,
-                "vehicle_model": selected_guest_motor.model_name,
-                "vehicle_vin": selected_guest_motor.vin,
+                "vehicle_license_plate": update_data.get("vehicle_license_plate", selected_guest_motor.license_plate),
+                "vehicle_brand": update_data.get("vehicle_brand", selected_guest_motor.brand),
+                "vehicle_model": update_data.get("vehicle_model", selected_guest_motor.model_name),
+                "vehicle_vin": update_data.get("vehicle_vin", selected_guest_motor.vin),
                 "vehicle_mileage": update_data.get("vehicle_mileage", selected_guest_motor.mileage),
             })
 
@@ -1498,6 +1520,18 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
     
     if "vehicle_mileage" in update_data or vehicle_selection_fields.intersection(update_data):
         _sync_member_motor_mileage(db, db_work_order)
+    if create_schedule:
+        vehicle = (db.get(models.Motor, db_work_order.motor_id) if db_work_order.motor_id
+                   else db.get(models.GuestMotor, db_work_order.guest_motor_id) if db_work_order.guest_motor_id
+                   else None)
+        if not vehicle:
+            raise ValueError("建立保養里程表前請先選擇車輛")
+        vehicle.is_new_vehicle = True
+        vehicle.purchase_date = purchase_date or vehicle.purchase_date
+        new_vehicle_service.ensure_maintenance_schedule(db, vehicle)
+    # Keep the actual completion timestamp as the ledger/points basis.
+    if completed_date is not None:
+        db_work_order.completed_date_override = completed_date
     db.add(db_work_order)
     db.commit()
     return get_work_order(db, work_order_id)
@@ -1767,6 +1801,7 @@ def reopen_work_order(db: Session, work_order_id: int, reopen, actor: str = None
     db_work_order.supervisor_reviewed_at = None
     db_work_order.supervisor_reviewed_by = None
     db_work_order.completed_at = None
+    db_work_order.completed_date_override = None
     for approval in db_work_order.approvals:
         if approval.status == models.WorkOrderApprovalStatus.PENDING:
             approval.status = models.WorkOrderApprovalStatus.REJECTED

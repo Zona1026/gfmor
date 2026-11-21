@@ -225,7 +225,7 @@ class ProductPricingFieldsTest(unittest.TestCase):
             payload = response.data[0] if isinstance(response.data, list) else response.data
             self.assertEqual(payload['vehicle_models'], ['勁戰六代', 'JET SL'])
         options = self.client.request('GET', '/products/admin/vehicle-models', headers=self.headers()).data
-        self.assertIn('JET SL', options)
+        self.assertNotIn('JET SL', options)
         updated = self.client.request('PUT', f'/products/{product_id}', headers=self.headers(), data={'name': '改名'})
         self.assertEqual(updated.data['vehicle_models'], ['勁戰六代', 'JET SL'])
         legacy = self.client.request('PUT', f'/products/{product_id}', headers=self.headers(), data={
@@ -442,7 +442,7 @@ class ProductPricingFieldsTest(unittest.TestCase):
         self.assertEqual(self.client.request('GET', endpoint, headers=self.headers('一般')).status_code, 403)
         self.assertEqual(self.client.request('GET', endpoint, headers=self.headers('最高級')).status_code, 200)
 
-    def test_vehicle_options_collect_existing_models_without_customer_data(self):
+    def test_vehicle_options_only_include_explicit_active_catalog_entries(self):
         self.create()
         self.db.add_all([
             models.Motor(google_id='private-owner', license_plate='PRIVATE-001', model_name=' JET SL '),
@@ -454,9 +454,7 @@ class ProductPricingFieldsTest(unittest.TestCase):
         self.db.commit()
         response = self.client.request('GET', '/products/admin/vehicle-models', headers=self.headers('一般'))
         self.assertEqual(response.status_code, 200, response.data)
-        self.assertEqual(response.data[0], '通用')
-        self.assertEqual(set(response.data), {'通用', 'JET SL', '勁戰六代', '測試車種'})
-        self.assertEqual(response.data.count('JET SL'), 1)
+        self.assertEqual(response.data, ['測試車種'])
         self.assertNotIn('PRIVATE', json.dumps(response.data))
         self.assertEqual(self.client.request('GET', '/products/admin/vehicle-models').status_code, 401)
 
@@ -471,14 +469,14 @@ class ProductPricingFieldsTest(unittest.TestCase):
         options = self.client.request('GET', '/products/admin/vehicle-models', headers=self.headers()).data
         self.assertIn('YAMAHA 勁戰七代', options)
 
-    def test_vehicle_option_write_validates_name_and_requires_manager(self):
+    def test_vehicle_option_write_validates_name_and_allows_staff(self):
         endpoint = '/products/admin/vehicle-models'
         self.assertEqual(self.client.request('POST', endpoint, json_data={'name': '測試車種'}).status_code, 401)
-        self.assertEqual(self.client.request('POST', endpoint, headers=self.headers('一般'), json_data={'name': '測試車種'}).status_code, 403)
+        self.assertEqual(self.client.request('POST', endpoint, headers=self.headers('一般'), json_data={'name': '測試車種'}).status_code, 200)
         for name in (' ', '', 'x' * 201):
             response = self.client.request('POST', endpoint, headers=self.headers(), json_data={'name': name})
             self.assertEqual(response.status_code, 422, response.data)
-        self.assertEqual(self.db.query(models.ProductVehicleModel).count(), 0)
+        self.assertEqual(self.db.query(models.ProductVehicleModel).count(), 1)
 
     def test_edit_preserves_omitted_fields_and_can_clear_or_set_zero(self):
         product_id = self.create().data['id']

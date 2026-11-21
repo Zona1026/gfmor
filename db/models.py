@@ -377,6 +377,7 @@ class ProductVehicleModel(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(200), nullable=False, unique=True)
+    is_active = Column(Boolean, nullable=False, default=True, server_default="1")
 
 
 class ProductCategory(Base):
@@ -436,7 +437,7 @@ class Motor(Base):
     google_id = Column("Google ID", String(255), ForeignKey("users.Google ID"), nullable=False)
     license_plate = Column("車牌", String(45), nullable=False, unique=True, index=True) # 車牌應為唯一
     brand = Column("廠牌", String(45))
-    model_name = Column("型號", String(45)) # 欄位名稱從「車種」改為「型號」以符合 schema
+    model_name = Column("型號", String(200)) # 欄位名稱從「車種」改為「型號」以符合 schema
     vin = Column("引擎號碼", String(45), unique=True) # 引擎號碼應為唯一
     mileage = Column("里程數", Integer)
     is_new_vehicle = Column(Boolean, nullable=False, default=False, server_default="0", index=True)
@@ -464,7 +465,7 @@ class GuestMotor(Base):
     guest_customer_id = Column(Integer, ForeignKey("guest_customers.id"), nullable=False, index=True)
     license_plate = Column(String(45), nullable=False, index=True)
     brand = Column(String(45), nullable=True)
-    model_name = Column(String(45), nullable=True)
+    model_name = Column(String(200), nullable=True)
     vin = Column(String(45), nullable=True)
     mileage = Column(Integer, nullable=True)
     is_new_vehicle = Column(Boolean, nullable=False, default=False, server_default="0", index=True)
@@ -641,7 +642,7 @@ class WorkOrder(Base):
     customer_phone = Column(String(20), nullable=True)
     vehicle_license_plate = Column(String(45), nullable=True, index=True)
     vehicle_brand = Column(String(45), nullable=True)
-    vehicle_model = Column(String(45), nullable=True)
+    vehicle_model = Column(String(200), nullable=True)
     vehicle_vin = Column(String(45), nullable=True)
     vehicle_mileage = Column(Integer, nullable=True)
     service_type = Column(Enum(WorkOrderServiceType), nullable=False, default=WorkOrderServiceType.MAINTENANCE)
@@ -652,6 +653,7 @@ class WorkOrder(Base):
     payment_status = Column(Enum(WorkOrderPaymentStatus), nullable=False, default=WorkOrderPaymentStatus.UNPAID)
     responsible_staff = Column(String(50), nullable=True)
     responsible_staff_id = Column(Integer, ForeignKey("admins.id"), nullable=True, index=True)
+    technician = Column(String(50), nullable=True)
     scheduled_at = Column(DateTime, nullable=True)
     ordered_date = Column(Date, nullable=False)
     consumption_date = Column(Date, nullable=False)
@@ -664,6 +666,7 @@ class WorkOrder(Base):
     created_at = Column(DateTime, server_default=func.now())
     # 工單的完成時間，預設為空，當工單狀態變為「已完成」時才填入
     completed_at = Column(DateTime, nullable=True)
+    completed_date_override = Column(Date, nullable=True)
     supervisor_reviewed_at = Column(DateTime, nullable=True)
     supervisor_reviewed_by = Column(String(50), nullable=True)
     deleted_at = Column(DateTime, nullable=True)

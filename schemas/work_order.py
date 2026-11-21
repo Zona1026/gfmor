@@ -286,7 +286,7 @@ class WorkOrderBase(BaseModel):
     customer_phone: Optional[str] = None
     vehicle_license_plate: Optional[str] = None
     vehicle_brand: Optional[str] = None
-    vehicle_model: Optional[str] = None
+    vehicle_model: Optional[str] = Field(default=None, max_length=200)
     vehicle_vin: Optional[str] = None
     vehicle_mileage: Optional[int] = Field(default=None, ge=0)
     vehicle_is_new: Optional[bool] = None
@@ -296,6 +296,7 @@ class WorkOrderBase(BaseModel):
     inspection_result: Optional[str] = None
     responsible_staff: Optional[str] = None
     responsible_staff_id: Optional[int] = None
+    technician: Optional[Literal["江子暢", "林書宇", "老闆"]] = None
     scheduled_at: Optional[datetime] = None
     ordered_date: Optional[date] = None
     consumption_date: Optional[date] = None
@@ -305,12 +306,14 @@ class WorkOrderBase(BaseModel):
 
 
 class WorkOrderCreate(WorkOrderBase):
+    technician: Literal["江子暢", "林書宇", "老闆"] = "江子暢"
     line_items: List[WorkOrderLineItemCreate] = Field(default_factory=list)
     # Backward-compatible payload used by the previous appointment conversion UI.
     items: List[WorkOrderItemCreate] = Field(default_factory=list)
 
 
 class HistoricalWorkOrderCreate(WorkOrderBase):
+    technician: Literal["江子暢", "林書宇", "老闆"] = "江子暢"
     line_items: List[WorkOrderLineItemCreate] = Field(min_length=1)
     completed_date: date
     paid_date: date
@@ -329,16 +332,20 @@ class WorkOrderUpdate(BaseModel):
     guest_motor_id: Optional[int] = None
     vehicle_license_plate: Optional[str] = None
     vehicle_brand: Optional[str] = None
-    vehicle_model: Optional[str] = None
+    vehicle_model: Optional[str] = Field(default=None, max_length=200)
     vehicle_vin: Optional[str] = None
     vehicle_mileage: Optional[int] = Field(default=None, ge=0)
     problem_description: Optional[str] = None
     inspection_result: Optional[str] = None
     responsible_staff: Optional[str] = None
     responsible_staff_id: Optional[int] = None
+    technician: Optional[Literal["江子暢", "林書宇", "老闆"]] = None
     scheduled_at: Optional[datetime] = None
     ordered_date: Optional[date] = None
     notes: Optional[str] = None
+    completed_date: Optional[date] = None
+    vehicle_is_new: Optional[bool] = None
+    vehicle_purchase_date: Optional[date] = None
     line_items: Optional[List[WorkOrderLineItemUpdate]] = None
 
     _canonical_responsible_staff = validator("responsible_staff", allow_reuse=True)(canonical_staff_name)
@@ -361,7 +368,7 @@ class WorkOrder(BaseModel):
     customer_phone: Optional[str] = None
     vehicle_license_plate: Optional[str] = None
     vehicle_brand: Optional[str] = None
-    vehicle_model: Optional[str] = None
+    vehicle_model: Optional[str] = Field(default=None, max_length=200)
     vehicle_vin: Optional[str] = None
     vehicle_mileage: Optional[int] = None
     service_type: WorkOrderServiceType
@@ -371,6 +378,7 @@ class WorkOrder(BaseModel):
     payment_status: WorkOrderPaymentStatus
     responsible_staff: Optional[str] = None
     responsible_staff_id: Optional[int] = None
+    technician: Optional[Literal["江子暢", "林書宇", "老闆"]] = None
     scheduled_at: Optional[datetime] = None
     ordered_date: date
     consumption_date: date
@@ -385,6 +393,7 @@ class WorkOrder(BaseModel):
     notes: Optional[str] = None
     created_at: datetime
     completed_at: Optional[datetime] = None
+    completed_date_override: Optional[date] = None
     supervisor_reviewed_at: Optional[datetime] = None
     supervisor_reviewed_by: Optional[str] = None
     deleted_at: Optional[datetime] = None

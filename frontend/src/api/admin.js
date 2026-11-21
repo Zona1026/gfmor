@@ -241,6 +241,14 @@ export const createProductVehicleModel = async (name) => {
   return await api.post('/products/admin/vehicle-models', { name }, adminAuthConfig());
 };
 
+export const getVehicleModelManagement = async () => {
+  return await api.get('/products/admin/vehicle-models/manage', adminAuthConfig());
+};
+
+export const updateVehicleModel = async (id, changes) => {
+  return await api.patch(`/products/admin/vehicle-models/${id}`, changes, adminAuthConfig());
+};
+
 export const getProducts = async () => {
   return await api.get('/products/admin/', adminAuthConfig());
 };

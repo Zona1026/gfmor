@@ -40,6 +40,7 @@
         </div>
         <router-link to="/admin/members" active-class="active" @click="closeSidebar">客戶 / 會員管理</router-link>
         <router-link to="/admin/new-vehicles" active-class="active" @click="closeSidebar">新車專區</router-link>
+        <router-link to="/admin/vehicle-models" active-class="active" @click="closeSidebar">車種管理</router-link>
         <router-link to="/admin/products" active-class="active" @click="closeSidebar">商城管理</router-link>
         <div class="nav-group">
           <button type="button" class="nav-group-toggle" :class="{ active: isPromotionRoute }" :aria-expanded="isPromotionOpen" @click="isPromotionOpen = !isPromotionOpen">

@@ -96,6 +96,16 @@ class ProductVehicleModelCreate(BaseModel):
         return value.strip() if isinstance(value, str) else value
 
 
+class VehicleModelUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    is_active: Optional[bool] = None
+
+    @field_validator('name', mode='before')
+    @classmethod
+    def strip_name(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+
 class ProductManagementMetadata(ProductMetadata):
     wholesale_price: Optional[int] = Field(None, ge=0)
 
