@@ -1,6 +1,30 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { categoryOptions, productCategories, manufacturerOptions, filterWorkOrderProducts, supplierOptions, filterPickerProducts } from '../src/utils/workOrderProductPicker.js';
+import { categoryOptions, productCategories, manufacturerOptions, filterWorkOrderProducts, supplierOptions, filterPickerProducts, workOrderProductLabel, searchWorkOrderProducts } from '../src/utils/workOrderProductPicker.js';
+
+test('商品選項僅組合名稱、規格、顏色，忽略空白且不修改來源', () => {
+  const product = { id: 1, name: ' 煞車拉桿 ', specification: ' 短版 ', color: '紅色', model_number: 'MODEL-123' };
+  assert.equal(workOrderProductLabel(product), '煞車拉桿／短版／紅色');
+  assert.equal(product.name, ' 煞車拉桿 ');
+  assert.equal(workOrderProductLabel({ name: '機油', specification: '1L', color: ' ' }), '機油／1L');
+  assert.equal(workOrderProductLabel({ name: '機油', specification: null }), '機油');
+});
+
+test('商品搜尋跨名稱、規格與顏色比對所有關鍵字，保留不同商品 ID', () => {
+  const catalog = [
+    { id: 1, name: '拉桿', specification: '短版', color: '紅色', model_number: 'hidden' },
+    { id: 2, name: '拉桿', specification: '長版', color: '黑色' },
+    { id: 3, name: '拉桿', specification: '長版', color: '紅色' },
+    { id: 4, name: '機油', specification: '1L' }
+  ];
+  assert.deepEqual(searchWorkOrderProducts(catalog, ' 紅色  拉桿 ').map(p => p.id), [1, 3]);
+  assert.deepEqual(searchWorkOrderProducts(catalog, '短版 紅色').map(p => p.id), [1]);
+  assert.deepEqual(searchWorkOrderProducts(catalog, '1l').map(p => p.id), [4]);
+  assert.deepEqual(searchWorkOrderProducts(catalog, 'hidden'), []);
+  assert.deepEqual(searchWorkOrderProducts(catalog, '不存在'), []);
+  assert.deepEqual(searchWorkOrderProducts(catalog, '  '), catalog);
+  assert.deepEqual(searchWorkOrderProducts(filterWorkOrderProducts(catalog.map(p => ({ ...p, manufacturer: p.id === 1 ? 'A' : 'B' })), '', 'A'), '紅色').map(p => p.id), [1]);
+});
 
 const products = [
   { id: 1, manufacturer: 'SYM', categories: [{ id: 10, name: '機油' }], supplier_wholesale_prices: [{ supplier_name: '進貨商甲' }] },

@@ -1,5 +1,18 @@
 export const MANUAL_PRODUCT_CATEGORY = '__manual__';
 
+export function workOrderProductLabel(product) {
+  return [product.name, product.specification, product.color]
+    .map(value => String(value ?? '').trim()).filter(Boolean).join('／');
+}
+
+export function searchWorkOrderProducts(products, query = '') {
+  const words = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  return products.filter(product => {
+    const text = workOrderProductLabel(product).toLocaleLowerCase();
+    return words.every(word => text.includes(word));
+  });
+}
+
 export function productCategories(product) {
   return primaryCategories(product);
 }

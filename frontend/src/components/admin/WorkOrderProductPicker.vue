@@ -21,19 +21,19 @@
         <option v-for="name in manufacturers" :key="name" :value="name">{{ name }}</option>
       </select>
     </label>
-    <label>
+    <div class="product-field">
       <span>商品名稱</span>
-      <select v-if="['PART', 'LABOR', 'MAJOR_MAINTENANCE'].includes(item.type) && !isManual" v-model.number="item.product_id" :disabled="disabled" @change="$emit('select-product', item)">
-        <option :value="null" disabled>請選擇商品</option>
-        <option v-for="product in matchingProducts" :key="product.id" :value="product.id">{{ product.name }}{{ product.model_number ? `（${product.model_number}）` : '' }}</option>
-      </select>
-      <input v-else-if="isManual" v-model.trim="item.name" :disabled="disabled" placeholder="請輸入商品名稱" required />
+      <WorkOrderProductSelect v-if="['PART', 'LABOR', 'MAJOR_MAINTENANCE'].includes(item.type) && !isManual"
+        :products="matchingProducts" :model-value="item.product_id" :fallback-label="item.name" :disabled="disabled"
+        @select="selectProduct" />
+      <input v-else-if="isManual" v-model.trim="item.name" aria-label="商品名稱" :disabled="disabled" placeholder="請輸入商品名稱" required />
       <input v-else value="不適用" disabled />
-    </label>
+    </div>
   </div>
 </template>
 <script setup>
 import { computed, watch } from 'vue';
+import WorkOrderProductSelect from './WorkOrderProductSelect.vue';
 import { categoryOptions, manufacturerOptions, filterWorkOrderProducts, MANUAL_PRODUCT_CATEGORY } from '../../utils/workOrderProductPicker';
 const props = defineProps({
   item: { type: Object, required: true }, products: { type: Array, required: true },
@@ -61,6 +61,10 @@ function changeFilters() {
     props.item.unit_price = 0;
   }
 }
+function selectProduct(id) {
+  props.item.product_id = id;
+  emit('select-product', props.item);
+}
 function changeCategory() {
   if (isManual.value || !props.item.product_id) {
     props.item.product_id = null;
@@ -82,7 +86,7 @@ function changeType() {
 <style scoped>
 .product-picker { display: grid; grid-template-columns: minmax(90px, 0.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.6fr); gap: 0.5rem; min-width: 0; }
 .labor-picker { grid-template-columns: minmax(90px, 0.6fr) minmax(0, 1fr) minmax(0, 1.6fr); }
-label { display: grid; gap: 0.28rem; min-width: 0; }
+label, .product-field { display: grid; gap: 0.28rem; min-width: 0; }
 span { font-size: 0.78rem; font-weight: 700; color: #ddd; }
 input, select { width: 100%; min-width: 0; height: 38px; box-sizing: border-box; border: 1px solid #444; border-radius: 6px; background: #202124; color: #eee; padding: 0.45rem 0.65rem; }
 select:disabled, input:disabled { opacity: 0.6; }
