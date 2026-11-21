@@ -60,8 +60,8 @@
             <th>服務類型</th>
             <th>工單狀態</th>
             <th>付款狀態</th>
-            <th>負責人</th>
-            <th>訂購日</th>
+            <th>接單者</th>
+            <th>接單日期</th>
             <th>預約日</th>
             <th>完工日</th>
             <th>總金額</th>
@@ -92,7 +92,7 @@
             <td>{{ workOrder.responsible_staff || '-' }}</td>
             <td>{{ formatDate(workOrder.ordered_date) }}</td>
             <td>{{ formatDateTime(workOrder.scheduled_at || workOrder.booking?.booking_time) }}</td>
-            <td>{{ formatDate(workOrder.completed_at) }}</td>
+            <td>{{ formatDate(completionDateValue(workOrder)) }}</td>
             <td class="amount">NT$ {{ workOrder.total_amount?.toLocaleString() || 0 }}</td>
           </tr>
         </tbody>
@@ -168,64 +168,28 @@
           <section class="form-section">
             <h4>基本資料</h4>
             <div class="form-grid compact-basic-grid">
+              <label>接單日期<input v-model="createForm.ordered_date" type="date" required /></label>
+              <label>預約日期<input v-model="createForm.scheduled_at" type="datetime-local" /></label>
+              <label v-if="createMode === 'normal'">完工日期<input type="text" value="完工時自動帶入，可於完工後更正" disabled /></label>
+              <label v-else>完工日期<input v-model="createForm.completed_date" type="date" :max="todayDateString()" required /></label>
+              <label>服務類型<select v-model="createForm.service_type"><option v-for="(label, value) in serviceTypeMap" :key="value" :value="value">{{ label }}</option></select></label>
               <label>
-                訂購日
-                <input v-model="createForm.ordered_date" type="date" required />
-              </label>
-              <label>
-                <span class="field-label">車牌 <span class="required-mark">*</span></span>
-                <input v-model.trim="createForm.vehicle_license_plate" required />
-              </label>
-              <label>
-                預約日
-                <input v-model="createForm.scheduled_at" type="datetime-local" />
-              </label>
-              <label>
-                品牌
-                <input v-model.trim="createForm.vehicle_brand" />
-              </label>
-              <label v-if="createMode === 'normal'">
-                完工日
-                <input type="text" value="完工後自動記錄" disabled />
-              </label>
-              <label>
-                <span class="field-label">車型 <span class="required-mark">*</span></span>
-                <input v-model.trim="createForm.vehicle_model" required />
-              </label>
-              <label>
-                服務類型
-                <select v-model="createForm.service_type">
-                  <option v-for="(label, value) in serviceTypeMap" :key="value" :value="value">{{ label }}</option>
+                接單者
+                <select v-model="createForm.responsible_staff" required>
+                  <option v-for="name in receivingStaffOptions" :key="name" :value="name">{{ name }}</option>
                 </select>
               </label>
-              <label>
-                <span class="field-label">里程 <span class="required-mark">*</span></span>
-                <input v-model.number="createForm.vehicle_mileage" type="number" min="0" required />
-              </label>
-              <label>
-                <span class="field-label">負責人 <span class="required-mark">*</span></span>
-                <select v-model="createForm.responsible_staff_id" required>
-                  <option :value="null" disabled>請選擇負責人</option>
-                  <option v-for="staff in responsibleStaffOptions" :key="staff.id" :value="staff.id">
-                    {{ staff.name }}
-                  </option>
-                </select>
-              </label>
-              <label v-if="createSource === 'guest'" class="new-vehicle-field">
-                新車
-                <span><input v-model="createForm.vehicle_is_new" type="checkbox" /> 建立新車保養里程表</span>
-              </label>
-              <label v-if="createSource === 'guest' && createForm.vehicle_is_new">
-                購車日期
-                <input v-model="createForm.vehicle_purchase_date" type="date" />
-              </label>
+              <label>施工者<select v-model="createForm.technician"><option v-for="name in technicianOptions" :key="name" :value="name">{{ name }}</option></select></label>
+              <label>廠牌<input v-model.trim="createForm.vehicle_brand" maxlength="45" /></label>
+              <label><span>車種 <span class="required-mark">*</span></span><VehicleModelInput v-model="createForm.vehicle_model" required /></label>
+              <label><span>車牌 <span class="required-mark">*</span></span><input v-model.trim="createForm.vehicle_license_plate" maxlength="45" required /></label>
+              <label><span>行駛里程 <span class="required-mark">*</span></span><input v-model.number="createForm.vehicle_mileage" type="number" min="0" required /></label>
+              <label>引擎號碼<input v-model.trim="createForm.vehicle_vin" maxlength="45" /></label>
+              <label class="new-vehicle-field">新車<span><input v-model="createForm.vehicle_is_new" type="checkbox" /> 建立新車保養里程表</span></label>
+              <label v-if="createForm.vehicle_is_new">購車日期<input v-model="createForm.vehicle_purchase_date" type="date" /></label>
             </div>
             <div v-if="createMode === 'historical'" class="historical-fields">
               <div class="form-grid">
-                <label>
-                  <span class="field-label">完工日 <span class="required-mark">*</span></span>
-                  <input v-model="createForm.completed_date" type="date" :max="todayDateString()" required />
-                </label>
                 <label>
                   <span class="field-label">付款日 <span class="required-mark">*</span></span>
                   <input v-model="createForm.paid_date" type="date" :max="todayDateString()" required />
@@ -267,7 +231,7 @@
 
           <section class="form-section">
             <div class="section-title-row">
-              <h4>工單明細</h4>
+              <h4>零件項目</h4>
               <button type="button" class="btn btn-outline" @click="addCreateLineItem">新增明細</button>
             </div>
             <div class="line-editor">
@@ -313,7 +277,7 @@
             </div>
           </section>
 
-          <div class="form-actions">
+          <div class="form-actions create-actions">
             <button type="button" class="btn btn-outline" @click="closeCreateModal">取消</button>
             <button type="submit" class="btn btn-primary" :disabled="saving">
               {{ createMode === 'historical' ? '確認補登' : '建立工單' }}
@@ -341,15 +305,6 @@
               :disabled="detailLoading"
             >
               退回修改
-            </button>
-            <button
-              v-if="canUseCriticalWorkOrder && !selectedWorkOrder.deleted_at"
-              class="btn btn-danger"
-              type="button"
-              @click="openDeleteModal"
-              :disabled="detailLoading"
-            >
-              刪除工單
             </button>
             <button class="icon-btn" @click="closeDetail">×</button>
           </div>
@@ -381,55 +336,26 @@
               <span>此工單未異動目前庫存，點數以完工日為發放基準。</span>
             </div>
             <div class="form-grid compact-basic-grid">
+              <label>接單日期<input v-model="detailForm.ordered_date" type="date" required :disabled="!canEditWorkOrder" /></label>
+              <label>預約日期<input v-model="detailForm.scheduled_at" type="datetime-local" :disabled="!canEditWorkOrder" /></label>
+              <label>完工日期<input v-model="detailForm.completed_date" type="date" :disabled="!canEditWorkOrder || !selectedWorkOrder.completed_at" /></label>
+              <label>服務類型<select v-model="detailForm.service_type" :disabled="!canEditWorkOrder"><option v-for="(label, value) in serviceTypeMap" :key="value" :value="value">{{ label }}</option></select></label>
               <label>
-                訂購日
-                <input v-model="detailForm.ordered_date" type="date" required :disabled="!canEditWorkOrder" />
-              </label>
-              <label>
-                服務類型
-                <select v-model="detailForm.service_type" :disabled="!canEditWorkOrder">
-                  <option v-for="(label, value) in serviceTypeMap" :key="value" :value="value">{{ label }}</option>
+                接單者
+                <select v-model="detailForm.responsible_staff" :disabled="!canEditWorkOrder">
+                  <option v-if="detailForm.responsible_staff && !receivingStaffOptions.includes(detailForm.responsible_staff)" :value="detailForm.responsible_staff" disabled>{{ detailForm.responsible_staff }}（原紀錄）</option>
+                  <option v-for="name in receivingStaffOptions" :key="name" :value="name">{{ name }}</option>
                 </select>
               </label>
-              <label>
-                預約日
-                <input v-model="detailForm.scheduled_at" type="datetime-local" :disabled="!canEditWorkOrder" />
-              </label>
-              <label>
-                工單狀態
-                <select v-model="detailForm.status" :disabled="!canEditWorkOrder">
-                  <option
-                    v-for="(label, value) in statusMap"
-                    :key="value"
-                    :value="value"
-                    :disabled="isGatedStatus(value) && hasBlockingApproval(selectedWorkOrder, value)"
-                  >
-                    {{ label }}
-                  </option>
-                </select>
-              </label>
-              <label>
-                完工日
-                <input :value="formatDate(selectedWorkOrder.completed_at)" type="text" disabled />
-              </label>
-              <label>
-                負責人
-                <select v-model="detailForm.responsible_staff_id" :disabled="!canEditWorkOrder">
-                  <option v-for="staff in responsibleStaffOptions" :key="staff.id" :value="staff.id">
-                    {{ staff.name }}
-                  </option>
-                </select>
-              </label>
-              <label>
-                里程數
-                <input
-                  v-model.number="detailForm.vehicle_mileage"
-                  type="number"
-                  min="0"
-                  required
-                  :disabled="!canEditWorkOrder || supervisorReviewLocked"
-                />
-              </label>
+              <label>施工者<select v-model="detailForm.technician" :disabled="!canEditWorkOrder"><option :value="null">未填寫</option><option v-for="name in technicianOptions" :key="name" :value="name">{{ name }}</option></select></label>
+              <label>廠牌<input v-model.trim="detailForm.vehicle_brand" maxlength="45" :disabled="!canEditWorkOrder || supervisorReviewLocked" /></label>
+              <label><span>車種 <span class="required-mark">*</span></span><VehicleModelInput v-model="detailForm.vehicle_model" required :disabled="!canEditWorkOrder || supervisorReviewLocked" /></label>
+              <label><span>車牌 <span class="required-mark">*</span></span><input v-model.trim="detailForm.vehicle_license_plate" maxlength="45" required :disabled="!canEditWorkOrder || supervisorReviewLocked" /></label>
+              <label><span>行駛里程 <span class="required-mark">*</span></span><input v-model.number="detailForm.vehicle_mileage" type="number" min="0" required :disabled="!canEditWorkOrder || supervisorReviewLocked" /></label>
+              <label>引擎號碼<input v-model.trim="detailForm.vehicle_vin" maxlength="45" :disabled="!canEditWorkOrder || supervisorReviewLocked" /></label>
+              <label class="new-vehicle-field">新車<span><input v-model="detailForm.vehicle_is_new" type="checkbox" :disabled="!canEditWorkOrder || supervisorReviewLocked" /> 建立新車保養里程表</span></label>
+              <label>工單狀態<select v-model="detailForm.status" :disabled="!canEditWorkOrder"><option v-for="(label, value) in statusMap" :key="value" :value="value" :disabled="isGatedStatus(value) && hasBlockingApproval(selectedWorkOrder, value)">{{ label }}</option></select></label>
+              <label v-if="detailForm.vehicle_is_new">購車日期<input v-model="detailForm.vehicle_purchase_date" type="date" :disabled="!canEditWorkOrder || supervisorReviewLocked" /></label>
             </div>
             <label>
               問題描述
@@ -450,10 +376,19 @@
 
           <section class="form-section">
             <div class="section-title-row">
-              <h4>施工 / 零件 / 工資 / 折扣明細</h4>
+              <h4>消費明細</h4>
               <div v-if="canEditWorkOrder" class="detail-section-actions">
-                <button type="button" class="btn btn-outline" :disabled="lineItemEditingLocked" @click="addDetailLineItem">新增明細</button>
+                <button type="button" class="btn btn-outline" :disabled="lineItemEditingLocked" @click="addDetailLineItem">新增項目</button>
                 <button type="button" class="btn btn-outline" :disabled="!canSaveLineOrder || saving || detailLoading || promotionPreviewLoading" @click="saveLineOrder">儲存順序</button>
+                <button
+                  v-if="canUseCriticalWorkOrder && !selectedWorkOrder.deleted_at"
+                  class="btn btn-danger"
+                  type="button"
+                  @click="openDeleteModal"
+                  :disabled="detailLoading"
+                >
+                  刪除工單
+                </button>
                 <button type="button" class="btn btn-primary" :disabled="saving || detailLoading" @click="saveWorkOrder">儲存工單</button>
               </div>
             </div>
@@ -532,17 +467,22 @@
           </section>
 
           <section class="form-section">
-            <h4>金額與付款</h4>
+            <h4>結帳</h4>
             <dl class="money-summary">
-              <div><dt>付款狀態</dt><dd>{{ paymentStatusMap[selectedWorkOrder.payment_status] }}</dd></div>
+              <div><dt>支付狀態</dt><dd>{{ paymentStatusMap[selectedWorkOrder.payment_status] }}</dd></div>
               <div><dt>總金額</dt><dd>NT$ {{ selectedWorkOrder.total_amount?.toLocaleString() || 0 }}</dd></div>
-              <div><dt>已收款</dt><dd>NT$ {{ selectedWorkOrder.paid_amount?.toLocaleString() || 0 }}</dd></div>
-              <div v-if="selectedWorkOrder.refunded_amount"><dt>已退款</dt><dd>NT$ {{ selectedWorkOrder.refunded_amount.toLocaleString() }}</dd></div>
-              <div v-if="selectedWorkOrder.refunded_amount"><dt>實收淨額</dt><dd>NT$ {{ selectedWorkOrder.net_paid_amount.toLocaleString() }}</dd></div>
-              <div><dt>待收尾款</dt><dd>NT$ {{ selectedWorkOrder.balance_amount?.toLocaleString() || 0 }}</dd></div>
-              <div><dt>可列入會員累積</dt><dd>NT$ {{ selectedWorkOrder.membership_eligible_amount?.toLocaleString() || 0 }}</dd></div>
             </dl>
-            <div class="points-payment-row">
+            <div class="points-payment-row checkout-row">
+              <div v-if="canManageWorkOrderPayments && selectedWorkOrder.status !== 'CANCELED'" class="payment-form">
+                <input v-model.number="paymentForm.amount" aria-label="付款金額" type="number" min="1" placeholder="付款金額" />
+                <select v-model="paymentForm.method" aria-label="付款方式">
+                  <option value="" disabled>付款方式</option>
+                  <option v-for="method in paymentMethodOptions" :key="method" :value="method">{{ method }}</option>
+                </select>
+                <button class="btn btn-outline" @click="submitPayment">登錄付款</button>
+              </div>
+              <div v-else class="customer-point-balance">付款金額／付款方式</div>
+              <div class="customer-point-balance checkout-amount"><span>訂金／已收款</span><strong>NT$ {{ selectedWorkOrder.paid_amount?.toLocaleString() || 0 }}</strong></div>
               <div class="customer-points-summary">
                 <div class="customer-point-balance">
                   <span>會員現有點數</span>
@@ -550,19 +490,16 @@
                   <strong v-else>散客無會員點數</strong>
                 </div>
                 <div v-if="selectedWorkOrder.google_id && detailRedeemedPoints > 0" class="customer-point-balance" aria-live="polite">
-                  <span>此工單將扣除點數</span>
-                  <strong>{{ detailRedeemedPoints.toLocaleString() }} 點</strong>
+                  <span>此工單將扣除點數</span><strong>{{ detailRedeemedPoints.toLocaleString() }} 點</strong>
                 </div>
               </div>
-              <div v-if="canManageWorkOrderPayments && selectedWorkOrder.status !== 'CANCELED'" class="payment-form">
-                <input v-model.number="paymentForm.amount" type="number" min="1" placeholder="付款金額" />
-                <select v-model="paymentForm.method">
-                  <option value="" disabled>付款方式</option>
-                  <option v-for="method in paymentMethodOptions" :key="method" :value="method">{{ method }}</option>
-                </select>
-                <button class="btn btn-outline" @click="submitPayment">登錄付款</button>
-              </div>
+              <div class="customer-point-balance checkout-amount"><span>尾款</span><strong>NT$ {{ selectedWorkOrder.balance_amount?.toLocaleString() || 0 }}</strong></div>
             </div>
+            <dl class="money-summary">
+              <div><dt>可列入會員累積</dt><dd>NT$ {{ selectedWorkOrder.membership_eligible_amount?.toLocaleString() || 0 }}</dd></div>
+              <div v-if="selectedWorkOrder.refunded_amount"><dt>已退款</dt><dd>NT$ {{ selectedWorkOrder.refunded_amount.toLocaleString() }}</dd></div>
+              <div v-if="selectedWorkOrder.refunded_amount"><dt>實收淨額</dt><dd>NT$ {{ selectedWorkOrder.net_paid_amount.toLocaleString() }}</dd></div>
+            </dl>
             <div v-if="pendingRefundRevision" class="refund-alert">
               <div>
                 <strong>待退差額 NT$ {{ pendingRefundRevision.refund_due_amount.toLocaleString() }}</strong>
@@ -732,6 +669,7 @@
 </template>
 
 <script setup>
+import VehicleModelInput from '../../components/admin/VehicleModelInput.vue';
 import WorkOrderProductPicker from '../../components/admin/WorkOrderProductPicker.vue';
 import { MANUAL_PRODUCT_CATEGORY } from '../../utils/workOrderProductPicker';
 import { getInventoryItems, previewPromotionOrder } from '../../api/admin';
@@ -747,7 +685,6 @@ import {
   deleteWorkOrder,
   getCustomerDetail,
   getGuestCustomers,
-  getStaffAdmins,
   getWorkOrder,
   getWorkOrders,
   searchUsersByName,
@@ -769,7 +706,6 @@ const loading = ref(false);
 const saving = ref(false);
 const workOrders = ref([]);
 const products = ref([]);
-const staffAdmins = ref([]);
 const serviceTypeFilter = ref('');
 const statusFilter = ref('');
 const searchKeyword = ref('');
@@ -777,10 +713,10 @@ const filterDate = ref('');
 const workOrderEditorRoles = ['最高級', '管理層', '一般'];
 const workOrderManagerRoles = ['最高級', '管理層'];
 const responsibleStaffAliases = {
-  火腿: '腿腿',
-  江子暢: '腿腿'
+  火腿: '江子暢'
 };
-const defaultResponsibleStaffUsername = 'HAM-9999';
+const receivingStaffOptions = ['江子暢', '林書宇', '老闆'];
+const technicianOptions = ['江子暢', '林書宇', '老闆'];
 const paymentMethodOptions = ['現金', '轉帳', 'Linepay'];
 const canCreateWorkOrder = computed(() => ['最高級', '管理層', '一般'].includes(adminUser.value?.role));
 const canEditWorkOrder = computed(() => workOrderEditorRoles.includes(adminUser.value?.role));
@@ -962,15 +898,6 @@ const canSubmitRefund = computed(() => Boolean(
 ));
 const lineItemEditingLocked = computed(() => supervisorReviewLocked.value);
 const membershipSelectionLocked = computed(() => supervisorReviewLocked.value);
-const responsibleStaffOptions = computed(() => {
-  return staffAdmins.value
-    .map(admin => ({
-      id: admin.id,
-      name: staffDisplayName(admin)
-    }))
-    .filter(staff => staff.id && staff.name);
-});
-
 function defaultCreateForm() {
   return {
     google_id: '',
@@ -988,8 +915,9 @@ function defaultCreateForm() {
     vehicle_purchase_date: '',
     service_type: 'MAINTENANCE',
     problem_description: '',
-    responsible_staff: '',
+    responsible_staff: '江子暢',
     responsible_staff_id: null,
+    technician: '江子暢',
     scheduled_at: '',
     ordered_date: todayDateString(),
     completed_date: todayDateString(),
@@ -1034,40 +962,11 @@ function canonicalResponsibleStaff(name) {
   return responsibleStaffAliases[trimmedName] || trimmedName;
 }
 
-function staffDisplayName(staff) {
-  if (!staff) return '';
-  return staff.full_name || staff.username || '';
-}
-
-function staffNameById(staffId) {
-  const staff = staffAdmins.value.find(item => item.id === staffId);
-  return staffDisplayName(staff);
-}
-
-function staffIdByName(name) {
-  const canonicalName = canonicalResponsibleStaff(name);
-  const staff = staffAdmins.value.find(item =>
-    staffDisplayName(item) === canonicalName || item.username === canonicalName
-  );
-  return staff?.id || null;
-}
-
-function defaultResponsibleStaffId() {
-  return staffAdmins.value.find(item => item.username === defaultResponsibleStaffUsername)?.id
-    || responsibleStaffOptions.value[0]?.id
-    || null;
-}
-
-function applyDefaultResponsibleStaff(form) {
-  if (!form.responsible_staff_id) {
-    form.responsible_staff_id = defaultResponsibleStaffId();
-  }
-  form.responsible_staff = staffNameById(form.responsible_staff_id) || form.responsible_staff || '';
-}
-
 function workOrderResponsibleStaffName(workOrder) {
-  return staffDisplayName(workOrder.responsible_staff_admin)
-    || canonicalResponsibleStaff(workOrder.responsible_staff);
+  return canonicalResponsibleStaff(workOrder.responsible_staff)
+    || workOrder.responsible_staff_admin?.full_name
+    || workOrder.responsible_staff_admin?.username
+    || '';
 }
 
 function normalizeWorkOrderResponsibleStaff(workOrder) {
@@ -1148,24 +1047,10 @@ const fetchProducts = async () => {
   }
 };
 
-const fetchStaffAdmins = async () => {
-  try {
-    staffAdmins.value = await getStaffAdmins();
-    applyDefaultResponsibleStaff(createForm.value);
-    if (detailForm.value && Object.keys(detailForm.value).length) {
-      applyDefaultResponsibleStaff(detailForm.value);
-    }
-  } catch (error) {
-    console.error('載入負責人清單失敗:', error);
-    staffAdmins.value = [];
-  }
-};
-
 const openCreateModal = () => {
   createMode.value = 'normal';
   showCreateModal.value = true;
   fetchProducts();
-  fetchStaffAdmins();
 };
 
 const openHistoricalCreateModal = () => {
@@ -1178,7 +1063,6 @@ const openHistoricalCreateModal = () => {
   ];
   showCreateModal.value = true;
   fetchProducts();
-  fetchStaffAdmins();
 };
 
 const closeCreateModal = () => {
@@ -1462,15 +1346,15 @@ const closeRewardQrModal = () => {
 
 const validateCreateRequiredFields = () => {
   if (!hasText(createForm.value.vehicle_license_plate)) return '車牌為必填';
-  if (!hasText(createForm.value.vehicle_model)) return '車型為必填';
+  if (!hasText(createForm.value.vehicle_model)) return '車種為必填';
   if (!hasMileageValue(createForm.value.vehicle_mileage)) return '里程為必填';
-  if (!createForm.value.responsible_staff_id) return '負責人為必填';
+  if (!receivingStaffOptions.includes(createForm.value.responsible_staff)) return '請選擇接單者';
   if (createMode.value === 'historical') {
-    if (!hasText(createForm.value.ordered_date)) return '訂購日為必填';
+    if (!hasText(createForm.value.ordered_date)) return '接單日期為必填';
     if (!hasText(createForm.value.completed_date)) return '完工日為必填';
     if (!hasText(createForm.value.paid_date)) return '付款日為必填';
     if (!hasText(createForm.value.backfill_reason)) return '補登原因為必填';
-    if (createForm.value.ordered_date > createForm.value.completed_date) return '訂購日不可晚於完工日';
+    if (createForm.value.ordered_date > createForm.value.completed_date) return '接單日期不可晚於完工日';
   }
   return '';
 };
@@ -1486,7 +1370,8 @@ const submitCreateWorkOrder = async () => {
   try {
     const payload = {
       ...createForm.value,
-      responsible_staff: staffNameById(createForm.value.responsible_staff_id),
+      responsible_staff: createForm.value.responsible_staff,
+      responsible_staff_id: null,
       vehicle_mileage: Number(createForm.value.vehicle_mileage),
       vehicle_purchase_date: createForm.value.vehicle_purchase_date || null,
       scheduled_at: createForm.value.scheduled_at || null,
@@ -1500,8 +1385,6 @@ const submitCreateWorkOrder = async () => {
       delete payload.guest_motor_id;
       delete payload.guest_name;
       delete payload.guest_phone;
-      delete payload.vehicle_is_new;
-      delete payload.vehicle_purchase_date;
     }
     let created;
     if (createMode.value === 'historical') {
@@ -1540,11 +1423,14 @@ const openDetail = async (id) => {
     detailLineItems.value = [];
     await Promise.all([
       fetchProducts(),
-      fetchStaffAdmins(),
       fetchDetailVehicleOptions(workOrder, isCurrent)
     ]);
     if (!isCurrent()) return;
     detailForm.value = {
+      technician: workOrder.technician || null,
+      completed_date: completionDateValue(workOrder),
+      vehicle_is_new: false,
+      vehicle_purchase_date: '',
       service_type: workOrder.service_type,
       status: workOrder.status,
       motor_id: workOrder.motor_id,
@@ -1557,9 +1443,7 @@ const openDetail = async (id) => {
       problem_description: workOrder.problem_description || '',
       inspection_result: workOrder.inspection_result || '',
       responsible_staff: workOrderResponsibleStaffName(workOrder),
-      responsible_staff_id: workOrder.responsible_staff_id
-        || staffIdByName(workOrder.responsible_staff)
-        || defaultResponsibleStaffId(),
+      responsible_staff_id: workOrder.responsible_staff_id || null,
       scheduled_at: toDatetimeLocal(workOrder.scheduled_at),
       ordered_date: workOrder.ordered_date || workOrder.consumption_date || '',
       notes: workOrder.notes || ''
@@ -1622,15 +1506,29 @@ const saveWorkOrder = async () => {
       return;
     }
   }
+  if (selectedWorkOrder.value.completed_at && !detailForm.value.completed_date) {
+    alert('完工日期不可清空');
+    return;
+  }
   saving.value = true;
   try {
     const payload = {
       ...detailForm.value,
-      responsible_staff: staffNameById(detailForm.value.responsible_staff_id),
+      responsible_staff: detailForm.value.responsible_staff,
+      responsible_staff_id: null,
       vehicle_mileage: Number(detailForm.value.vehicle_mileage),
       scheduled_at: detailForm.value.scheduled_at || null
     };
+    if (payload.responsible_staff === selectedWorkOrder.value.responsible_staff) {
+      // Keep legacy records as recorded unless the receiving person is changed.
+      delete payload.responsible_staff;
+      delete payload.responsible_staff_id;
+    }
+    if (!payload.completed_date || payload.completed_date === completionDateValue(selectedWorkOrder.value)) delete payload.completed_date;
+    payload.vehicle_purchase_date = payload.vehicle_purchase_date || null;
     if (supervisorReviewLocked.value) {
+      delete payload.vehicle_is_new;
+      delete payload.vehicle_purchase_date;
       delete payload.vehicle_license_plate;
       delete payload.vehicle_brand;
       delete payload.vehicle_model;
@@ -1650,6 +1548,8 @@ const saveWorkOrder = async () => {
     }
     if (!isCurrent()) return;
     selectedWorkOrder.value = normalizeWorkOrderResponsibleStaff(updatedOrder);
+    detailForm.value.completed_date = completionDateValue(selectedWorkOrder.value);
+    detailForm.value.vehicle_is_new = false;
     detailLineItems.value = (selectedWorkOrder.value.line_items || []).map(item => ({ ...item }));
     originalDetailRedeemedPoints.value = detailLineItems.value.reduce(
       (total, item) => total + Number(item.points_redeemed || 0),
@@ -1810,6 +1710,11 @@ const formatDateTime = (iso) => {
   const date = new Date(iso);
   return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 };
+
+function completionDateValue(workOrder) {
+  return workOrder.completed_date_override || (workOrder.completed_at
+    ? formatTaipeiDateTime(workOrder.completed_at).slice(0, 10).replaceAll('/', '-') : '');
+}
 
 const formatDate = (value) => {
   if (!value) return '-';
@@ -2279,6 +2184,8 @@ watch(
     }
   }
 
+  .create-actions { justify-content: flex-end; }
+
   .work-order-form,
   .detail-grid {
     display: grid;
@@ -2312,7 +2219,7 @@ watch(
   }
 
   .compact-basic-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .form-row {
@@ -2546,6 +2453,13 @@ watch(
     > div {
       min-width: 0;
     }
+  }
+
+  .checkout-row {
+    > div { border-bottom: 1px solid $medium-grey; }
+    > div:nth-child(even) { border-left: 1px solid $medium-grey; }
+    .payment-form { border-left: 0; }
+    .checkout-amount strong { color: $primary-light; }
   }
 
   .customer-point-balance {
@@ -2873,6 +2787,10 @@ watch(
   }
 
   .work-order-sheet {
+    input, select, textarea { box-sizing: border-box; min-width: 0; }
+
+    .form-grid > label { min-width: 0; }
+
     .form-section {
       border-radius: 0;
       padding: 0;
@@ -2896,7 +2814,8 @@ watch(
 
       > label {
         display: grid;
-        grid-template-columns: 90px minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1fr);
+        align-content: start;
         align-items: center;
         gap: 0.5rem;
         padding: 0.65rem;
@@ -2953,6 +2872,9 @@ watch(
   }
 
   @media (max-width: 980px) {
+    .checkout-row > div:nth-child(even) { border-left: 0; }
+    .work-order-sheet .search-row { flex-wrap: wrap; }
+
     .points-payment-row {
       grid-template-columns: 1fr;
 

@@ -374,27 +374,48 @@ def update_extra_category(category_id: int, data: product_schema.ProductExtraCat
     return _save_extra_category(db, category, data.model_dump(exclude_unset=True))
 
 
-@router.get('/admin/vehicle-models', response_model=List[str], summary='商品適用車種選單')
+@router.get('/admin/vehicle-models', response_model=List[str], summary='共用車種選單')
 def read_product_vehicle_models(db: Session = Depends(get_db), admin=Depends(require_admin)):
-    names = {'通用'}
-    # Reuse model names only; no customer names, plates or contact data are returned.
-    for column in (models.ProductVehicleModel.name, models.Product.vehicle_model,
-                   models.Motor.model_name, models.GuestMotor.model_name):
-        names.update(row[0].strip() for row in db.query(column).distinct().all()
-                     if row[0] and row[0].strip())
-    for (values,) in db.query(models.Product._vehicle_models).all():
-        names.update(values or [])
-    return ['通用', *sorted(names - {'通用'})]
+    return [row.name for row in db.query(models.ProductVehicleModel).filter(
+        models.ProductVehicleModel.is_active.is_(True)
+    ).order_by(models.ProductVehicleModel.name).all()]
 
 
-@router.post('/admin/vehicle-models', response_model=str, summary='新增商品適用車種')
+@router.get('/admin/vehicle-models/manage', summary='車種管理列表')
+def manage_vehicle_models(db: Session = Depends(get_db), admin=Depends(require_admin)):
+    return [{"id": row.id, "name": row.name, "is_active": row.is_active}
+            for row in db.query(models.ProductVehicleModel).order_by(models.ProductVehicleModel.name).all()]
+
+
+@router.patch('/admin/vehicle-models/{model_id}', summary='修改或停用車種')
+def update_vehicle_model(model_id: int, data: product_schema.VehicleModelUpdate,
+                         db: Session = Depends(get_db), admin=Depends(require_manager_admin)):
+    row = db.get(models.ProductVehicleModel, model_id)
+    if not row:
+        raise HTTPException(status_code=404, detail='找不到車種')
+    changes = data.model_dump(exclude_unset=True)
+    if any(value is None for value in changes.values()):
+        raise HTTPException(status_code=422, detail='車種名稱與啟用狀態不可為空')
+    for key, value in changes.items():
+        setattr(row, key, value)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail='車種名稱已存在')
+    return {"id": row.id, "name": row.name, "is_active": row.is_active}
+
+
+@router.post('/admin/vehicle-models', response_model=str, summary='新增共用車種')
 def create_product_vehicle_model(
     data: product_schema.ProductVehicleModelCreate,
     db: Session = Depends(get_db),
-    admin=Depends(require_manager_admin),
+    admin=Depends(require_admin),
 ):
     existing = db.query(models.ProductVehicleModel).filter(models.ProductVehicleModel.name == data.name).first()
     if existing:
+        if not existing.is_active:
+            raise HTTPException(status_code=409, detail="此車種已停用，請主管重新啟用")
         return existing.name
     option = models.ProductVehicleModel(name=data.name)
     db.add(option)
@@ -404,6 +425,8 @@ def create_product_vehicle_model(
         db.rollback()
         existing = db.query(models.ProductVehicleModel).filter(models.ProductVehicleModel.name == data.name).first()
         if existing:
+            if not existing.is_active:
+                raise HTTPException(status_code=409, detail="此車種已停用，請主管重新啟用")
             return existing.name
         raise
     return option.name

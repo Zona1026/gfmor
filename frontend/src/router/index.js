@@ -138,6 +138,12 @@ const routes = [
         meta: { title: '客戶 / 會員管理' }
       },
       {
+        path: 'vehicle-models',
+        name: 'AdminVehicleModels',
+        component: () => import('../views/admin/VehicleModels.vue'),
+        meta: { title: '車種管理' }
+      },
+      {
         path: 'new-vehicles',
         name: 'AdminNewVehicles',
         component: AdminNewVehicles,
