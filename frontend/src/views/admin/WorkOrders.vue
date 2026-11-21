@@ -175,8 +175,9 @@
               <label>服務類型<select v-model="createForm.service_type"><option v-for="(label, value) in serviceTypeMap" :key="value" :value="value">{{ label }}</option></select></label>
               <label>
                 接單者
-                <select v-model="createForm.responsible_staff" required>
-                  <option v-for="name in receivingStaffOptions" :key="name" :value="name">{{ name }}</option>
+                <select v-model="createForm.responsible_staff_id" required>
+                  <option :value="null" disabled>請選擇接單者</option>
+                  <option v-for="staff in responsibleStaffOptions" :key="staff.id" :value="staff.id">{{ staff.name }}</option>
                 </select>
               </label>
               <label>施工者<select v-model="createForm.technician"><option v-for="name in technicianOptions" :key="name" :value="name">{{ name }}</option></select></label>
@@ -342,9 +343,9 @@
               <label>服務類型<select v-model="detailForm.service_type" :disabled="!canEditWorkOrder"><option v-for="(label, value) in serviceTypeMap" :key="value" :value="value">{{ label }}</option></select></label>
               <label>
                 接單者
-                <select v-model="detailForm.responsible_staff" :disabled="!canEditWorkOrder">
-                  <option v-if="detailForm.responsible_staff && !receivingStaffOptions.includes(detailForm.responsible_staff)" :value="detailForm.responsible_staff" disabled>{{ detailForm.responsible_staff }}（原紀錄）</option>
-                  <option v-for="name in receivingStaffOptions" :key="name" :value="name">{{ name }}</option>
+                <select v-model="detailForm.responsible_staff_id" :disabled="!canEditWorkOrder">
+                  <option v-if="!detailForm.responsible_staff_id" :value="null" disabled>{{ detailForm.responsible_staff || '請選擇接單者' }}（原紀錄）</option>
+                  <option v-for="staff in responsibleStaffOptions" :key="staff.id" :value="staff.id">{{ staff.name }}</option>
                 </select>
               </label>
               <label>施工者<select v-model="detailForm.technician" :disabled="!canEditWorkOrder"><option :value="null">未填寫</option><option v-for="name in technicianOptions" :key="name" :value="name">{{ name }}</option></select></label>
@@ -685,6 +686,7 @@ import {
   deleteWorkOrder,
   getCustomerDetail,
   getGuestCustomers,
+  getAdmins,
   getWorkOrder,
   getWorkOrders,
   searchUsersByName,
@@ -706,6 +708,7 @@ const loading = ref(false);
 const saving = ref(false);
 const workOrders = ref([]);
 const products = ref([]);
+const staffAdmins = ref([]);
 const serviceTypeFilter = ref('');
 const statusFilter = ref('');
 const searchKeyword = ref('');
@@ -715,7 +718,7 @@ const workOrderManagerRoles = ['最高級', '管理層'];
 const responsibleStaffAliases = {
   火腿: '江子暢'
 };
-const receivingStaffOptions = ['江子暢', '林書宇', '老闆'];
+const defaultResponsibleStaffUsername = 'HAM-9999';
 const technicianOptions = ['江子暢', '林書宇', '老闆'];
 const paymentMethodOptions = ['現金', '轉帳', 'Linepay'];
 const canCreateWorkOrder = computed(() => ['最高級', '管理層', '一般'].includes(adminUser.value?.role));
@@ -898,6 +901,15 @@ const canSubmitRefund = computed(() => Boolean(
 ));
 const lineItemEditingLocked = computed(() => supervisorReviewLocked.value);
 const membershipSelectionLocked = computed(() => supervisorReviewLocked.value);
+const responsibleStaffOptions = computed(() => {
+  return staffAdmins.value
+    .map(admin => ({
+      id: admin.id,
+      name: staffDisplayName(admin)
+    }))
+    .filter(staff => staff.id && staff.name);
+});
+
 function defaultCreateForm() {
   return {
     google_id: '',
@@ -915,7 +927,7 @@ function defaultCreateForm() {
     vehicle_purchase_date: '',
     service_type: 'MAINTENANCE',
     problem_description: '',
-    responsible_staff: '江子暢',
+    responsible_staff: '',
     responsible_staff_id: null,
     technician: '江子暢',
     scheduled_at: '',
@@ -962,11 +974,40 @@ function canonicalResponsibleStaff(name) {
   return responsibleStaffAliases[trimmedName] || trimmedName;
 }
 
+function staffDisplayName(staff) {
+  if (!staff) return '';
+  return staff.full_name || staff.username || '';
+}
+
+function staffNameById(staffId) {
+  const staff = staffAdmins.value.find(item => item.id === staffId);
+  return staffDisplayName(staff);
+}
+
+function staffIdByName(name) {
+  const canonicalName = canonicalResponsibleStaff(name);
+  const staff = staffAdmins.value.find(item =>
+    staffDisplayName(item) === canonicalName || item.username === canonicalName
+  );
+  return staff?.id || null;
+}
+
+function defaultResponsibleStaffId() {
+  return staffAdmins.value.find(item => item.username === defaultResponsibleStaffUsername)?.id
+    || responsibleStaffOptions.value[0]?.id
+    || null;
+}
+
+function applyDefaultResponsibleStaff(form) {
+  if (!form.responsible_staff_id) {
+    form.responsible_staff_id = defaultResponsibleStaffId();
+  }
+  form.responsible_staff = staffNameById(form.responsible_staff_id) || form.responsible_staff || '';
+}
+
 function workOrderResponsibleStaffName(workOrder) {
-  return canonicalResponsibleStaff(workOrder.responsible_staff)
-    || workOrder.responsible_staff_admin?.full_name
-    || workOrder.responsible_staff_admin?.username
-    || '';
+  return staffDisplayName(workOrder.responsible_staff_admin)
+    || canonicalResponsibleStaff(workOrder.responsible_staff);
 }
 
 function normalizeWorkOrderResponsibleStaff(workOrder) {
@@ -1047,10 +1088,21 @@ const fetchProducts = async () => {
   }
 };
 
+const fetchStaffAdmins = async () => {
+  try {
+    staffAdmins.value = await getAdmins();
+    applyDefaultResponsibleStaff(createForm.value);
+  } catch (error) {
+    console.error('載入接單者帳號失敗:', error);
+    staffAdmins.value = [];
+  }
+};
+
 const openCreateModal = () => {
   createMode.value = 'normal';
   showCreateModal.value = true;
   fetchProducts();
+  fetchStaffAdmins();
 };
 
 const openHistoricalCreateModal = () => {
@@ -1063,6 +1115,7 @@ const openHistoricalCreateModal = () => {
   ];
   showCreateModal.value = true;
   fetchProducts();
+  fetchStaffAdmins();
 };
 
 const closeCreateModal = () => {
@@ -1348,7 +1401,7 @@ const validateCreateRequiredFields = () => {
   if (!hasText(createForm.value.vehicle_license_plate)) return '車牌為必填';
   if (!hasText(createForm.value.vehicle_model)) return '車種為必填';
   if (!hasMileageValue(createForm.value.vehicle_mileage)) return '里程為必填';
-  if (!receivingStaffOptions.includes(createForm.value.responsible_staff)) return '請選擇接單者';
+  if (!createForm.value.responsible_staff_id) return '請選擇接單者';
   if (createMode.value === 'historical') {
     if (!hasText(createForm.value.ordered_date)) return '接單日期為必填';
     if (!hasText(createForm.value.completed_date)) return '完工日為必填';
@@ -1370,8 +1423,8 @@ const submitCreateWorkOrder = async () => {
   try {
     const payload = {
       ...createForm.value,
-      responsible_staff: createForm.value.responsible_staff,
-      responsible_staff_id: null,
+      responsible_staff: staffNameById(createForm.value.responsible_staff_id),
+      responsible_staff_id: createForm.value.responsible_staff_id,
       vehicle_mileage: Number(createForm.value.vehicle_mileage),
       vehicle_purchase_date: createForm.value.vehicle_purchase_date || null,
       scheduled_at: createForm.value.scheduled_at || null,
@@ -1423,6 +1476,7 @@ const openDetail = async (id) => {
     detailLineItems.value = [];
     await Promise.all([
       fetchProducts(),
+      fetchStaffAdmins(),
       fetchDetailVehicleOptions(workOrder, isCurrent)
     ]);
     if (!isCurrent()) return;
@@ -1443,7 +1497,7 @@ const openDetail = async (id) => {
       problem_description: workOrder.problem_description || '',
       inspection_result: workOrder.inspection_result || '',
       responsible_staff: workOrderResponsibleStaffName(workOrder),
-      responsible_staff_id: workOrder.responsible_staff_id || null,
+      responsible_staff_id: workOrder.responsible_staff_id || staffIdByName(workOrder.responsible_staff) || null,
       scheduled_at: toDatetimeLocal(workOrder.scheduled_at),
       ordered_date: workOrder.ordered_date || workOrder.consumption_date || '',
       notes: workOrder.notes || ''
@@ -1514,13 +1568,13 @@ const saveWorkOrder = async () => {
   try {
     const payload = {
       ...detailForm.value,
-      responsible_staff: detailForm.value.responsible_staff,
-      responsible_staff_id: null,
+      responsible_staff: staffNameById(detailForm.value.responsible_staff_id),
+      responsible_staff_id: detailForm.value.responsible_staff_id,
       vehicle_mileage: Number(detailForm.value.vehicle_mileage),
       scheduled_at: detailForm.value.scheduled_at || null
     };
-    if (payload.responsible_staff === selectedWorkOrder.value.responsible_staff) {
-      // Keep legacy records as recorded unless the receiving person is changed.
+    if (!payload.responsible_staff_id) {
+      // Preserve legacy text when no account has been selected.
       delete payload.responsible_staff;
       delete payload.responsible_staff_id;
     }

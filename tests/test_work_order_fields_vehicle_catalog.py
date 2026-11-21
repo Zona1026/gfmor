@@ -57,38 +57,35 @@ class WorkOrderFieldsVehicleCatalogTest(unittest.TestCase):
         with self.assertRaises(ValidationError):
             WorkOrderUpdate(technician='other')
 
-    def test_fixed_receiving_people_never_link_to_matching_accounts(self):
-        for index, name in enumerate(['江子暢', '林書宇', '老闆']):
-            self.db.add(models.Admin(username=f'receiver-{index}', full_name=name,
-                                     role='最高級', hashed_password='not-used'))
-        self.db.commit()
-        for name in ['江子暢', '林書宇', '老闆']:
-            with self.subTest(name=name):
+    def test_receiving_person_links_to_accounts_independently_of_technician(self):
+        for index, (name, role) in enumerate([('江子暢', '一般'), ('林侑羽', '最高級'), ('老闆/闆娘', '管理層')]):
+            with self.subTest(role=role):
+                account = models.Admin(username=f'receiver-{index}', full_name=name,
+                                       role=role, hashed_password='not-used')
+                self.db.add(account)
+                self.db.commit()
                 order = crud.create_work_order(self.db, WorkOrderCreate(
                     google_id='member', motor_id=self.motor.id, vehicle_mileage=1500,
-                    responsible_staff=name, responsible_staff_id=None))
+                    responsible_staff_id=account.id))
+                self.assertEqual(order.responsible_staff_id, account.id)
                 self.assertEqual(order.responsible_staff, name)
-                self.assertIsNone(order.responsible_staff_id)
-                self.assertIsNone(order.responsible_staff_admin)
-        updated = crud.update_work_order(self.db, order.id, WorkOrderUpdate(
-            responsible_staff='江子暢', responsible_staff_id=None))
-        self.assertEqual(updated.responsible_staff, '江子暢')
-        self.assertIsNone(updated.responsible_staff_id)
+                self.assertEqual(order.technician, '江子暢')
+                updated = crud.update_work_order(self.db, order.id, WorkOrderUpdate(technician='林書宇'))
+                self.assertEqual(updated.responsible_staff_id, account.id)
+                self.assertEqual(updated.technician, '林書宇')
 
-    def test_legacy_account_link_is_preserved_until_receiving_person_is_changed(self):
-        account = models.Admin(username='legacy', full_name='舊接單者',
-                               role='一般', hashed_password='not-used')
-        self.db.add(account)
+    def test_receiving_person_can_switch_accounts_without_changing_technician(self):
+        first = models.Admin(username='first', full_name='江子暢', role='一般', hashed_password='not-used')
+        second = models.Admin(username='second', full_name='林侑羽', role='最高級', hashed_password='not-used')
+        self.db.add_all([first, second])
         self.db.commit()
         order = crud.create_work_order(self.db, WorkOrderCreate(
             google_id='member', motor_id=self.motor.id, vehicle_mileage=1500,
-            responsible_staff_id=account.id))
-        updated = crud.update_work_order(self.db, order.id, WorkOrderUpdate(notes='保留原紀錄'))
-        self.assertEqual(updated.responsible_staff_id, account.id)
-        updated = crud.update_work_order(self.db, order.id, WorkOrderUpdate(
-            responsible_staff='老闆', responsible_staff_id=None))
-        self.assertEqual(updated.responsible_staff, '老闆')
-        self.assertIsNone(updated.responsible_staff_id)
+            responsible_staff_id=first.id, technician='老闆'))
+        updated = crud.update_work_order(self.db, order.id, WorkOrderUpdate(responsible_staff_id=second.id))
+        self.assertEqual(updated.responsible_staff_id, second.id)
+        self.assertEqual(updated.responsible_staff, '林侑羽')
+        self.assertEqual(updated.technician, '老闆')
 
     def test_vehicle_snapshot_edits_survive_selection_without_changing_member_vehicle(self):
         order = self.create()
