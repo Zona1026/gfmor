@@ -1175,6 +1175,7 @@ def create_work_order(db: Session, work_order: WorkOrderCreate):
         technician=work_order.technician,
         scheduled_at=work_order.scheduled_at,
         ordered_date=ordered_date,
+        completed_date_override=work_order.completed_date,
         consumption_date=work_order.consumption_date or ordered_date,
         notes=work_order.notes,
         line_items=line_items,
@@ -1329,10 +1330,8 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
     if create_schedule and db_work_order.supervisor_reviewed_at:
         raise ValueError("主管已審核，不能修改車輛資料")
     if "completed_date" in work_order_update.model_fields_set:
-        if completed_date is None:
+        if completed_date is None and db_work_order.completed_at:
             raise ValueError("完工日期不可清空")
-        if not db_work_order.completed_at:
-            raise ValueError("未完工的工單不可更正完工日期")
 
     if "ordered_date" in update_data and update_data["ordered_date"] is None:
         raise ValueError("訂購日不可為空")
@@ -1526,7 +1525,7 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
         vehicle.purchase_date = purchase_date or vehicle.purchase_date
         new_vehicle_service.ensure_maintenance_schedule(db, vehicle)
     # Keep the actual completion timestamp as the ledger/points basis.
-    if completed_date is not None:
+    if "completed_date" in work_order_update.model_fields_set:
         db_work_order.completed_date_override = completed_date
     db.add(db_work_order)
     db.commit()

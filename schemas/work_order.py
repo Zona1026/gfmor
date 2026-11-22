@@ -306,6 +306,7 @@ class WorkOrderBase(BaseModel):
 
 
 class WorkOrderCreate(WorkOrderBase):
+    completed_date: Optional[date] = None
     technician: Literal["江子暢", "林書宇", "老闆"] = "江子暢"
     line_items: List[WorkOrderLineItemCreate] = Field(default_factory=list)
     # Backward-compatible payload used by the previous appointment conversion UI.

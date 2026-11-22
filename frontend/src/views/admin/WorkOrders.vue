@@ -170,7 +170,7 @@
             <div class="form-grid compact-basic-grid">
               <label>接單日期<input v-model="createForm.ordered_date" type="date" required /></label>
               <label>預約日期<input v-model="createForm.scheduled_at" type="datetime-local" /></label>
-              <label v-if="createMode === 'normal'">完工日期<input type="text" value="完工時自動帶入，可於完工後更正" disabled /></label>
+              <label v-if="createMode === 'normal'">完工日期<input v-model="createForm.completed_date" type="date" /></label>
               <label v-else>完工日期<input v-model="createForm.completed_date" type="date" :max="todayDateString()" required /></label>
               <label>服務類型<select v-model="createForm.service_type"><option v-for="(label, value) in serviceTypeMap" :key="value" :value="value">{{ label }}</option></select></label>
               <label>
@@ -339,7 +339,7 @@
             <div class="form-grid compact-basic-grid">
               <label>接單日期<input v-model="detailForm.ordered_date" type="date" required :disabled="!canEditWorkOrder" /></label>
               <label>預約日期<input v-model="detailForm.scheduled_at" type="datetime-local" :disabled="!canEditWorkOrder" /></label>
-              <label>完工日期<input v-model="detailForm.completed_date" type="date" :disabled="!canEditWorkOrder || !selectedWorkOrder.completed_at" /></label>
+              <label>完工日期<input v-model="detailForm.completed_date" type="date" :disabled="!canEditWorkOrder" /></label>
               <label>服務類型<select v-model="detailForm.service_type" :disabled="!canEditWorkOrder"><option v-for="(label, value) in serviceTypeMap" :key="value" :value="value">{{ label }}</option></select></label>
               <label>
                 接單者
@@ -932,7 +932,7 @@ function defaultCreateForm() {
     technician: '江子暢',
     scheduled_at: '',
     ordered_date: todayDateString(),
-    completed_date: todayDateString(),
+    completed_date: '',
     paid_date: todayDateString(),
     payment_method: '',
     payment_note: '',
@@ -1109,6 +1109,7 @@ const openHistoricalCreateModal = () => {
   createMode.value = 'historical';
   createSource.value = 'member';
   createForm.value = defaultCreateForm();
+  createForm.value.completed_date = todayDateString();
   createLineItems.value = [
     { ...defaultLineItem(), counts_toward_membership: true },
     { ...defaultLineItem(), counts_toward_membership: true }
@@ -1423,6 +1424,7 @@ const submitCreateWorkOrder = async () => {
   try {
     const payload = {
       ...createForm.value,
+      completed_date: createForm.value.completed_date || null,
       responsible_staff: staffNameById(createForm.value.responsible_staff_id),
       responsible_staff_id: createForm.value.responsible_staff_id,
       vehicle_mileage: Number(createForm.value.vehicle_mileage),
@@ -1578,7 +1580,8 @@ const saveWorkOrder = async () => {
       delete payload.responsible_staff;
       delete payload.responsible_staff_id;
     }
-    if (!payload.completed_date || payload.completed_date === completionDateValue(selectedWorkOrder.value)) delete payload.completed_date;
+    if ((payload.completed_date || '') === completionDateValue(selectedWorkOrder.value)) delete payload.completed_date;
+    else payload.completed_date = payload.completed_date || null;
     payload.vehicle_purchase_date = payload.vehicle_purchase_date || null;
     if (supervisorReviewLocked.value) {
       delete payload.vehicle_is_new;

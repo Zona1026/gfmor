@@ -25,6 +25,7 @@ function harness() {
     supervisorReviewLocked: ref(true), membershipSelectionLocked: ref(true),
     originalDetailRedeemedPoints: ref(0),
     normalizeWorkOrderResponsibleStaff: value => value,
+    completionDateValue: order => order.completed_date_override || '',
     getErrorMessage: error => error.message, alert: message => alerts.push(message),
     fetchWorkOrders: async () => {}, fetchDetailVehicleOptions: async () => {},
     staffNameById: () => 'Staff', showRewardQrIfOilItems: () => false,
@@ -78,6 +79,27 @@ for (const action of ['saveSort', 'saveOrder']) {
     await pending;
     assert.deepEqual(h.alerts, []);
     assert.equal(h.context.saving.value, false);
+  });
+}
+
+for (const [original, entered, expected] of [
+  ['', '2026-12-01', '2026-12-01'],
+  ['2026-12-01', '', null],
+  ['2026-12-01', '2026-12-01', undefined],
+  ['', '', undefined]
+]) {
+  test(`unfinished completion date save: ${original || 'empty'} -> ${entered || 'empty'}`, async () => {
+    const h = harness();
+    h.context.selectedWorkOrder.value.completed_date_override = original;
+    h.context.detailForm.value.completed_date = entered;
+    const pending = h.context.saveOrder();
+    const payload = h.calls.find(call => call[0] === 'update')[2];
+    assert.equal(payload.completed_date, expected);
+    assert.equal(Object.hasOwn(payload, 'completed_date'), expected !== undefined);
+    h.context.switchOrder(null);
+    h.request.resolve({ id: 42 });
+    await pending;
+    assert.deepEqual(h.alerts, []);
   });
 }
 

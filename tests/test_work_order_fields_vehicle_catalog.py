@@ -126,10 +126,52 @@ class WorkOrderFieldsVehicleCatalogTest(unittest.TestCase):
         crud.update_work_order(self.db, order.id, WorkOrderUpdate(notes='Later save'))
         self.assertEqual(_work_order_point_date(updated), actual)
 
-    def test_unfinished_order_cannot_set_completion_date(self):
+    def test_new_order_accepts_manual_completion_date_without_completing_order(self):
+        order = self.create(completed_date=date(2026, 12, 1))
+        self.assertEqual(order.completed_date_override, date(2026, 12, 1))
+        self.assertIsNone(order.completed_at)
+        self.assertNotEqual(order.status, models.WorkOrderStatus.COMPLETED)
+        self.assertEqual(self.db.query(models.PointTransaction).count(), 0)
+
+    def test_unfinished_order_can_set_change_and_clear_completion_date(self):
         order = self.create()
-        with self.assertRaisesRegex(ValueError, '未完工'):
-            crud.update_work_order(self.db, order.id, WorkOrderUpdate(completed_date=date(2026, 10, 9)))
+        consumption_date = order.consumption_date
+        for value in [date(2026, 10, 9), date(2026, 12, 1), None]:
+            with self.subTest(value=value):
+                updated = crud.update_work_order(self.db, order.id, WorkOrderUpdate(completed_date=value))
+                self.assertEqual(updated.completed_date_override, value)
+                self.assertIsNone(updated.completed_at)
+                self.assertEqual(updated.consumption_date, consumption_date)
+
+    def test_completed_order_still_rejects_empty_completion_date(self):
+        order = self.create()
+        order.completed_at = datetime(2026, 10, 10, 12)
+        self.db.commit()
+        with self.assertRaisesRegex(ValueError, '完工日期不可清空'):
+            crud.update_work_order(self.db, order.id, WorkOrderUpdate(completed_date=None))
+
+    def test_unrelated_save_preserves_manual_completion_date(self):
+        order = self.create(completed_date=date(2026, 10, 9))
+        updated = crud.update_work_order(self.db, order.id, WorkOrderUpdate(notes='Keep date'))
+        self.assertEqual(updated.completed_date_override, date(2026, 10, 9))
+
+    def test_actual_completion_keeps_manual_display_date_and_uses_actual_point_date(self):
+        from db.points import _work_order_point_date
+        for manual in [None, date(2026, 10, 9)]:
+            with self.subTest(manual=manual):
+                order = self.create(completed_date=manual)
+                actual = datetime(2026, 10, 10, 12)
+                crud._mark_work_order_completed(order, actual)
+                self.assertEqual(order.completed_date_override, manual)
+                self.assertEqual(order.completed_at, actual)
+                self.assertEqual(order.consumption_date, date(2026, 10, 10))
+                self.assertEqual(_work_order_point_date(order), actual)
+
+    def test_invalid_manual_completion_date_is_rejected(self):
+        for schema in [WorkOrderCreate, WorkOrderUpdate]:
+            with self.subTest(schema=schema):
+                with self.assertRaises(ValidationError):
+                    schema(completed_date='2026-02-30')
 
     def test_member_and_guest_schedules_are_idempotent(self):
         order = self.create(vehicle_is_new=True)

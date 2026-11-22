@@ -28,6 +28,7 @@ function harness() {
     fetchStaffAdmins: async () => {}, fetchDetailVehicleOptions: async () => {},
     workOrderResponsibleStaffName: () => 'Staff', staffIdByName: () => 1,
     defaultResponsibleStaffId: () => 1, toDatetimeLocal: value => value,
+    completionDateValue: order => order.completed_date_override || '',
     closeDeleteModal() {}, closeReopenModal() {}, closeRefundModal() {},
     alert: message => alerts.push(message), getErrorMessage: error => error.message,
     console: { error() {} }, authStore: { adminLogout() {} }, router: { push() {} },
@@ -89,6 +90,17 @@ test('a current request failure still shows an error and ends loading', async ()
   await pending;
   assert.deepEqual(h.alerts, ['讀取工單失敗：Connection failed']);
   assert.equal(h.context.detailLoading.value, false);
+});
+
+test('loading an unfinished work order preserves its manually entered completion date', async () => {
+  const h = harness();
+  const pending = h.context.open(36);
+  h.reads.get(36).resolve({ id: 36, completed_date_override: '2026-12-01', completed_at: null });
+  await setImmediate();
+  h.products[0].resolve();
+  await pending;
+  assert.equal(h.context.detailForm.value.completed_date, '2026-12-01');
+  assert.deepEqual(h.alerts, []);
 });
 
 test('late vehicle data cannot restore a closed work order selection', async () => {
