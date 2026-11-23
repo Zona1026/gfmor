@@ -316,7 +316,8 @@
           <section class="form-section">
             <h4>基本資料</h4>
             <div class="work-order-customer-vehicle">
-              <WorkOrderCustomerFields :key="selectedWorkOrder.id" :work-order="selectedWorkOrder" :disabled="!canEditWorkOrder" @saved="customerInfoSaved" />
+              <WorkOrderCustomerFields :key="selectedWorkOrder.id" :work-order="selectedWorkOrder" :disabled="!canEditWorkOrder" @saved="customerInfoSaved">
+              <label>車輛
               <select
                 v-model.number="detailVehicleId"
                 aria-label="工單車輛"
@@ -329,6 +330,8 @@
                   {{ vehicle.license_plate }} / {{ vehicle.brand || '-' }} {{ vehicle.model_name || '' }}
                 </option>
               </select>
+              </label>
+              </WorkOrderCustomerFields>
             </div>
             <div v-if="selectedWorkOrder.is_historical_backfill" class="backfill-audit">
               <strong>補登紀錄</strong>
@@ -2242,13 +2245,15 @@ watch(
 
   .work-order-customer-vehicle {
     display: flex;
-    align-items: center;
+    align-items: end;
     flex-wrap: wrap;
     gap: 0.35rem;
     margin-top: 0.3rem;
     color: $text-secondary;
 
     select {
+      height: 40px;
+      box-sizing: border-box;
       min-width: 220px;
       max-width: min(420px, 70vw);
       padding: 0.3rem 0.45rem;

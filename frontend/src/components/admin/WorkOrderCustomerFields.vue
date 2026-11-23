@@ -3,6 +3,7 @@
     <label>客人姓名<input v-model.trim="name" aria-label="工單客人姓名" :maxlength="workOrder.google_id || workOrder.booking?.user ? 10 : 50" :disabled="disabled || saving || !!workOrder.deleted_at" /></label>
     <label>客人電話<input v-model.trim="phone" aria-label="工單客人電話" type="tel" :maxlength="workOrder.google_id || workOrder.booking?.user ? 10 : 20" :disabled="disabled || saving || !!workOrder.deleted_at" /></label>
     <button v-if="!disabled && !workOrder.deleted_at" type="button" :disabled="saving || !changed" @click="save">{{ saving ? '儲存中…' : '儲存客人資訊' }}</button>
+    <slot />
     <small v-if="error" role="alert">{{ error }}</small>
     <small v-else-if="message" role="status">{{ message }}</small>
   </div>
@@ -44,12 +45,12 @@ async function save() {
 }
 </script>
 <style scoped>
-.customer-fields { display: flex; align-items: end; flex-wrap: wrap; gap: .5rem; }
+.customer-fields { display: flex; align-items: end; flex-wrap: wrap; gap: .5rem; min-width: 0; width: 100%; }
 label { display: grid; gap: .35rem; color: #bdbdbd; font-size: .88rem; }
-input { width: 160px; max-width: 100%; min-width: 0; box-sizing: border-box; padding: .5rem; border: 1px solid #424242; border-radius: 8px; background: #212121; color: #eee; font: inherit; }
+input { width: 160px; height: 40px; max-width: 100%; min-width: 0; box-sizing: border-box; padding: .5rem; border: 1px solid #424242; border-radius: 8px; background: #212121; color: #eee; font: inherit; }
 input:focus { outline: 2px solid #ef5350; outline-offset: 1px; }
 input:disabled { opacity: .65; }
-button { min-height: 36px; padding: .5rem; border: 1px solid #ef5350; border-radius: 6px; background: transparent; color: #ef5350; cursor: pointer; }
+button { height: 40px; box-sizing: border-box; padding: .5rem; border: 1px solid #ef5350; border-radius: 6px; background: transparent; color: #ef5350; cursor: pointer; }
 button:disabled { opacity: .5; cursor: default; }
 small { flex-basis: 100%; color: #bdbdbd; }
 [role=alert] { color: #ffb4ab; }
