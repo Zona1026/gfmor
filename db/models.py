@@ -377,6 +377,7 @@ class ProductVehicleModel(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(200), nullable=False, unique=True)
+    brand_type = Column(String(200), nullable=True, comment="廠牌型式")
     is_active = Column(Boolean, nullable=False, default=True, server_default="1")
 
 
@@ -642,6 +643,7 @@ class WorkOrder(Base):
     customer_phone = Column(String(20), nullable=True)
     vehicle_license_plate = Column(String(45), nullable=True, index=True)
     vehicle_brand = Column(String(45), nullable=True)
+    vehicle_brand_type = Column(String(200), nullable=True)
     vehicle_model = Column(String(200), nullable=True)
     vehicle_vin = Column(String(45), nullable=True)
     vehicle_mileage = Column(Integer, nullable=True)

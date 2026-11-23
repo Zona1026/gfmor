@@ -4,19 +4,21 @@
     <p>工單與商品共用車種選單。自由填寫的工單車種不會自動加入。</p>
     <form class="toolbar" @submit.prevent="add">
       <input v-model.trim="newName" aria-label="新車種名稱" placeholder="輸入新車種" maxlength="200" required />
+      <input v-model.trim="newBrandType" aria-label="新車種廠牌型式" placeholder="廠牌型式（選填）" maxlength="200" />
       <button class="btn btn-primary" :disabled="busy || !newName">新增車種</button>
       <button class="btn btn-outline" type="button" :disabled="busy" @click="load">重新整理</button>
     </form>
     <p v-if="error" role="alert">{{ error }}</p>
     <p v-if="loading" role="status">載入中…</p>
     <div v-else class="table-scroll">
-      <table><thead><tr><th>車種名稱</th><th>狀態</th><th v-if="canManage">操作</th></tr></thead>
+      <table><thead><tr><th>車種名稱</th><th>廠牌型式</th><th>狀態</th><th v-if="canManage">操作</th></tr></thead>
         <tbody><tr v-for="row in rows" :key="row.id">
           <td><input v-if="canManage" v-model.trim="row.draftName" :aria-label="`車種名稱 ${row.name}`" maxlength="200" /><span v-else>{{ row.name }}</span></td>
+          <td><input v-if="canManage" v-model.trim="row.draftBrandType" :aria-label="`廠牌型式 ${row.name}`" maxlength="200" /><span v-else>{{ row.brand_type || '—' }}</span></td>
           <td>{{ row.is_active ? '啟用' : '停用' }}</td>
           <td v-if="canManage">
             <div class="actions">
-            <button class="btn btn-outline" :disabled="busy || !row.draftName || row.draftName === row.name" @click="save(row, { name: row.draftName })">儲存名稱</button>
+            <button class="btn btn-outline" :disabled="busy || !row.draftName || (row.draftName === row.name && row.draftBrandType === (row.brand_type || ''))" @click="save(row, { name: row.draftName, brand_type: row.draftBrandType || null })">儲存</button>
             <button class="btn btn-outline" :disabled="busy" @click="save(row, { is_active: !row.is_active })">{{ row.is_active ? '停用' : '啟用' }}</button>
             </div>
           </td>
@@ -33,23 +35,28 @@ import { useAuthStore } from '../../store/auth';
 import { createProductVehicleModel, getVehicleModelManagement, updateVehicleModel } from '../../api/admin';
 const auth = useAuthStore();
 const canManage = computed(() => ['管理層', '最高級'].includes(auth.adminUser?.role));
-const rows = ref([]), newName = ref(''), busy = ref(false), loading = ref(false), error = ref('');
+const rows = ref([]), newName = ref(''), newBrandType = ref(''), busy = ref(false), loading = ref(false), error = ref('');
 async function load() {
   loading.value = true;
   error.value = '';
-  try { rows.value = (await getVehicleModelManagement()).map(row => ({ ...row, draftName: row.name })); }
+  try { rows.value = (await getVehicleModelManagement()).map(row => ({ ...row, draftName: row.name, draftBrandType: row.brand_type || '' })); }
   catch (e) { error.value = e.response?.data?.detail || '載入車種失敗，請重新整理。'; }
   finally { loading.value = false; }
 }
 async function add() {
   busy.value = true; error.value = '';
-  try { await createProductVehicleModel(newName.value); newName.value = ''; await load(); }
+  try { await createProductVehicleModel(newName.value, newBrandType.value || null); newName.value = ''; newBrandType.value = ''; await load(); }
   catch (e) { error.value = e.response?.data?.detail || '新增車種失敗。'; }
   finally { busy.value = false; }
 }
 async function save(row, changes) {
   busy.value = true; error.value = '';
-  try { const saved = await updateVehicleModel(row.id, changes); Object.assign(row, saved, { draftName: saved.name }); }
+  try {
+    const saved = await updateVehicleModel(row.id, changes);
+    Object.assign(row, saved);
+    if ('name' in changes) row.draftName = saved.name;
+    if ('brand_type' in changes) row.draftBrandType = saved.brand_type || '';
+  }
   catch (e) { error.value = e.response?.data?.detail || '儲存車種失敗。'; }
   finally { busy.value = false; }
 }

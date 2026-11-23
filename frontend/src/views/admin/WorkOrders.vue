@@ -181,7 +181,7 @@
                 </select>
               </label>
               <label>施工者<select v-model="createForm.technician"><option v-for="name in technicianOptions" :key="name" :value="name">{{ name }}</option></select></label>
-              <label>廠牌<input v-model.trim="createForm.vehicle_brand" maxlength="45" /></label>
+              <div class="vehicle-brand-cell"><WorkOrderVehicleBrandFields v-model:brand="createForm.vehicle_brand" v-model:brand-type="createForm.vehicle_brand_type" /></div>
               <label><span>車種 <span class="required-mark">*</span></span><VehicleModelInput v-model="createForm.vehicle_model" required /></label>
               <label><span>車牌 <span class="required-mark">*</span></span><input v-model.trim="createForm.vehicle_license_plate" maxlength="45" required /></label>
               <label><span>行駛里程 <span class="required-mark">*</span></span><input v-model.number="createForm.vehicle_mileage" type="number" min="0" required /></label>
@@ -316,7 +316,7 @@
           <section class="form-section">
             <h4>基本資料</h4>
             <div class="work-order-customer-vehicle">
-              <span>{{ selectedWorkOrder.customer_name }} /</span>
+              <WorkOrderCustomerFields :key="selectedWorkOrder.id" :work-order="selectedWorkOrder" :disabled="!canEditWorkOrder" @saved="customerInfoSaved" />
               <select
                 v-model.number="detailVehicleId"
                 aria-label="工單車輛"
@@ -349,7 +349,7 @@
                 </select>
               </label>
               <label>施工者<select v-model="detailForm.technician" :disabled="!canEditWorkOrder"><option :value="null">未填寫</option><option v-for="name in technicianOptions" :key="name" :value="name">{{ name }}</option></select></label>
-              <label>廠牌<input v-model.trim="detailForm.vehicle_brand" maxlength="45" :disabled="!canEditWorkOrder || supervisorReviewLocked" /></label>
+              <div class="vehicle-brand-cell"><WorkOrderVehicleBrandFields v-model:brand="detailForm.vehicle_brand" v-model:brand-type="detailForm.vehicle_brand_type" :disabled="!canEditWorkOrder || supervisorReviewLocked" /></div>
               <label><span>車種 <span class="required-mark">*</span></span><VehicleModelInput v-model="detailForm.vehicle_model" required :disabled="!canEditWorkOrder || supervisorReviewLocked" /></label>
               <label><span>車牌 <span class="required-mark">*</span></span><input v-model.trim="detailForm.vehicle_license_plate" maxlength="45" required :disabled="!canEditWorkOrder || supervisorReviewLocked" /></label>
               <label><span>行駛里程 <span class="required-mark">*</span></span><input v-model.number="detailForm.vehicle_mileage" type="number" min="0" required :disabled="!canEditWorkOrder || supervisorReviewLocked" /></label>
@@ -671,6 +671,8 @@
 
 <script setup>
 import VehicleModelInput from '../../components/admin/VehicleModelInput.vue';
+import WorkOrderVehicleBrandFields from '../../components/admin/WorkOrderVehicleBrandFields.vue';
+import WorkOrderCustomerFields from '../../components/admin/WorkOrderCustomerFields.vue';
 import WorkOrderProductPicker from '../../components/admin/WorkOrderProductPicker.vue';
 import { MANUAL_PRODUCT_CATEGORY } from '../../utils/workOrderProductPicker';
 import { getInventoryItems, previewPromotionOrder } from '../../api/admin';
@@ -920,6 +922,7 @@ function defaultCreateForm() {
     motor_id: null,
     vehicle_license_plate: '',
     vehicle_brand: '',
+    vehicle_brand_type: '',
     vehicle_model: '',
     vehicle_vin: '',
     vehicle_mileage: null,
@@ -1178,6 +1181,7 @@ const selectGuestMotor = ({ guest, motor }) => {
   if (!motor) return;
   createForm.value.vehicle_license_plate = motor.license_plate || '';
   createForm.value.vehicle_brand = motor.brand || '';
+  createForm.value.vehicle_brand_type = '';
   createForm.value.vehicle_model = motor.model_name || '';
   createForm.value.vehicle_vin = motor.vin || '';
   createForm.value.vehicle_mileage = motor.mileage ?? null;
@@ -1196,9 +1200,16 @@ const applySelectedMemberMotor = () => {
   createForm.value.motor_id = selected.motor.id;
   createForm.value.vehicle_license_plate = selected.motor.license_plate || '';
   createForm.value.vehicle_brand = selected.motor.brand || '';
+  createForm.value.vehicle_brand_type = '';
   createForm.value.vehicle_model = selected.motor.model_name || '';
   createForm.value.vehicle_vin = selected.motor.vin || '';
   createForm.value.vehicle_mileage = selected.motor.mileage ?? null;
+};
+
+const customerInfoSaved = (saved) => {
+  const info = { customer_name: saved.customer_name, customer_phone: saved.customer_phone };
+  if (selectedWorkOrder.value?.id === saved.id) Object.assign(selectedWorkOrder.value, info);
+  workOrders.value = workOrders.value.map(order => order.id === saved.id ? { ...order, ...info } : order);
 };
 
 const fetchDetailVehicleOptions = async (workOrder, isCurrent = () => true) => {
@@ -1230,6 +1241,7 @@ const applyDetailVehicle = () => {
   detailForm.value.guest_motor_id = isMember ? null : vehicle.id;
   detailForm.value.vehicle_license_plate = vehicle.license_plate || '';
   detailForm.value.vehicle_brand = vehicle.brand || '';
+  detailForm.value.vehicle_brand_type = '';
   detailForm.value.vehicle_model = vehicle.model_name || '';
   detailForm.value.vehicle_vin = vehicle.vin || '';
   detailForm.value.vehicle_mileage = vehicle.mileage ?? null;
@@ -1493,6 +1505,7 @@ const openDetail = async (id) => {
       guest_motor_id: workOrder.guest_motor_id,
       vehicle_license_plate: workOrder.vehicle_license_plate || '',
       vehicle_brand: workOrder.vehicle_brand || '',
+      vehicle_brand_type: workOrder.vehicle_brand_type || '',
       vehicle_model: workOrder.vehicle_model || '',
       vehicle_vin: workOrder.vehicle_vin || '',
       vehicle_mileage: workOrder.vehicle_mileage,
@@ -1588,6 +1601,7 @@ const saveWorkOrder = async () => {
       delete payload.vehicle_purchase_date;
       delete payload.vehicle_license_plate;
       delete payload.vehicle_brand;
+      delete payload.vehicle_brand_type;
       delete payload.vehicle_model;
       delete payload.vehicle_vin;
       delete payload.vehicle_mileage;
@@ -2279,6 +2293,8 @@ watch(
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .vehicle-brand-cell { min-width: 0; }
+
   .form-row {
     grid-column: 1 / -1;
   }
@@ -2869,7 +2885,8 @@ watch(
       border-top: 1px solid $medium-grey;
       border-left: 1px solid $medium-grey;
 
-      > label {
+      > label,
+      > .vehicle-brand-cell {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
         align-content: start;

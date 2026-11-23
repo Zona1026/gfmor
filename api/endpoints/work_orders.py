@@ -399,6 +399,23 @@ def add_work_order_payment(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
+@router.patch("/{work_order_id}/customer", response_model=work_order_schema.WorkOrder, summary="補填或修改工單客人資訊")
+def update_work_order_customer(
+    work_order_id: int,
+    customer_info: work_order_schema.WorkOrderCustomerUpdate,
+    admin=Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    try:
+        order = crud.update_work_order_customer(db, work_order_id, customer_info)
+        if order is None:
+            raise HTTPException(status_code=404, detail="找不到該工單")
+        return order
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.put("/{work_order_id}", response_model=work_order_schema.WorkOrder, summary="更新工單狀態或備註")
 def update_work_order(
     work_order_id: int, 

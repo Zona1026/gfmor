@@ -208,6 +208,115 @@ class WorkOrderFieldsVehicleCatalogTest(unittest.TestCase):
         self.db.refresh(order)
         self.assertEqual(order.vehicle_model, 'Original')
 
+    def test_vehicle_brand_options_use_existing_data_and_active_catalog(self):
+        self.motor.brand = ' SYM '
+        order = self.create(vehicle_brand='YAMAHA')
+        self.db.add_all([
+            models.GuestCustomer(name='Guest', phone='0900000000', motors=[models.GuestMotor(
+                license_plate='GUEST-02', brand='HONDA')]),
+            models.ProductVehicleModel(name='Active', brand_type='  Type A  '),
+            models.ProductVehicleModel(name='Duplicate', brand_type='Type A'),
+            models.ProductVehicleModel(name='Blank', brand_type='  '),
+            models.ProductVehicleModel(name='Disabled', brand_type='Hidden', is_active=False),
+        ])
+        self.db.commit()
+        endpoint = '/products/admin/vehicle-brand-options'
+        response = self.client.request('GET', endpoint, headers=self.headers())
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data, {'brands': ['HONDA', 'SYM', 'YAMAHA'], 'brand_types': ['Type A']})
+        self.assertIn(self.client.request('GET', endpoint).status_code, (401, 403))
+
+    def test_work_order_brand_type_snapshot_survives_changes_and_can_clear(self):
+        order = self.create(vehicle_brand_type='  Original type  ')
+        self.assertEqual(order.vehicle_brand_type, 'Original type')
+        updated = crud.update_work_order(self.db, order.id, WorkOrderUpdate(
+            motor_id=self.motor.id, vehicle_brand_type='  Edited type  '))
+        self.assertEqual(updated.vehicle_brand_type, 'Edited type')
+        crud.update_work_order(self.db, order.id, WorkOrderUpdate(notes='Unrelated save'))
+        self.assertEqual(updated.vehicle_brand_type, 'Edited type')
+        self.db.refresh(self.motor)
+        self.assertEqual(self.motor.brand, 'Original brand')
+        self.assertEqual(crud.update_work_order(self.db, order.id, WorkOrderUpdate(vehicle_brand_type='')).vehicle_brand_type, None)
+        crud.update_work_order(self.db, order.id, WorkOrderUpdate(vehicle_brand_type='Again'))
+        self.assertIsNone(crud.update_work_order(self.db, order.id, WorkOrderUpdate(vehicle_brand_type=None)).vehicle_brand_type)
+
+    def test_reviewed_order_rejects_brand_type_changes(self):
+        order = self.create(vehicle_brand_type='Original')
+        order.supervisor_reviewed_at = datetime.now()
+        self.db.commit()
+        with self.assertRaisesRegex(ValueError, '主管已審核'):
+            crud.update_work_order(self.db, order.id, WorkOrderUpdate(vehicle_brand_type='Other'))
+        for schema in (WorkOrderCreate, WorkOrderUpdate):
+            with self.assertRaises(ValidationError):
+                schema(vehicle_brand_type='x' * 201)
+
+    def test_work_order_brand_type_migration_preserves_existing_snapshot(self):
+        order = self.create(vehicle_brand='SYM', vehicle_model='Legacy')
+        order_id = order.id
+        self.db.close()
+        path = Path(__file__).resolve().parents[1] / 'migrations/versions/20261123_0036_work_order_brand_type.py'
+        spec = importlib.util.spec_from_file_location('work_order_brand_type_migration', path)
+        migration = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(migration)
+        with self.engine.begin() as connection:
+            operations = Operations(MigrationContext.configure(connection))
+            with patch.object(migration, 'op', operations):
+                migration.downgrade()
+                migration.upgrade()
+            self.assertEqual(connection.execute(text('SELECT vehicle_brand, vehicle_model, vehicle_brand_type FROM work_orders WHERE id=:id'),
+                                                {'id': order_id}).one(), ('SYM', 'Legacy', None))
+
+    def test_catalog_brand_type_create_update_clear_and_permissions(self):
+        endpoint = '/products/admin/vehicle-models'
+        response = self.client.request('POST', endpoint, headers=self.headers(),
+                                       json_data={'name': 'Test model', 'brand_type': '  YAMAHA 型式  '})
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data, 'Test model')
+        row = self.db.query(models.ProductVehicleModel).one()
+        self.assertEqual(row.brand_type, 'YAMAHA 型式')
+        patch_endpoint = f'{endpoint}/{row.id}'
+        self.assertEqual(self.client.request('PATCH', patch_endpoint, headers=self.headers(),
+                                            json_data={'brand_type': 'Other'}).status_code, 403)
+        for value, expected in [('  HONDA 型式  ', 'HONDA 型式'), ('  ', None), ('New', 'New'), (None, None)]:
+            response = self.client.request('PATCH', patch_endpoint, headers=self.headers('管理層'),
+                                           json_data={'brand_type': value})
+            self.assertEqual(response.status_code, 200, response.data)
+            self.assertEqual(response.data['brand_type'], expected)
+            self.assertEqual(self.client.request('GET', endpoint + '/manage', headers=self.headers()).data[0]['brand_type'], expected)
+        self.assertEqual(self.client.request('GET', endpoint, headers=self.headers()).data, ['Test model'])
+
+    def test_catalog_brand_type_optional_validation_and_unrelated_update(self):
+        endpoint = '/products/admin/vehicle-models'
+        self.client.request('POST', endpoint, headers=self.headers(), json_data={'name': 'Legacy'})
+        row = self.db.query(models.ProductVehicleModel).one()
+        self.assertIsNone(row.brand_type)
+        row.brand_type = 'Preserved'
+        self.db.commit()
+        patch_endpoint = f'{endpoint}/{row.id}'
+        for changes in ({'name': 'Renamed'}, {'is_active': False}):
+            response = self.client.request('PATCH', patch_endpoint, headers=self.headers('管理層'), json_data=changes)
+            self.assertEqual(response.status_code, 200, response.data)
+            self.assertEqual(response.data['brand_type'], 'Preserved')
+        for method, path, data in [('POST', endpoint, {'name': 'Too long', 'brand_type': 'x' * 201}),
+                                   ('PATCH', patch_endpoint, {'brand_type': 'x' * 201}),
+                                   ('PATCH', patch_endpoint, {'name': None}),
+                                   ('PATCH', patch_endpoint, {'is_active': None})]:
+            self.assertEqual(self.client.request(method, path, headers=self.headers('管理層'), json_data=data).status_code, 422)
+
+    def test_brand_type_migration_preserves_existing_catalog(self):
+        path = Path(__file__).resolve().parents[1] / 'migrations/versions/20261123_0035_vehicle_model_brand_type.py'
+        spec = importlib.util.spec_from_file_location('brand_type_migration', path)
+        migration = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(migration)
+        with self.engine.begin() as connection:
+            operations = Operations(MigrationContext.configure(connection))
+            with patch.object(migration, 'op', operations):
+                migration.downgrade()
+                connection.execute(text("INSERT INTO product_vehicle_models (name, is_active) VALUES ('Legacy', 1)"))
+                migration.upgrade()
+            self.assertEqual(connection.execute(text('SELECT name, brand_type, is_active FROM product_vehicle_models')).one(),
+                             ('Legacy', None, 1))
+
     def test_migration_backfills_legacy_options_and_preserves_old_work_order(self):
         order = self.create(vehicle_model='Historical model')
         self.db.add(models.Product(name='Part', price=1, vehicle_models=[' Legacy ', 'Original']))

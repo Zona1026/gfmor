@@ -103,6 +103,26 @@ for (const [original, entered, expected] of [
   });
 }
 
+for (const locked of [false, true]) {
+  test(`brand and brand type are saved together and omitted after supervisor review: locked=${locked}`, async () => {
+    const h = harness();
+    h.context.supervisorReviewLocked.value = locked;
+    h.context.detailVehicleOptions = { value: [] };
+    h.context.hasMileageValue = value => Number(value) >= 0;
+    Object.assign(h.context.detailForm.value, {
+      vehicle_brand: 'SYM', vehicle_brand_type: 'Type A', vehicle_mileage: 100,
+    });
+    const pending = h.context.saveOrder();
+    const payload = h.calls.find(call => call[0] === 'update')[2];
+    assert.equal(payload.vehicle_brand, locked ? undefined : 'SYM');
+    assert.equal(payload.vehicle_brand_type, locked ? undefined : 'Type A');
+    h.context.switchOrder(null);
+    h.request.resolve({ id: 42 });
+    await pending;
+    assert.deepEqual(h.alerts, []);
+  });
+}
+
 test('closing the order during the list refresh does not show a stale success alert', async () => {
   const h = harness();
   const refresh = deferred();

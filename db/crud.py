@@ -1176,6 +1176,7 @@ def create_work_order(db: Session, work_order: WorkOrderCreate):
         scheduled_at=work_order.scheduled_at,
         ordered_date=ordered_date,
         completed_date_override=work_order.completed_date,
+        vehicle_brand_type=(work_order.vehicle_brand_type or '').strip() or None,
         consumption_date=work_order.consumption_date or ordered_date,
         notes=work_order.notes,
         line_items=line_items,
@@ -1285,6 +1286,7 @@ def create_historical_work_order(
         backfilled_at=datetime.utcnow(),
         backfilled_by=actor,
         backfill_reason=backfill_reason,
+        vehicle_brand_type=(work_order.vehicle_brand_type or '').strip() or None,
         line_items=line_items,
     )
     _hydrate_direct_customer(db, db_work_order, work_order)
@@ -1346,7 +1348,7 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
 
     vehicle_selection_fields = {"motor_id", "guest_motor_id"}
     vehicle_fields = {
-        "vehicle_license_plate", "vehicle_brand", "vehicle_model",
+        "vehicle_license_plate", "vehicle_brand", "vehicle_brand_type", "vehicle_model",
         "vehicle_vin", "vehicle_mileage",
     }
     if (vehicle_selection_fields | vehicle_fields).intersection(update_data):
@@ -1528,6 +1530,33 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
     if "completed_date" in work_order_update.model_fields_set:
         db_work_order.completed_date_override = completed_date
     db.add(db_work_order)
+    db.commit()
+    return get_work_order(db, work_order_id)
+
+
+def update_work_order_customer(db: Session, work_order_id: int, customer_info):
+    order = get_work_order(db, work_order_id)
+    if order is None:
+        return None
+    if order.deleted_at:
+        raise ValueError("已刪除工單不可修改客人資訊")
+    member = order.user or (order.booking.user if order.booking else None)
+    guest = db.get(models.GuestCustomer, order.guest_customer_id) if order.guest_customer_id else None
+    if guest and guest.merged_at:
+        raise ValueError("此散客已合併，請重新載入工單")
+    if member and (len(customer_info.name) > 10 or len(customer_info.phone) > 10):
+        raise ValueError("會員姓名與電話最多 10 個字元")
+    if member:
+        member.name = customer_info.name
+        member.phone = customer_info.phone
+        # Preserve the existing rule that member name changes update their orders.
+        db.query(models.WorkOrder).filter(models.WorkOrder.google_id == member.google_id).update(
+            {models.WorkOrder.customer_name: customer_info.name}, synchronize_session="fetch")
+    elif guest:
+        guest.name = customer_info.name
+        guest.phone = customer_info.phone
+    order.customer_name = customer_info.name
+    order.customer_phone = customer_info.phone
     db.commit()
     return get_work_order(db, work_order_id)
 

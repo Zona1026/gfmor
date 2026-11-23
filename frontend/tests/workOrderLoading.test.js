@@ -103,6 +103,17 @@ test('loading an unfinished work order preserves its manually entered completion
   assert.deepEqual(h.alerts, []);
 });
 
+test('loading a work order preserves its brand and brand type independently', async () => {
+  const h = harness();
+  const pending = h.context.open(36);
+  h.reads.get(36).resolve({ id: 36, vehicle_brand: 'SYM', vehicle_brand_type: 'Legacy type' });
+  await setImmediate();
+  h.products[0].resolve();
+  await pending;
+  assert.equal(h.context.detailForm.value.vehicle_brand, 'SYM');
+  assert.equal(h.context.detailForm.value.vehicle_brand_type, 'Legacy type');
+});
+
 test('late vehicle data cannot restore a closed work order selection', async () => {
   const pending = deferred();
   let current = true;

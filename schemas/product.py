@@ -89,6 +89,12 @@ class ProductMetadata(BaseModel):
 
 class ProductVehicleModelCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
+    brand_type: Optional[str] = Field(default=None, max_length=200)
+
+    @field_validator('brand_type', mode='before')
+    @classmethod
+    def clean_brand_type(cls, value):
+        return (value.strip() or None) if isinstance(value, str) else value
 
     @field_validator('name', mode='before')
     @classmethod
@@ -98,7 +104,13 @@ class ProductVehicleModelCreate(BaseModel):
 
 class VehicleModelUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    brand_type: Optional[str] = Field(default=None, max_length=200)
     is_active: Optional[bool] = None
+
+    @field_validator('brand_type', mode='before')
+    @classmethod
+    def clean_brand_type(cls, value):
+        return (value.strip() or None) if isinstance(value, str) else value
 
     @field_validator('name', mode='before')
     @classmethod

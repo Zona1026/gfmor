@@ -38,6 +38,8 @@ export const getWorkOrders = async (params = {}) => {
   return await api.get('/work-orders/', { params });
 };
 
+export const updateWorkOrderCustomer = (id, data) => api.patch(`/work-orders/${id}/customer`, data, adminAuthConfig());
+
 export const getWorkOrderReviews = async (params = {}) => {
   return await api.get('/work-orders/reviews/', { ...adminAuthConfig(), params });
 };
@@ -237,13 +239,15 @@ export const getProductVehicleModels = async () => {
   return await api.get('/products/admin/vehicle-models', adminAuthConfig());
 };
 
-export const createProductVehicleModel = async (name) => {
-  return await api.post('/products/admin/vehicle-models', { name }, adminAuthConfig());
+export const createProductVehicleModel = async (name, brandType = null) => {
+  return await api.post('/products/admin/vehicle-models', { name, brand_type: brandType }, adminAuthConfig());
 };
 
 export const getVehicleModelManagement = async () => {
   return await api.get('/products/admin/vehicle-models/manage', adminAuthConfig());
 };
+
+export const getVehicleBrandOptions = () => api.get('/products/admin/vehicle-brand-options', adminAuthConfig());
 
 export const updateVehicleModel = async (id, changes) => {
   return await api.patch(`/products/admin/vehicle-models/${id}`, changes, adminAuthConfig());

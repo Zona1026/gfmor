@@ -286,6 +286,7 @@ class WorkOrderBase(BaseModel):
     customer_phone: Optional[str] = None
     vehicle_license_plate: Optional[str] = None
     vehicle_brand: Optional[str] = None
+    vehicle_brand_type: Optional[str] = Field(default=None, max_length=200)
     vehicle_model: Optional[str] = Field(default=None, max_length=200)
     vehicle_vin: Optional[str] = None
     vehicle_mileage: Optional[int] = Field(default=None, ge=0)
@@ -333,6 +334,7 @@ class WorkOrderUpdate(BaseModel):
     guest_motor_id: Optional[int] = None
     vehicle_license_plate: Optional[str] = None
     vehicle_brand: Optional[str] = None
+    vehicle_brand_type: Optional[str] = Field(default=None, max_length=200)
     vehicle_model: Optional[str] = Field(default=None, max_length=200)
     vehicle_vin: Optional[str] = None
     vehicle_mileage: Optional[int] = Field(default=None, ge=0)
@@ -352,6 +354,15 @@ class WorkOrderUpdate(BaseModel):
     _canonical_responsible_staff = validator("responsible_staff", allow_reuse=True)(canonical_staff_name)
 
 
+class WorkOrderCustomerUpdate(BaseModel):
+    name: str = Field(max_length=50)
+    phone: str = Field(max_length=20)
+
+    @validator('name', 'phone', pre=True)
+    def strip_customer_info(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+
 class WorkOrderDeleteCreate(BaseModel):
     reason: str = Field(min_length=1)
     actor: Optional[str] = None
@@ -369,6 +380,7 @@ class WorkOrder(BaseModel):
     customer_phone: Optional[str] = None
     vehicle_license_plate: Optional[str] = None
     vehicle_brand: Optional[str] = None
+    vehicle_brand_type: Optional[str] = Field(default=None, max_length=200)
     vehicle_model: Optional[str] = Field(default=None, max_length=200)
     vehicle_vin: Optional[str] = None
     vehicle_mileage: Optional[int] = None
