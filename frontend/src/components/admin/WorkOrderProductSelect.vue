@@ -9,7 +9,9 @@
     <ul v-if="open && !disabled" :id="listId" role="listbox" aria-label="商品選項">
       <li v-for="(product, index) in results" :id="`${listId}-${index}`" :key="product.id"
         role="option" :aria-selected="Number(modelValue) === product.id" :class="{ active: activeIndex === index }"
-        @pointerdown.prevent @click="select(product)">{{ workOrderProductLabel(product) }}</li>
+        @pointerdown.prevent="startOptionPointer" @pointermove="moveOptionPointer"
+        @pointercancel="cancelOptionPointer" @pointerup="finishOptionPointer($event, product)"
+        @click="select(product)">{{ workOrderProductLabel(product) }}</li>
       <li v-if="!results.length" class="empty" role="presentation">沒有符合的商品</li>
     </ul>
     <span class="sr-only" role="status">{{ open ? `找到 ${results.length} 個商品` : '' }}</span>
@@ -30,13 +32,14 @@ const input = ref(null);
 const open = ref(false);
 const query = ref('');
 const activeIndex = ref(-1);
+let optionPointer = null;
 const selectedLabel = computed(() => {
   const product = props.products.find(product => product.id === Number(props.modelValue));
   return product ? workOrderProductLabel(product) : props.modelValue ? props.fallbackLabel : '';
 });
 const results = computed(() => searchWorkOrderProducts(props.products, query.value));
 watch(() => [props.products, props.modelValue, props.disabled], close);
-function close() { open.value = false; query.value = ''; activeIndex.value = -1; }
+function close() { open.value = false; query.value = ''; activeIndex.value = -1; optionPointer = null; }
 function show() {
   if (props.disabled || open.value) return;
   query.value = '';
@@ -59,6 +62,31 @@ function confirm(event) {
   if (open.value && activeIndex.value >= 0 && results.value[activeIndex.value]) select(results.value[activeIndex.value]);
 }
 function select(product) { emit('select', product.id); close(); }
+// Safari can omit the click after a prevented touch pointerdown. Commit taps
+// on pointerup as well, but leave scrolling and canceled gestures unselected.
+function startOptionPointer(event) {
+  optionPointer = event.isPrimary && event.button === 0 && event.pointerType !== 'mouse'
+    ? { id: event.pointerId, x: event.clientX, y: event.clientY, target: event.currentTarget }
+    : null;
+}
+function moveOptionPointer(event) {
+  if (optionPointer?.id === event.pointerId
+    && Math.hypot(event.clientX - optionPointer.x, event.clientY - optionPointer.y) > 10) {
+    optionPointer = null;
+  }
+}
+function cancelOptionPointer() { optionPointer = null; }
+function finishOptionPointer(event, product) {
+  moveOptionPointer(event);
+  const pointer = optionPointer;
+  optionPointer = null;
+  if (!pointer || pointer.id !== event.pointerId) return;
+  const hit = event.currentTarget.ownerDocument.elementFromPoint(event.clientX, event.clientY);
+  if (pointer.target === event.currentTarget && pointer.target.contains(hit)) {
+    event.preventDefault();
+    select(product);
+  }
+}
 function handleFocusOut(event) { if (!event.currentTarget.contains(event.relatedTarget)) close(); }
 </script>
 
