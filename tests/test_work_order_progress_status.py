@@ -7,6 +7,7 @@ from urllib.parse import quote
 
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
+from alembic.script import ScriptDirectory
 from fastapi import FastAPI
 from pydantic import ValidationError
 from sqlalchemy import create_engine, text
@@ -23,6 +24,10 @@ CHOICES = ['待廠商回應', '已報價待客確認', '待訂購', '待到貨',
 
 
 class WorkOrderProgressStatusTest(unittest.TestCase):
+    def test_migration_graph_has_one_head(self):
+        migrations = Path(__file__).resolve().parents[1] / 'migrations'
+        self.assertEqual(len(ScriptDirectory(str(migrations)).get_heads()), 1)
+
     def setUp(self):
         self.engine = create_engine('sqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
         models.Base.metadata.create_all(self.engine)
