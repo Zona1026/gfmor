@@ -262,7 +262,7 @@
               @move="(index, offset) => moveLineItem(createLineItems, index, offset)" />
             <div class="sheet-add-row">
               <span>{{ createLineItems.length }} 筆明細</span>
-              <button type="button" class="btn btn-outline" :disabled="saving" @click="quickProductTarget = 'create'">商品快速點選 <span aria-hidden="true">↗</span></button>
+              <button type="button" class="btn btn-outline" :disabled="saving" @click="showProductTrackingNotice">商品狀態追蹤</button>
             </div>
           </section>
 
@@ -391,7 +391,7 @@
               @move="(index, offset) => moveLineItem(detailLineItems, index, offset)" @toggle-points="toggleLineItemPoints" />
             <div class="sheet-add-row">
               <span>{{ detailLineItems.length }} 筆明細 <small v-if="canEditWorkOrder"> · 拖曳左側把手調整順序</small></span>
-              <button v-if="canEditWorkOrder" type="button" class="btn btn-outline" :disabled="lineItemEditingLocked || saving" @click="quickProductTarget = 'detail'">商品快速點選 <span aria-hidden="true">↗</span></button>
+              <button v-if="canEditWorkOrder" type="button" class="btn btn-outline" :disabled="lineItemEditingLocked || saving" @click="showProductTrackingNotice">商品狀態追蹤</button>
             </div>
             <div v-if="supervisorReviewLocked" class="muted-line">主管已審核，工單明細與會員累積資格已鎖定。</div>
             <div v-else-if="activeRevision" class="warning-text">工單已退回待報價，可新增、刪除或更換明細；採購分配與庫存預留已解除，修改後需重新主管審核。</div>
@@ -693,6 +693,9 @@ const guestResults = ref([]);
 const createForm = ref(defaultCreateForm());
 const createLineItems = ref([defaultLineItem()]);
 const quickProductTarget = ref('');
+function showProductTrackingNotice() {
+  alert('工程師爆肝測試中');
+}
 const checkoutSection = ref(null);
 
 const selectedWorkOrder = ref(null);

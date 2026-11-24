@@ -1,6 +1,6 @@
 <template>
   <div class="sheet-lines">
-    <div v-if="!items.length" class="empty-lines">尚無消費明細，請新增項目或使用「商品快速點選」。</div>
+    <div v-if="!items.length" class="empty-lines">尚無消費明細，請新增項目。</div>
     <div v-for="(item, index) in items" :key="itemKey(item)" class="sheet-line" :class="{ 'part-line': item.type === 'PART', 'discount-line': item.type === 'DISCOUNT', 'named-line': ['LABOR', 'DISCOUNT'].includes(item.type), 'has-points': showPoints && manageMembership && member && item.type === 'PART', dragging: draggedItem === item }"
       @dragover.prevent @drop.prevent="drop(item)">
       <div class="row-number" :draggable="!disabled && !busy" title="拖曳排序" @dragstart="startDrag($event, item)" @dragend="draggedItem = null"><span class="row-dots" aria-hidden="true">⠿</span>{{ String(index + 1).padStart(2, '0') }}</div>
