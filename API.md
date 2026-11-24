@@ -4,6 +4,14 @@
 
 ---
 
+## 管理員個人外觀偏好
+
+- `GET /api/admin/me/preferences`：取得登入管理員自己的偏好。
+- `PATCH /api/admin/me/preferences`：儲存自己的偏好，請求與回應格式皆為 `{"theme":"light"}`，僅接受 `dark`、`light`。
+- 兩個端點皆需管理員 Bearer token，所有管理員角色均可使用；不接受指定其他帳號或額外欄位。
+- 預設為 `dark`。登入回應也包含 `theme_preference`；偏好隨帳號儲存，只影響後台畫面。
+- 更新資料庫需執行 `alembic upgrade head`，套用 `20261124_0038` 遷移。
+
 ## 商品 (Products)
 
 管理商品資料的相關 API。

@@ -114,6 +114,17 @@ test('loading a work order preserves its brand and brand type independently', as
   assert.equal(h.context.detailForm.value.vehicle_brand_type, 'Legacy type');
 });
 
+test('loading a work order keeps vehicle status separate from workflow status', async () => {
+  const h = harness();
+  const pending = h.context.open(36);
+  h.reads.get(36).resolve({ id: 36, status: 'INSPECTION_PENDING', vehicle_status: '待料中' });
+  await setImmediate();
+  h.products[0].resolve();
+  await pending;
+  assert.equal(h.context.detailForm.value.status, 'INSPECTION_PENDING');
+  assert.equal(h.context.detailForm.value.vehicle_status, '待料中');
+});
+
 test('late vehicle data cannot restore a closed work order selection', async () => {
   const pending = deferred();
   let current = true;

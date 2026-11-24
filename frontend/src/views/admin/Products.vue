@@ -668,7 +668,7 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
 @import '../../assets/_variables.scss';
 
 .admin-shop {
-  color: $text-primary;
+  color: var(--admin-text, #{$text-primary});
 
   .section-header {
     display: flex;
@@ -678,12 +678,12 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
     margin-bottom: 1.25rem;
 
     h2 {
-      color: $primary-light;
+      color: var(--admin-accent-text, #{$primary-light});
       margin: 0 0 0.35rem;
     }
 
     p {
-      color: $text-secondary;
+      color: var(--admin-secondary, #{$text-secondary});
       margin: 0;
       font-size: 0.92rem;
     }
@@ -693,7 +693,7 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
     display: flex;
     gap: 0.45rem;
     overflow-x: auto;
-    border-bottom: 1px solid $medium-grey;
+    border-bottom: 1px solid var(--admin-border, #{$medium-grey});
     margin-bottom: 1.25rem;
 
     button {
@@ -702,13 +702,13 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
       background: transparent;
       border: 0;
       border-bottom: 2px solid transparent;
-      color: $text-secondary;
+      color: var(--admin-secondary, #{$text-secondary});
       cursor: pointer;
       white-space: nowrap;
 
       &.active {
-        color: $primary-light;
-        border-color: $primary-light;
+        color: var(--admin-accent-text, #{$primary-light});
+        border-color: var(--admin-accent-text, #{$primary-light});
       }
     }
   }
@@ -726,12 +726,12 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
     flex-wrap: wrap;
 
     h3 {
-      color: $text-primary;
+      color: var(--admin-text, #{$text-primary});
       margin: 0 0 0.25rem;
     }
 
     p {
-      color: $text-disabled;
+      color: var(--admin-muted, #{$text-disabled});
       margin: 0;
       font-size: 0.88rem;
     }
@@ -748,16 +748,16 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
   textarea {
     min-height: 38px;
     padding: 0.52rem 0.72rem;
-    background: $background-color;
-    border: 1px solid $medium-grey;
+    background: var(--admin-base, #{$background-color});
+    border: 1px solid var(--admin-border, #{$medium-grey});
     border-radius: $border-radius;
-    color: $text-primary;
+    color: var(--admin-text, #{$text-primary});
     font-size: 0.9rem;
     box-sizing: border-box;
 
     &:focus {
       outline: none;
-      border-color: $primary-color;
+      border-color: var(--admin-accent, #{$primary-color});
     }
   }
 
@@ -767,9 +767,9 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
 
   .table-wrap {
     overflow-x: auto;
-    border: 1px solid $medium-grey;
+    border: 1px solid var(--admin-border, #{$medium-grey});
     border-radius: $border-radius;
-    background: $dark-grey;
+    background: var(--admin-surface, #{$dark-grey});
   }
 
   .pagination {
@@ -778,7 +778,7 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
     justify-content: space-between;
     gap: 1rem;
     margin-top: 1rem;
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
 
     .pagination-actions {
       display: flex;
@@ -793,7 +793,7 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
     th,
     td {
       padding: 0.78rem 0.85rem;
-      border-bottom: 1px solid $medium-grey;
+      border-bottom: 1px solid var(--admin-border, #{$medium-grey});
       text-align: left;
       vertical-align: middle;
       white-space: nowrap;
@@ -801,14 +801,14 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
     }
 
     th {
-      background: $background-color;
-      color: $text-secondary;
+      background: var(--admin-base, #{$background-color});
+      color: var(--admin-secondary, #{$text-secondary});
       font-size: 0.8rem;
       font-weight: 700;
     }
 
     tbody tr:hover {
-      background: rgba($primary-color, 0.05);
+      background: rgba(var(--admin-accent-rgb, 229,57,53), 0.05);
     }
 
     &.compact {
@@ -832,8 +832,8 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
     }
 
     .image-placeholder {
-      background: $medium-grey;
-      color: $text-disabled;
+      background: var(--admin-surface-alt, #{$medium-grey});
+      color: var(--admin-muted, #{$text-disabled});
       display: flex;
       align-items: center;
       justify-content: center;
@@ -846,7 +846,7 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
     }
 
     span {
-      color: $text-disabled;
+      color: var(--admin-muted, #{$text-disabled});
       margin-top: 0.2rem;
       max-width: 340px;
       overflow: hidden;
@@ -856,7 +856,7 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
   }
 
   .amount {
-    color: $primary-light;
+    color: var(--admin-accent-text, #{$primary-light});
     font-weight: 700;
   }
 
@@ -870,13 +870,13 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
     font-weight: 700;
 
     &.active {
-      color: #81c784;
-      background: rgba(#81c784, 0.14);
+      color: var(--admin-success, #81c784);
+      background: rgba(var(--admin-success-fill-rgb, 129,199,132), 0.14);
     }
 
     &.inactive {
-      color: #ffb74d;
-      background: rgba(#ffb74d, 0.14);
+      color: var(--admin-warning, #ffb74d);
+      background: rgba(var(--admin-warning-fill-rgb, 255,183,77), 0.14);
     }
   }
 
@@ -892,15 +892,15 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
   .btn {
     min-height: 34px;
     padding: 0.42rem 0.78rem;
-    border: 1px solid $primary-color;
+    border: 1px solid var(--admin-accent, #{$primary-color});
     background: transparent;
-    color: $primary-color;
+    color: var(--admin-accent-text, #{$primary-color});
     border-radius: $border-radius;
     cursor: pointer;
     font-size: 0.84rem;
 
     &:hover {
-      background: $primary-color;
+      background: var(--admin-accent, #{$primary-color});
       color: #fff;
     }
 
@@ -910,30 +910,30 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
     }
 
     &.btn-primary {
-      background: $primary-color;
+      background: var(--admin-accent, #{$primary-color});
       color: #fff;
 
       &:hover {
-        background: $primary-dark;
+        background: var(--admin-accent-strong, #{$primary-dark});
       }
     }
 
     &.btn-outline {
-      border-color: $medium-grey;
-      color: $text-secondary;
+      border-color: var(--admin-border, #{$medium-grey});
+      color: var(--admin-secondary, #{$text-secondary});
 
       &:hover {
-        background: $medium-grey;
-        color: #fff;
+        background: var(--admin-surface-alt, #{$medium-grey});
+        color: var(--admin-text, #fff);
       }
     }
 
     &.btn-danger {
-      color: #ff6b6b;
-      border-color: #ff6b6b;
+      color: var(--admin-danger, #ff6b6b);
+      border-color: var(--admin-danger, #ff6b6b);
 
       &:hover {
-        background: #ff6b6b;
+        background: var(--admin-danger-fill, #ff6b6b);
         color: #fff;
       }
     }
@@ -945,7 +945,7 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
     }
 
     &.btn-save {
-      background: $primary-color;
+      background: var(--admin-accent, #{$primary-color});
       color: #fff;
     }
   }
@@ -982,7 +982,7 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
     display: flex;
     flex-direction: column;
     gap: 0.42rem;
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
     font-size: 0.86rem;
   }
 
@@ -1002,8 +1002,8 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
     max-width: 100%;
     max-height: calc(100vh - 2rem);
     overflow: auto;
-    background: $dark-grey;
-    border: 1px solid $medium-grey;
+    background: var(--admin-surface, #{$dark-grey});
+    border: 1px solid var(--admin-border, #{$medium-grey});
     border-radius: $border-radius;
     padding: 1.4rem;
 
@@ -1013,7 +1013,7 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
 
     h3,
     h4 {
-      color: $primary-light;
+      color: var(--admin-accent-text, #{$primary-light});
       margin: 0;
     }
 
@@ -1036,7 +1036,7 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
     margin-bottom: 1rem;
 
     p {
-      color: $text-secondary;
+      color: var(--admin-secondary, #{$text-secondary});
       margin: 0.25rem 0 0;
     }
   }
@@ -1053,7 +1053,7 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
       max-height: 240px;
       object-fit: cover;
       border-radius: $border-radius;
-      border: 1px solid $medium-grey;
+      border: 1px solid var(--admin-border, #{$medium-grey});
     }
   }
 
@@ -1069,10 +1069,10 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
     gap: 0.75rem;
 
     div {
-      border: 1px solid $medium-grey;
+      border: 1px solid var(--admin-border, #{$medium-grey});
       border-radius: $border-radius;
       padding: 0.75rem;
-      background: rgba($background-color, 0.55);
+      background: rgba(var(--admin-base-rgb, 18,18,18), 0.55);
     }
 
     span,
@@ -1081,20 +1081,20 @@ onBeforeUnmount(() => clearTimeout(productSearchTimer));
     }
 
     span {
-      color: $text-disabled;
+      color: var(--admin-muted, #{$text-disabled});
       font-size: 0.78rem;
       margin-bottom: 0.3rem;
     }
 
     strong {
-      color: $text-primary;
+      color: var(--admin-text, #{$text-primary});
       overflow-wrap: anywhere;
     }
   }
 
   .loading,
   .empty-row {
-    color: $text-disabled;
+    color: var(--admin-muted, #{$text-disabled});
     text-align: center;
     padding: 2rem;
   }

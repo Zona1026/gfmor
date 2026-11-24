@@ -100,7 +100,7 @@
       <div v-else class="empty-state">目前沒有符合條件的工單。</div>
     </div>
 
-    <div v-if="showCreateModal && canCreateWorkOrder" class="modal-overlay" v-backdrop-close="closeCreateModal">
+    <div v-if="showCreateModal && canCreateWorkOrder" class="modal-overlay sheet-overlay" v-backdrop-close="closeCreateModal">
       <div class="modal-content large work-order-sheet">
         <div class="modal-header">
           <div>
@@ -182,6 +182,8 @@
               </label>
               <label>施工者<select v-model="createForm.technician"><option v-for="name in technicianOptions" :key="name" :value="name">{{ name }}</option></select></label>
               <div class="vehicle-brand-cell"><WorkOrderVehicleBrandFields v-model:brand="createForm.vehicle_brand" v-model:brand-type="createForm.vehicle_brand_type" /></div>
+              <label class="work-order-status-field">工單狀態<select :value="createMode === 'historical' ? 'COMPLETED' : 'INSPECTION_PENDING'" disabled><option value="INSPECTION_PENDING">待檢查</option><option value="COMPLETED">已完工</option></select></label>
+              <label class="vehicle-status-field">車輛狀態<select v-model="createForm.vehicle_status"><option :value="null">未填寫</option><option v-for="status in vehicleStatusOptions" :key="status" :value="status">{{ status }}</option></select></label>
               <label><span>車種 <span class="required-mark">*</span></span><VehicleModelInput v-model="createForm.vehicle_model" required /></label>
               <label><span>車牌 <span class="required-mark">*</span></span><input v-model.trim="createForm.vehicle_license_plate" maxlength="45" required /></label>
               <label><span>行駛里程 <span class="required-mark">*</span></span><input v-model.number="createForm.vehicle_mileage" type="number" min="0" required /></label>
@@ -235,60 +237,33 @@
               <h4>零件項目</h4>
               <button type="button" class="btn btn-outline" @click="addCreateLineItem">新增明細</button>
             </div>
-            <div class="line-editor">
-              <div v-for="(item, index) in createLineItems" :key="lineItemKey(item)" class="line-row" :class="{ 'membership-controls': canManageMembershipFields }">
-                <WorkOrderProductPicker class="line-picker" :item="item" :products="products" :types="lineItemTypeMap" :disabled="Boolean(item.promotion_gift_id)"
-                  @select-product="applyProductToLine" @change-type="handleLineTypeChange" />
-                <label v-if="['LABOR', 'DISCOUNT'].includes(item.type)" class="line-field line-name">
-                  <span>明細名稱</span>
-                  <input v-if="canEnterLineDetails(item) && item.type !== 'PART'" v-model.trim="item.name" placeholder="明細名稱" required />
-                  <span v-else class="line-value">{{ item.name }}</span>
-                </label>
-                <label class="line-field line-price" :class="{ 'wide-price': !['LABOR', 'DISCOUNT'].includes(item.type) }">
-                  <span>單價</span>
-                  <input v-if="canEnterLineDetails(item)" v-model.number="item.unit_price" type="number" min="0" />
-                  <span v-else class="line-value">NT$ {{ Number(item.unit_price || 0).toLocaleString() }}</span>
-                </label>
-                <label class="line-field line-quantity">
-                  <span>數量</span>
-                  <input v-model.number="item.quantity" type="number" min="1" step="1" required :disabled="Boolean(item.promotion_gift_id)" />
-                </label>
-                <label v-if="canManageMembershipFields" class="membership-toggle">
-                  <input v-model="item.counts_toward_membership" type="checkbox" :disabled="Boolean(item.promotion_gift_id)" />
-                  <span>累積消費</span>
-                </label>
-                <div class="line-total">
-                  <span>小計</span>
-                  <strong>NT$ {{ lineItemTotal(item).toLocaleString() }}</strong>
-                </div>
-                <div class="line-actions">
-                  <button type="button" class="icon-btn" title="上移" aria-label="明細上移" :disabled="saving || index === 0" @click="moveLineItem(createLineItems, index, -1)">↑</button>
-                  <button type="button" class="icon-btn" title="下移" aria-label="明細下移" :disabled="saving || index === createLineItems.length - 1" @click="moveLineItem(createLineItems, index, 1)">↓</button>
-                  <button type="button" class="icon-btn danger" title="刪除明細" :disabled="Boolean(item.promotion_gift_id)" @click="removeCreateLineItem(index)">×</button>
-                </div>
-              </div>
-            </div>
-            <div class="total-row">
-              <span>總金額</span>
-              <strong>NT$ {{ createTotal.toLocaleString() }}</strong>
-            </div>
-            <div class="total-row membership-total">
-              <span>可列入會員累積</span>
-              <strong>NT$ {{ createMembershipTotal.toLocaleString() }}</strong>
+            <WorkOrderLineEditor :items="createLineItems" :products="products" :types="lineItemTypeMap" :item-key="lineItemKey"
+              :can-enter-details="canEnterLineDetails" :manage-membership="canManageMembershipFields" :busy="saving"
+              @select-product="applyProductToLine" @change-type="handleLineTypeChange" @remove="removeCreateLineItem"
+              @move="(index, offset) => moveLineItem(createLineItems, index, offset)" />
+            <div class="sheet-add-row">
+              <span>{{ createLineItems.length }} 筆明細</span>
+              <button type="button" class="btn btn-outline" :disabled="saving" @click="quickProductTarget = 'create'">商品快速點選 <span aria-hidden="true">↗</span></button>
             </div>
           </section>
 
-          <div class="form-actions create-actions">
-            <button type="button" class="btn btn-outline" @click="closeCreateModal">取消</button>
-            <button type="submit" class="btn btn-primary" :disabled="saving">
-              {{ createMode === 'historical' ? '確認補登' : '建立工單' }}
-            </button>
+          <div class="sheet-footer create-footer">
+            <div class="sheet-totals">
+              <div><span>小計</span><strong>NT$ {{ createSummary.subtotal.toLocaleString() }}</strong></div>
+              <div class="discount-total"><span>折扣</span><strong>− NT$ {{ createSummary.discount.toLocaleString() }}</strong></div>
+              <div class="grand-total"><span>總計</span><strong>NT$ {{ createTotal.toLocaleString() }}</strong></div>
+            </div>
+            <div class="sheet-footer-bottom">
+              <span class="eligible-caption">可列入會員累積 NT$ {{ createMembershipTotal.toLocaleString() }}</span>
+              <div class="sheet-buttons"><button type="button" class="btn btn-ghost" @click="closeCreateModal">取消</button>
+                <button type="submit" class="btn btn-primary" :disabled="saving || promotionPreviewLoading">{{ saving ? '儲存中…' : createMode === 'historical' ? '確認補登' : '儲存工單' }}</button></div>
+            </div>
           </div>
         </form>
       </div>
     </div>
 
-    <div v-if="selectedWorkOrder" class="modal-overlay" v-backdrop-close="closeDetail">
+    <div v-if="selectedWorkOrder" class="modal-overlay sheet-overlay" v-backdrop-close="closeDetail">
       <div class="modal-content xlarge work-order-sheet">
         <div class="modal-header">
           <div>
@@ -353,12 +328,14 @@
               </label>
               <label>施工者<select v-model="detailForm.technician" :disabled="!canEditWorkOrder"><option :value="null">未填寫</option><option v-for="name in technicianOptions" :key="name" :value="name">{{ name }}</option></select></label>
               <div class="vehicle-brand-cell"><WorkOrderVehicleBrandFields v-model:brand="detailForm.vehicle_brand" v-model:brand-type="detailForm.vehicle_brand_type" :disabled="!canEditWorkOrder || supervisorReviewLocked" /></div>
+              <label class="work-order-status-field">工單狀態<select v-model="detailForm.status" :disabled="!canEditWorkOrder"><option v-for="(label, value) in statusMap" :key="value" :value="value" :disabled="isGatedStatus(value) && hasBlockingApproval(selectedWorkOrder, value)">{{ label }}</option></select></label>
+              <label class="vehicle-status-field">車輛狀態<select v-model="detailForm.vehicle_status" :disabled="!canEditWorkOrder"><option :value="null">未填寫</option><option v-for="status in vehicleStatusOptions" :key="status" :value="status">{{ status }}</option></select></label>
               <label><span>車種 <span class="required-mark">*</span></span><VehicleModelInput v-model="detailForm.vehicle_model" required :disabled="!canEditWorkOrder || supervisorReviewLocked" /></label>
               <label><span>車牌 <span class="required-mark">*</span></span><input v-model.trim="detailForm.vehicle_license_plate" maxlength="45" required :disabled="!canEditWorkOrder || supervisorReviewLocked" /></label>
               <label><span>行駛里程 <span class="required-mark">*</span></span><input v-model.number="detailForm.vehicle_mileage" type="number" min="0" required :disabled="!canEditWorkOrder || supervisorReviewLocked" /></label>
               <label>引擎號碼<input v-model.trim="detailForm.vehicle_vin" maxlength="45" :disabled="!canEditWorkOrder || supervisorReviewLocked" /></label>
               <label class="new-vehicle-field">新車<span><input v-model="detailForm.vehicle_is_new" type="checkbox" :disabled="!canEditWorkOrder || supervisorReviewLocked" /> 建立新車保養里程表</span></label>
-              <label>工單狀態<select v-model="detailForm.status" :disabled="!canEditWorkOrder"><option v-for="(label, value) in statusMap" :key="value" :value="value" :disabled="isGatedStatus(value) && hasBlockingApproval(selectedWorkOrder, value)">{{ label }}</option></select></label>
+
               <label v-if="detailForm.vehicle_is_new">購車日期<input v-model="detailForm.vehicle_purchase_date" type="date" :disabled="!canEditWorkOrder || supervisorReviewLocked" /></label>
             </div>
             <label>
@@ -384,94 +361,25 @@
               <div v-if="canEditWorkOrder" class="detail-section-actions">
                 <button type="button" class="btn btn-outline" :disabled="lineItemEditingLocked" @click="addDetailLineItem">新增項目</button>
                 <button type="button" class="btn btn-outline" :disabled="!canSaveLineOrder || saving || detailLoading || promotionPreviewLoading" @click="saveLineOrder">儲存順序</button>
-                <button
-                  v-if="canUseCriticalWorkOrder && !selectedWorkOrder.deleted_at"
-                  class="btn btn-danger"
-                  type="button"
-                  @click="openDeleteModal"
-                  :disabled="detailLoading"
-                >
-                  刪除工單
-                </button>
-                <button type="button" class="btn btn-primary" :disabled="saving || detailLoading" @click="saveWorkOrder">儲存工單</button>
               </div>
             </div>
-            <div class="line-editor">
-              <div v-for="(item, index) in detailLineItems" :key="lineItemKey(item)" class="line-row detail-line-row" :class="{ 'membership-controls': canManageMembershipFields }">
-                <WorkOrderProductPicker class="line-picker" :item="item" :products="products" :types="lineItemTypeMap"
-                  :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)"
-                  @select-product="applyProductToLine" @change-type="handleLineTypeChange" />
-                <label v-if="['LABOR', 'DISCOUNT'].includes(item.type)" class="line-field line-name">
-                  <span>明細名稱</span>
-                  <input v-if="canEnterLineDetails(item) && item.type !== 'PART'" v-model.trim="item.name" :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)" placeholder="明細名稱" required />
-                  <span v-else class="line-value">{{ item.name }}</span>
-                </label>
-                <label class="line-field line-price" :class="{ 'wide-price': !['LABOR', 'DISCOUNT'].includes(item.type) }">
-                  <span>單價</span>
-                  <input v-if="canEnterLineDetails(item)" v-model.number="item.unit_price" type="number" min="0" :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)" />
-                  <span v-else class="line-value">NT$ {{ Number(item.unit_price || 0).toLocaleString() }}</span>
-                </label>
-                <label class="line-field line-quantity">
-                  <span>數量</span>
-                  <input v-model.number="item.quantity" type="number" min="1" step="1" required :disabled="!canEditWorkOrder || lineItemEditingLocked || isLineItemInventoryLocked(item)" />
-                </label>
-                <label v-if="canManageMembershipFields" class="membership-toggle">
-                  <input
-                    v-model="item.counts_toward_membership"
-                    type="checkbox"
-                    :disabled="!canEditWorkOrder || membershipSelectionLocked || Boolean(item.promotion_gift_id)"
-                  />
-                  <span>累積消費</span>
-                </label>
-                <label v-if="canManageMembershipFields" class="points-redemption">
-                  <input
-                    class="points-check"
-                    type="checkbox"
-                    :checked="Number(item.points_redeemed || 0) > 0"
-                    :disabled="!canEditWorkOrder || lineItemEditingLocked || !selectedWorkOrder.google_id || item.type !== 'PART' || Boolean(item.promotion_gift_id)"
-                    @change="toggleLineItemPoints(item, $event.target.checked)"
-                  />
-                  <span>使用點數</span>
-                  <input
-                    v-model.number="item.points_redeemed"
-                    class="points-input"
-                    type="number"
-                    min="1"
-                    :max="detailRedeemablePoints"
-                    :disabled="!canEditWorkOrder || lineItemEditingLocked || !selectedWorkOrder.google_id || item.type !== 'PART' || Number(item.points_redeemed || 0) <= 0 || Boolean(item.promotion_gift_id)"
-                  />
-                  <span>點</span>
-                </label>
-                <div class="line-total">
-                  <span>小計</span>
-                  <strong>NT$ {{ lineItemTotal(item).toLocaleString() }}</strong>
-                </div>
-                <div v-if="canEditWorkOrder" class="line-actions">
-                  <button type="button" class="icon-btn" title="上移" aria-label="明細上移" :disabled="saving || detailLoading || selectedWorkOrder.deleted_at || index === 0" @click="moveLineItem(detailLineItems, index, -1)">↑</button>
-                  <button type="button" class="icon-btn" title="下移" aria-label="明細下移" :disabled="saving || detailLoading || selectedWorkOrder.deleted_at || index === detailLineItems.length - 1" @click="moveLineItem(detailLineItems, index, 1)">↓</button>
-                  <button type="button" class="icon-btn danger" title="刪除明細" :disabled="lineItemEditingLocked || isLineItemInventoryLocked(item)" @click="removeDetailLineItem(index)">×</button>
-                </div>
-              </div>
-            </div>
-            <p v-if="canEditWorkOrder" class="muted-line">用 ↑ ↓ 調整後按「儲存順序」。若有新增或刪除明細，請先儲存工單。</p>
-            <div class="total-row">
-              <span>總金額</span>
-              <strong>NT$ {{ detailTotal.toLocaleString() }}</strong>
-            </div>
-            <div class="total-row membership-total">
-              <span>可列入會員累積</span>
-              <strong>NT$ {{ detailMembershipTotal.toLocaleString() }}</strong>
-            </div>
-            <div v-if="detailRedeemedPoints > 0" class="total-row points-total">
-              <span>本單使用點數</span>
-              <strong>{{ detailRedeemedPoints.toLocaleString() }} 點</strong>
+            <WorkOrderLineEditor :items="detailLineItems" :products="products" :types="lineItemTypeMap" :item-key="lineItemKey"
+              :can-enter-details="canEnterLineDetails" :inventory-locked="isLineItemInventoryLocked"
+              :disabled="!canEditWorkOrder" :locked="lineItemEditingLocked" :membership-locked="membershipSelectionLocked"
+              :busy="saving || detailLoading" :manage-membership="canManageMembershipFields" show-points
+              :member="Boolean(selectedWorkOrder.google_id)" :redeemable-points="detailRedeemablePoints"
+              @select-product="applyProductToLine" @change-type="handleLineTypeChange" @remove="removeDetailLineItem"
+              @move="(index, offset) => moveLineItem(detailLineItems, index, offset)" @toggle-points="toggleLineItemPoints" />
+            <div class="sheet-add-row">
+              <span>{{ detailLineItems.length }} 筆明細 <small v-if="canEditWorkOrder"> · 拖曳左側把手調整順序</small></span>
+              <button v-if="canEditWorkOrder" type="button" class="btn btn-outline" :disabled="lineItemEditingLocked || saving" @click="quickProductTarget = 'detail'">商品快速點選 <span aria-hidden="true">↗</span></button>
             </div>
             <div v-if="supervisorReviewLocked" class="muted-line">主管已審核，工單明細與會員累積資格已鎖定。</div>
             <div v-else-if="activeRevision" class="warning-text">工單已退回待報價，可新增、刪除或更換明細；採購分配與庫存預留已解除，修改後需重新主管審核。</div>
           </section>
 
-          <section class="form-section">
-            <h4>結帳</h4>
+          <details ref="checkoutSection" class="form-section checkout-section">
+            <summary>收款與點數資訊 <span>{{ paymentStatusMap[selectedWorkOrder.payment_status] }} · 已收 NT$ {{ Number(selectedWorkOrder.paid_amount || 0).toLocaleString() }}</span></summary>
             <dl class="money-summary">
               <div><dt>支付狀態</dt><dd>{{ paymentStatusMap[selectedWorkOrder.payment_status] }}</dd></div>
               <div><dt>總金額</dt><dd>NT$ {{ selectedWorkOrder.total_amount?.toLocaleString() || 0 }}</dd></div>
@@ -547,12 +455,32 @@
                 </tbody>
               </table>
             </div>
-          </section>
+          </details>
         </div>
+        <div v-if="!detailLoading" class="sheet-footer">
+          <div class="sheet-totals">
+            <div><span>小計</span><strong>NT$ {{ detailSummary.subtotal.toLocaleString() }}</strong></div>
+            <div class="discount-total"><span>折扣</span><strong>− NT$ {{ detailSummary.discount.toLocaleString() }}</strong></div>
+            <div class="grand-total"><span>總計</span><strong>NT$ {{ detailTotal.toLocaleString() }}</strong></div>
+          </div>
+          <div class="sheet-footer-bottom">
+            <span class="eligible-caption">可列入會員累積 NT$ {{ detailMembershipTotal.toLocaleString() }}<template v-if="detailRedeemedPoints"> · 本單使用 {{ detailRedeemedPoints }} 點</template></span>
+            <div v-if="canEditWorkOrder" class="sheet-buttons">
+              <button v-if="canUseCriticalWorkOrder && !selectedWorkOrder.deleted_at" type="button" class="btn btn-danger" :disabled="saving" @click="openDeleteModal">刪除工單</button>
+              <button type="button" class="btn btn-outline" :disabled="saving || promotionPreviewLoading" @click="saveWorkOrder">{{ saving ? '儲存中…' : '儲存工單' }}</button>
+              <button v-if="canManageWorkOrderPayments && !['COMPLETED', 'CANCELED'].includes(selectedWorkOrder.status)" type="button" class="btn btn-primary" :disabled="saving || promotionPreviewLoading" @click="completeWorkOrder">結單</button>
+              <span v-else-if="selectedWorkOrder.status === 'COMPLETED'" class="completed-caption">已結單</span>
+            </div>
+          </div>
+        </div>
+
 
 
       </div>
     </div>
+
+    <WorkOrderQuickProducts v-if="quickProductTarget" :products="products" :disabled="saving || (quickProductTarget === 'detail' && (!canEditWorkOrder || lineItemEditingLocked))"
+      @close="quickProductTarget = ''" @add="addQuickProduct" />
 
     <div v-if="showDeleteModal" class="modal-overlay confirm-overlay" v-backdrop-close="closeDeleteModal">
       <div class="modal-content confirm-modal">
@@ -676,7 +604,8 @@
 import VehicleModelInput from '../../components/admin/VehicleModelInput.vue';
 import WorkOrderVehicleBrandFields from '../../components/admin/WorkOrderVehicleBrandFields.vue';
 import WorkOrderCustomerFields from '../../components/admin/WorkOrderCustomerFields.vue';
-import WorkOrderProductPicker from '../../components/admin/WorkOrderProductPicker.vue';
+import WorkOrderLineEditor from '../../components/admin/WorkOrderLineEditor.vue';
+import WorkOrderQuickProducts from '../../components/admin/WorkOrderQuickProducts.vue';
 import { MANUAL_PRODUCT_CATEGORY } from '../../utils/workOrderProductPicker';
 import { getInventoryItems, previewPromotionOrder } from '../../api/admin';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
@@ -701,7 +630,7 @@ import {
 } from '../../api/admin';
 import { useAuthStore } from '../../store/auth';
 import { formatTaipeiDateTime } from '../../utils/dateTime';
-import { lineItemTotal, calculateTotal, calculateMembershipTotal } from '../../utils/workOrderAmounts';
+import { lineItemTotal, calculateTotal, calculateMembershipTotal, summarizeWorkOrder } from '../../utils/workOrderAmounts';
 import { moveLineItem, promotionLineKey, mergePromotionGifts } from '../../utils/workOrderLineOrder';
 
 const route = useRoute();
@@ -725,6 +654,7 @@ const responsibleStaffAliases = {
 };
 const defaultResponsibleStaffUsername = 'HAM-9999';
 const technicianOptions = ['江子暢', '林書宇', '老闆'];
+const vehicleStatusOptions = ['待內場報價', '待料中', '料到待施工', '施工中', '料件追加', '已完工'];
 const paymentMethodOptions = ['現金', '轉帳', 'Linepay'];
 const canCreateWorkOrder = computed(() => ['最高級', '管理層', '一般'].includes(adminUser.value?.role));
 const canEditWorkOrder = computed(() => workOrderEditorRoles.includes(adminUser.value?.role));
@@ -742,7 +672,9 @@ const selectedMemberMotorKey = ref('');
 const guestSearch = ref('');
 const guestResults = ref([]);
 const createForm = ref(defaultCreateForm());
-const createLineItems = ref([defaultLineItem(), defaultLineItem()]);
+const createLineItems = ref([defaultLineItem()]);
+const quickProductTarget = ref('');
+const checkoutSection = ref(null);
 
 const selectedWorkOrder = ref(null);
 let detailRequestId = 0;
@@ -884,6 +816,8 @@ const guestMotorOptions = computed(() => {
 
 const createTotal = computed(() => calculateTotal(createLineItems.value));
 const detailTotal = computed(() => calculateTotal(detailLineItems.value));
+const createSummary = computed(() => summarizeWorkOrder(createLineItems.value));
+const detailSummary = computed(() => summarizeWorkOrder(detailLineItems.value));
 const createMembershipTotal = computed(() => calculateMembershipTotal(createLineItems.value));
 const detailMembershipTotal = computed(() => calculateMembershipTotal(detailLineItems.value));
 const detailRedeemedPoints = computed(() => detailLineItems.value.reduce(
@@ -926,6 +860,7 @@ function defaultCreateForm() {
     vehicle_license_plate: '',
     vehicle_brand: '',
     vehicle_brand_type: '',
+    vehicle_status: null,
     vehicle_model: '',
     vehicle_vin: '',
     vehicle_mileage: null,
@@ -1117,7 +1052,6 @@ const openHistoricalCreateModal = () => {
   createForm.value = defaultCreateForm();
   createForm.value.completed_date = todayDateString();
   createLineItems.value = [
-    { ...defaultLineItem(), counts_toward_membership: true },
     { ...defaultLineItem(), counts_toward_membership: true }
   ];
   showCreateModal.value = true;
@@ -1130,7 +1064,7 @@ const closeCreateModal = () => {
   createMode.value = 'normal';
   createSource.value = 'guest';
   createForm.value = defaultCreateForm();
-  createLineItems.value = [defaultLineItem(), defaultLineItem()];
+  createLineItems.value = [defaultLineItem()];
   selectedMemberMotorKey.value = '';
   memberResults.value = [];
   guestResults.value = [];
@@ -1509,6 +1443,7 @@ const openDetail = async (id) => {
       vehicle_license_plate: workOrder.vehicle_license_plate || '',
       vehicle_brand: workOrder.vehicle_brand || '',
       vehicle_brand_type: workOrder.vehicle_brand_type || '',
+      vehicle_status: workOrder.vehicle_status || null,
       vehicle_model: workOrder.vehicle_model || '',
       vehicle_vin: workOrder.vehicle_vin || '',
       vehicle_mileage: workOrder.vehicle_mileage,
@@ -1653,6 +1588,49 @@ const submitPayment = async () => {
     alert(`付款登錄失敗：${getErrorMessage(error)}`);
   }
 };
+
+const addQuickProduct = (product) => {
+  const target = quickProductTarget.value;
+  if (saving.value || (target !== 'create' && target !== 'detail')) return;
+  if (target === 'detail' && (!selectedWorkOrder.value || !canEditWorkOrder.value || lineItemEditingLocked.value)) return;
+  if (target === 'create' && (!showCreateModal.value || !canCreateWorkOrder.value)) return;
+  const items = target === 'create' ? createLineItems.value : detailLineItems.value;
+  const item = {
+    ...defaultLineItem(), type: ['LABOR', 'MAJOR_MAINTENANCE'].includes(product.inventory_type) ? product.inventory_type : 'PART',
+    product_id: product.id, picker_category: '', picker_manufacturer: '',
+    counts_toward_membership: target !== 'create' || createMode.value !== 'historical' || createForm.value.award_points,
+  };
+  applyProductToLine(item);
+  const emptyIndex = items.findIndex(line => line.type === 'SERVICE' && !line.product_id && !line.name && !line.id);
+  if (emptyIndex >= 0) items.splice(emptyIndex, 1, item);
+  else items.push(item);
+};
+
+const completeWorkOrder = async () => {
+  if (!selectedWorkOrder.value || saving.value || !canManageWorkOrderPayments.value) return;
+  if (hasBlockingApproval(selectedWorkOrder.value, 'COMPLETED')) {
+    alert('此工單仍有待審核項目，請完成主管審核後再結單。');
+    return;
+  }
+  if (detailTotal.value > Number(selectedWorkOrder.value.paid_amount || 0)) {
+    if (checkoutSection.value) {
+      checkoutSection.value.open = true;
+      checkoutSection.value.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      checkoutSection.value.querySelector('input[aria-label="付款金額"]')?.focus({ preventScroll: true });
+    }
+    alert('尚有未收款金額，請先在「收款與點數資訊」登錄付款，再結單。');
+    return;
+  }
+  const orderId = selectedWorkOrder.value.id;
+  const previousStatus = detailForm.value.status;
+  detailForm.value.status = 'COMPLETED';
+  await saveWorkOrder();
+  if (selectedWorkOrder.value?.id === orderId && selectedWorkOrder.value.status !== 'COMPLETED') detailForm.value.status = previousStatus;
+};
+
+watch([showCreateModal, selectedWorkOrder], ([createOpen, order]) => {
+  if ((quickProductTarget.value === 'create' && !createOpen) || (quickProductTarget.value === 'detail' && !order)) quickProductTarget.value = '';
+});
 
 const isGatedStatus = (status) => gatedStatuses.includes(status);
 const hasBlockingApproval = (workOrder, targetStatus = null) => {
@@ -1875,7 +1853,7 @@ watch(
 @import '../../assets/_variables.scss';
 
 .admin-work-orders {
-  color: $text-primary;
+  color: var(--admin-text, #{$text-primary});
 
   .section-header,
   .header-actions,
@@ -1899,12 +1877,12 @@ watch(
     margin-bottom: 1rem;
 
     h2 {
-      color: $primary-light;
+      color: var(--admin-accent-text, #{$primary-light});
       margin: 0;
     }
 
     p {
-      color: $text-secondary;
+      color: var(--admin-secondary, #{$text-secondary});
       margin: 0.35rem 0 0;
     }
   }
@@ -1927,9 +1905,9 @@ watch(
     }
 
     .supervisor-filter-btn.active {
-      border-color: $primary-color;
-      color: $primary-light;
-      background-color: rgba($primary-color, 0.14);
+      border-color: var(--admin-accent, #{$primary-color});
+      color: var(--admin-accent-text, #{$primary-light});
+      background-color: rgba(var(--admin-accent-rgb, 229,57,53), 0.14);
     }
   }
 
@@ -1947,15 +1925,15 @@ watch(
   textarea,
   .date-picker {
     padding: 0.62rem 0.72rem;
-    background-color: $dark-grey;
-    color: $text-primary;
-    border: 1px solid $medium-grey;
+    background-color: var(--admin-surface, #{$dark-grey});
+    color: var(--admin-text, #{$text-primary});
+    border: 1px solid var(--admin-border, #{$medium-grey});
     border-radius: $border-radius;
     font-family: inherit;
 
     &:focus {
       outline: none;
-      border-color: $primary-light;
+      border-color: var(--admin-accent-text, #{$primary-light});
     }
   }
 
@@ -1967,7 +1945,7 @@ watch(
     display: flex;
     flex-direction: column;
     gap: 0.38rem;
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
     font-size: 0.88rem;
   }
 
@@ -1978,7 +1956,7 @@ watch(
   }
 
   .required-mark {
-    color: $primary-light;
+    color: var(--admin-accent-text, #{$primary-light});
     font-weight: 800;
   }
 
@@ -1987,7 +1965,7 @@ watch(
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    color: $text-primary;
+    color: var(--admin-text, #{$text-primary});
 
     input {
       width: 18px;
@@ -1998,9 +1976,9 @@ watch(
 
   .btn {
     padding: 0.58rem 0.95rem;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.05);
-    color: $text-secondary;
+    border: 1px solid rgba(var(--admin-ink-rgb, 255,255,255), 0.1);
+    background: rgba(var(--admin-ink-rgb, 255,255,255), 0.05);
+    color: var(--admin-secondary, #{$text-secondary});
     border-radius: $border-radius;
     cursor: pointer;
     font-weight: 700;
@@ -2013,19 +1991,19 @@ watch(
   }
 
   .btn-primary {
-    background-color: $primary-color;
+    background-color: var(--admin-accent, #{$primary-color});
     color: #fff;
-    border-color: $primary-color;
+    border-color: var(--admin-accent, #{$primary-color});
   }
 
   .btn-outline {
-    border-color: $medium-grey;
-    color: $primary-light;
+    border-color: var(--admin-border, #{$medium-grey});
+    color: var(--admin-accent-text, #{$primary-light});
   }
 
   .btn-ghost {
     background: transparent;
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
   }
 
   .icon-btn {
@@ -2036,18 +2014,18 @@ watch(
     justify-content: center;
     border: none;
     border-radius: $border-radius;
-    background: rgba(255, 255, 255, 0.06);
-    color: $text-primary;
+    background: rgba(var(--admin-ink-rgb, 255,255,255), 0.06);
+    color: var(--admin-text, #{$text-primary});
     cursor: pointer;
 
     &.danger {
-      color: #ff7676;
+      color: var(--admin-danger, #ff7676);
     }
   }
 
   .table-wrap {
-    background-color: $dark-grey;
-    border: 1px solid $medium-grey;
+    background-color: var(--admin-surface, #{$dark-grey});
+    border: 1px solid var(--admin-border, #{$medium-grey});
     border-radius: $border-radius;
     overflow: auto;
   }
@@ -2061,14 +2039,14 @@ watch(
     td {
       padding: 0.85rem 1rem;
       text-align: left;
-      border-bottom: 1px solid $medium-grey;
+      border-bottom: 1px solid var(--admin-border, #{$medium-grey});
       white-space: nowrap;
       vertical-align: top;
     }
 
     th {
-      background-color: $background-color;
-      color: $text-secondary;
+      background-color: var(--admin-base, #{$background-color});
+      color: var(--admin-secondary, #{$text-secondary});
       font-size: 0.86rem;
       font-weight: 600;
     }
@@ -2078,13 +2056,13 @@ watch(
     cursor: pointer;
 
     &:hover {
-      background-color: rgba($primary-color, 0.06);
+      background-color: rgba(var(--admin-accent-rgb, 229,57,53), 0.06);
     }
   }
 
   .strong-cell,
   .amount {
-    color: $primary-light;
+    color: var(--admin-accent-text, #{$primary-light});
     font-weight: 700;
   }
 
@@ -2092,7 +2070,7 @@ watch(
   .muted-line {
     display: block;
     margin-top: 0.22rem;
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
     font-size: 0.82rem;
     font-weight: 400;
   }
@@ -2103,28 +2081,28 @@ watch(
     padding: 0.2rem 0.55rem;
     border-radius: 999px;
     font-size: 0.8rem;
-    background-color: rgba($medium-grey, 0.4);
+    background-color: rgba(var(--admin-border-rgb, 66,66,66), 0.4);
   }
 
   .INSPECTION_PENDING,
   .PENDING,
-  .UNPAID { color: #ffc107; background-color: rgba(#ffc107, 0.15); }
+  .UNPAID { color: var(--admin-warning, #ffc107); background-color: rgba(var(--admin-warning-fill-rgb, 255,193,7), 0.15); }
   .QUOTE_PENDING,
   .CUSTOMER_CONFIRMATION_PENDING,
-  .PARTIALLY_PAID { color: #ff9800; background-color: rgba(#ff9800, 0.15); }
-  .SUPERVISOR_APPROVAL_PENDING { color: #ce93d8; background-color: rgba(#ce93d8, 0.15); }
-  .IN_PROGRESS { color: #64b5f6; background-color: rgba(#64b5f6, 0.15); }
-  .AWAITING_PAYMENT { color: #ffb74d; background-color: rgba(#ffb74d, 0.15); }
+  .PARTIALLY_PAID { color: var(--admin-warning, #ff9800); background-color: rgba(var(--admin-warning-fill-rgb, 255,152,0), 0.15); }
+  .SUPERVISOR_APPROVAL_PENDING { color: var(--admin-purple, #ce93d8); background-color: rgba(var(--admin-purple-fill-rgb, 206,147,216), 0.15); }
+  .IN_PROGRESS { color: var(--admin-info, #64b5f6); background-color: rgba(var(--admin-info-fill-rgb, 100,181,246), 0.15); }
+  .AWAITING_PAYMENT { color: var(--admin-warning, #ffb74d); background-color: rgba(var(--admin-warning-fill-rgb, 255,183,77), 0.15); }
   .COMPLETED,
-  .PAID { color: #4caf50; background-color: rgba(#4caf50, 0.15); }
+  .PAID { color: var(--admin-success, #4caf50); background-color: rgba(var(--admin-success-fill-rgb, 76,175,80), 0.15); }
   .CANCELED,
-  .REFUNDED { color: #e57373; background-color: rgba(#e57373, 0.15); }
+  .REFUNDED { color: var(--admin-danger, #e57373); background-color: rgba(var(--admin-danger-fill-rgb, 229,115,115), 0.15); }
 
   .loading,
   .empty-state {
     padding: 3rem;
     text-align: center;
-    color: $text-disabled;
+    color: var(--admin-muted, #{$text-disabled});
   }
 
   .modal-overlay {
@@ -2152,8 +2130,8 @@ watch(
   .modal-content {
     box-sizing: border-box;
     width: min(96vw, 920px);
-    background-color: $dark-grey;
-    border: 1px solid $medium-grey;
+    background-color: var(--admin-surface, #{$dark-grey});
+    border: 1px solid var(--admin-border, #{$medium-grey});
     border-radius: $border-radius;
     padding: 1.5rem;
     box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
@@ -2175,7 +2153,7 @@ watch(
         width: min(100%, 360px);
         margin: 1rem auto 0;
         border-radius: $border-radius;
-        background: #fff;
+        background: var(--admin-surface, #fff);
       }
     }
   }
@@ -2191,17 +2169,17 @@ watch(
     gap: 0.35rem;
     width: 100%;
     padding: 1rem;
-    color: $text-primary;
+    color: var(--admin-text, #{$text-primary});
     text-align: left;
-    background: rgba($text-primary, 0.04);
-    border: 1px solid $medium-grey;
+    background: rgba(var(--admin-text-rgb, 255,255,255), 0.04);
+    border: 1px solid var(--admin-border, #{$medium-grey});
     border-radius: $border-radius;
     cursor: pointer;
     transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
 
     &:hover {
-      background: rgba($primary-color, 0.12);
-      border-color: $primary-color;
+      background: rgba(var(--admin-accent-rgb, 229,57,53), 0.12);
+      border-color: var(--admin-accent, #{$primary-color});
       transform: translateY(-1px);
     }
 
@@ -2210,7 +2188,7 @@ watch(
     }
 
     span {
-      color: $text-disabled;
+      color: var(--admin-muted, #{$text-disabled});
       font-size: 0.9rem;
     }
   }
@@ -2233,12 +2211,12 @@ watch(
     margin-bottom: 1rem;
 
     h3 {
-      color: $primary-light;
+      color: var(--admin-accent-text, #{$primary-light});
       margin: 0;
     }
 
     p {
-      color: $text-secondary;
+      color: var(--admin-secondary, #{$text-secondary});
       margin: 0.3rem 0 0;
     }
   }
@@ -2249,7 +2227,7 @@ watch(
     flex-wrap: wrap;
     gap: 0.35rem;
     margin-top: 0.3rem;
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
 
     select {
       height: 40px;
@@ -2273,16 +2251,16 @@ watch(
   }
 
   .form-section {
-    border: 1px solid $medium-grey;
+    border: 1px solid var(--admin-border, #{$medium-grey});
     border-radius: $border-radius;
     padding: 1rem;
-    background-color: $background-color;
+    background-color: var(--admin-base, #{$background-color});
     display: grid;
     gap: 0.9rem;
     min-width: 0;
 
     h4 {
-      color: $primary-light;
+      color: var(--admin-accent-text, #{$primary-light});
       margin: 0;
     }
   }
@@ -2315,7 +2293,7 @@ watch(
 
   .segmented {
     display: inline-flex;
-    border: 1px solid $medium-grey;
+    border: 1px solid var(--admin-border, #{$medium-grey});
     border-radius: $border-radius;
     overflow: hidden;
     width: fit-content;
@@ -2324,12 +2302,12 @@ watch(
       border: none;
       padding: 0.55rem 1rem;
       background: transparent;
-      color: $text-secondary;
+      color: var(--admin-secondary, #{$text-secondary});
       cursor: pointer;
 
       &.active {
-        background: rgba($primary-color, 0.16);
-        color: $primary-light;
+        background: rgba(var(--admin-accent-rgb, 229,57,53), 0.16);
+        color: var(--admin-accent-text, #{$primary-light});
       }
     }
   }
@@ -2341,125 +2319,12 @@ watch(
     flex-wrap: wrap;
 
     button {
-      border: 1px solid $medium-grey;
-      background: rgba(255, 255, 255, 0.04);
-      color: $text-primary;
+      border: 1px solid var(--admin-border, #{$medium-grey});
+      background: rgba(var(--admin-ink-rgb, 255,255,255), 0.04);
+      color: var(--admin-text, #{$text-primary});
       border-radius: $border-radius;
       padding: 0.45rem 0.7rem;
       cursor: pointer;
-    }
-  }
-
-  .line-editor {
-    display: grid;
-    gap: 0.55rem;
-    container-type: inline-size;
-  }
-
-  .line-row {
-    display: grid;
-    grid-template-columns: 90px minmax(112px, 0.75fr) minmax(140px, 1.1fr) 72px 62px 122px 92px 36px;
-    gap: 0.5rem;
-    align-items: end;
-    min-width: 0;
-
-    .line-type { grid-column: 1; }
-    .line-product { grid-column: 2; }
-    .line-name { grid-column: 3; }
-    .line-price { grid-column: 4; }
-    .line-quantity { grid-column: 5; }
-
-    .line-field {
-      display: grid;
-      gap: 0.28rem;
-      min-width: 0;
-
-      span {
-        color: $text-secondary;
-        font-size: 0.78rem;
-        font-weight: 700;
-      }
-
-      input,
-      select {
-        box-sizing: border-box;
-        width: 100%;
-        max-width: 100%;
-        min-width: 0;
-      }
-    }
-
-    .line-total {
-      grid-column: 7;
-      grid-row: 1;
-      display: grid;
-      gap: 0.28rem;
-      color: $primary-light;
-      font-weight: 700;
-      white-space: nowrap;
-
-      > span {
-        color: $text-secondary;
-        font-size: 0.78rem;
-        font-weight: 700;
-      }
-
-      strong {
-        min-height: 42px;
-        display: inline-flex;
-        align-items: center;
-      }
-
-      small {
-        display: block;
-        color: $text-secondary;
-        font-weight: 400;
-        line-height: 1.3;
-        overflow-wrap: anywhere;
-        white-space: normal;
-      }
-    }
-
-    .membership-toggle {
-      grid-column: 6;
-      grid-row: 1;
-      justify-self: stretch;
-      min-height: 42px;
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.55rem 0.65rem;
-      box-sizing: border-box;
-      border: 1px solid $medium-grey;
-      border-radius: $border-radius;
-      color: $text-primary;
-      cursor: pointer;
-
-      input {
-        width: 18px;
-        height: 18px;
-        accent-color: $primary-color;
-      }
-
-      span {
-        font-size: 0.78rem;
-        font-weight: 700;
-        line-height: 1.25;
-      }
-    }
-
-    > .line-actions {
-      grid-column: 8;
-      grid-row: 1;
-    }
-
-    &.detail-line-row {
-      grid-template-columns: 84px minmax(100px, 0.65fr) minmax(120px, 1fr) 68px 58px 112px 164px 84px 36px;
-
-      .points-redemption { grid-column: 7; }
-      .line-total { grid-column: 8; }
-      > .line-actions { grid-column: 9; }
     }
   }
 
@@ -2475,58 +2340,13 @@ watch(
     margin-left: auto;
   }
 
-  .points-redemption {
-    min-height: 42px;
-    display: grid;
-    grid-template-columns: 18px 52px 46px 14px;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.45rem 0.5rem;
-    box-sizing: border-box;
-    border: 1px solid $medium-grey;
-    border-radius: $border-radius;
-    color: $text-primary;
-
-    .points-check {
-      width: 18px;
-      height: 18px;
-      accent-color: $primary-color;
-    }
-
-    .points-input {
-      width: 100%;
-      min-width: 0;
-      box-sizing: border-box;
-      padding: 0.3rem 0.35rem;
-      text-align: right;
-    }
-
-    span {
-      font-size: 0.75rem;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-  }
-
-  .line-price input[type='number'],
-  .points-input {
-    appearance: textfield;
-    -moz-appearance: textfield;
-
-    &::-webkit-inner-spin-button,
-    &::-webkit-outer-spin-button {
-      margin: 0;
-      -webkit-appearance: none;
-    }
-  }
-
   .points-payment-row {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: stretch;
     gap: 0;
-    border-top: 1px solid $medium-grey;
-    border-bottom: 1px solid $medium-grey;
+    border-top: 1px solid var(--admin-border, #{$medium-grey});
+    border-bottom: 1px solid var(--admin-border, #{$medium-grey});
 
     > div {
       min-width: 0;
@@ -2534,10 +2354,10 @@ watch(
   }
 
   .checkout-row {
-    > div { border-bottom: 1px solid $medium-grey; }
-    > div:nth-child(even) { border-left: 1px solid $medium-grey; }
+    > div { border-bottom: 1px solid var(--admin-border, #{$medium-grey}); }
+    > div:nth-child(even) { border-left: 1px solid var(--admin-border, #{$medium-grey}); }
     .payment-form { border-left: 0; }
-    .checkout-amount strong { color: $primary-light; }
+    .checkout-amount strong { color: var(--admin-accent-text, #{$primary-light}); }
   }
 
   .customer-point-balance {
@@ -2548,14 +2368,14 @@ watch(
     min-height: 56px;
     padding: 0.65rem;
     box-sizing: border-box;
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
 
     & + .customer-point-balance {
-      border-top: 1px solid $medium-grey;
+      border-top: 1px solid var(--admin-border, #{$medium-grey});
     }
 
     strong {
-      color: #81c784;
+      color: var(--admin-success, #81c784);
       font-size: 1.05rem;
     }
   }
@@ -2568,7 +2388,7 @@ watch(
     gap: 0.7rem;
     min-height: 56px;
     padding: 8px 0.65rem;
-    border-left: 1px solid $medium-grey;
+    border-left: 1px solid var(--admin-border, #{$medium-grey});
     box-sizing: border-box;
 
     input,
@@ -2591,7 +2411,7 @@ watch(
   }
 
   .points-total strong {
-    color: #81c784;
+    color: var(--admin-success, #81c784);
   }
 
   .line-status-table-wrap {
@@ -2604,7 +2424,7 @@ watch(
   }
 
   .reviewed-label {
-    color: #81c784;
+    color: var(--admin-success, #81c784);
     font-weight: 700;
   }
 
@@ -2615,17 +2435,17 @@ watch(
     gap: 1rem;
     margin: 1rem 0;
     padding: 0.85rem;
-    border: 1px solid rgba(#ffb74d, 0.55);
+    border: 1px solid rgba(var(--admin-warning-rgb, 255,183,77), 0.55);
     border-radius: $border-radius;
-    background: rgba(#ffb74d, 0.08);
+    background: rgba(var(--admin-warning-fill-rgb, 255,183,77), 0.08);
 
     strong,
     span {
       display: block;
     }
 
-    strong { color: #ffb74d; }
-    span { margin-top: 0.25rem; color: $text-secondary; font-size: 0.85rem; }
+    strong { color: var(--admin-warning, #ffb74d); }
+    span { margin-top: 0.25rem; color: var(--admin-secondary, #{$text-secondary}); font-size: 0.85rem; }
   }
 
   .header-actions {
@@ -2640,7 +2460,7 @@ watch(
 
   .historical-fields {
     padding-top: 0.9rem;
-    border-top: 1px solid $medium-grey;
+    border-top: 1px solid var(--admin-border, #{$medium-grey});
   }
 
   .historical-point-toggle span {
@@ -2658,21 +2478,21 @@ watch(
     display: inline-block;
     margin-left: 0.45rem;
     padding: 0.2rem 0.45rem;
-    border: 1px solid #64b5f6;
+    border: 1px solid var(--admin-info, #64b5f6);
     border-radius: $border-radius;
-    color: #90caf9;
+    color: var(--admin-info, #90caf9);
     font-size: 0.75rem;
     vertical-align: middle;
   }
 
   .backfill-audit {
     padding: 0.75rem;
-    border-left: 3px solid #64b5f6;
-    background: rgba(#64b5f6, 0.08);
-    color: $text-secondary;
+    border-left: 3px solid var(--admin-info, #64b5f6);
+    background: rgba(var(--admin-info-fill-rgb, 100,181,246), 0.08);
+    color: var(--admin-secondary, #{$text-secondary});
 
     strong {
-      color: $text-primary;
+      color: var(--admin-text, #{$text-primary});
     }
   }
 
@@ -2682,7 +2502,7 @@ watch(
     margin: 0.8rem 0;
 
     span {
-      color: $text-secondary;
+      color: var(--admin-secondary, #{$text-secondary});
       font-size: 0.85rem;
     }
   }
@@ -2748,86 +2568,21 @@ watch(
     }
   }
 
-  @container (max-width: 900px) {
-    .line-row {
-      grid-template-columns: repeat(12, minmax(0, 1fr));
-      row-gap: 0.65rem;
-
-      .line-type { grid-column: 1 / span 2; }
-      .line-product { grid-column: 3 / span 3; }
-      .line-name { grid-column: 6 / span 3; }
-      .line-price { grid-column: 9 / span 2; }
-      .line-quantity { grid-column: 11 / span 2; }
-
-      .membership-toggle {
-        grid-column: 1 / span 4;
-        grid-row: 2;
-      }
-
-      .line-total {
-        grid-column: 9 / span 3;
-        grid-row: 2;
-        justify-self: end;
-        min-width: 96px;
-      }
-
-      > .line-actions {
-        grid-column: 12;
-        grid-row: 2;
-        justify-self: end;
-      }
-
-      &.detail-line-row {
-        .membership-toggle { grid-column: 1 / span 3; }
-        .points-redemption {
-          grid-column: 4 / span 5;
-          grid-row: 2;
-        }
-        .line-total { grid-column: 9 / span 3; }
-      }
-    }
-  }
-
-  @container (max-width: 520px) {
-    .line-row,
-    .line-row.detail-line-row {
-      grid-template-columns: minmax(0, 1fr);
-
-      .line-type,
-      .line-product,
-      .line-name,
-      .line-quantity,
-      .line-price,
-      .membership-toggle,
-      .points-redemption,
-      .line-total,
-      > .line-actions {
-        grid-column: 1;
-        grid-row: auto;
-        justify-self: stretch;
-      }
-
-      > .line-actions {
-        justify-self: end;
-      }
-    }
-  }
-
   .total-row {
     display: flex;
     justify-content: flex-end;
     gap: 1rem;
     align-items: center;
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
 
     strong {
-      color: $primary-light;
+      color: var(--admin-accent-text, #{$primary-light});
       font-size: 1.1rem;
     }
   }
 
   .membership-total strong {
-    color: #66bb6a;
+    color: var(--admin-success, #66bb6a);
   }
 
   .money-summary {
@@ -2843,13 +2598,13 @@ watch(
     }
 
     dt {
-      color: $text-secondary;
+      color: var(--admin-secondary, #{$text-secondary});
     }
 
     dd {
       flex: 0 0 auto;
       margin: 0;
-      color: $primary-light;
+      color: var(--admin-accent-text, #{$primary-light});
       font-weight: 700;
       text-align: right;
       white-space: nowrap;
@@ -2857,9 +2612,9 @@ watch(
   }
 
   .warning-text {
-    color: #ffb74d;
-    background-color: rgba(#ffb74d, 0.1);
-    border: 1px solid rgba(#ffb74d, 0.25);
+    color: var(--admin-warning, #ffb74d);
+    background-color: rgba(var(--admin-warning-fill-rgb, 255,183,77), 0.1);
+    border: 1px solid rgba(var(--admin-warning-rgb, 255,183,77), 0.25);
     border-radius: $border-radius;
     padding: 0.75rem;
   }
@@ -2877,7 +2632,7 @@ watch(
       > h4,
       > .section-title-row {
         padding: 0.75rem 1rem;
-        border-bottom: 1px solid $medium-grey;
+        border-bottom: 1px solid var(--admin-border, #{$medium-grey});
       }
 
       > :not(h4):not(.section-title-row) {
@@ -2887,8 +2642,8 @@ watch(
 
     .compact-basic-grid {
       gap: 0;
-      border-top: 1px solid $medium-grey;
-      border-left: 1px solid $medium-grey;
+      border-top: 1px solid var(--admin-border, #{$medium-grey});
+      border-left: 1px solid var(--admin-border, #{$medium-grey});
 
       > label,
       > .vehicle-brand-cell {
@@ -2898,8 +2653,8 @@ watch(
         align-items: center;
         gap: 0.5rem;
         padding: 0.65rem;
-        border-right: 1px solid $medium-grey;
-        border-bottom: 1px solid $medium-grey;
+        border-right: 1px solid var(--admin-border, #{$medium-grey});
+        border-bottom: 1px solid var(--admin-border, #{$medium-grey});
 
         > input,
         > select {
@@ -2908,15 +2663,6 @@ watch(
           box-sizing: border-box;
         }
       }
-    }
-
-    .line-editor {
-      gap: 0;
-    }
-
-    .line-row {
-      padding: 0.75rem 0;
-      border-bottom: 1px solid $medium-grey;
     }
 
     .money-summary {
@@ -2930,13 +2676,13 @@ watch(
         top: 0;
         bottom: 0;
         left: 50%;
-        border-left: 1px solid $medium-grey;
+        border-left: 1px solid var(--admin-border, #{$medium-grey});
         pointer-events: none;
       }
 
       > div {
         padding: 0.65rem;
-        border-bottom: 1px solid $medium-grey;
+        border-bottom: 1px solid var(--admin-border, #{$medium-grey});
       }
     }
 
@@ -2959,7 +2705,7 @@ watch(
 
       .payment-form {
         border-left: 0;
-        border-top: 1px solid $medium-grey;
+        border-top: 1px solid var(--admin-border, #{$medium-grey});
       }
     }
 
@@ -2986,84 +2732,65 @@ watch(
       grid-template-columns: 1fr;
     }
 
-    .line-row {
-      grid-template-columns: 1fr;
-      align-items: stretch;
 
-      &.detail-line-row {
-        grid-template-columns: 1fr;
-      }
-
-      .line-type,
-      .line-product,
-      .line-name,
-      .line-quantity,
-      .line-price {
-        grid-column: auto;
-      }
-
-      .line-total,
-      .membership-toggle,
-      .points-redemption,
-      > .line-actions {
-        grid-column: auto;
-        grid-row: auto;
-      }
-
-      .membership-toggle {
-        justify-self: stretch;
-      }
-
-      .points-redemption {
-        justify-self: stretch;
-      }
-    }
   }
 }
 </style>
 
 <style scoped>
-.line-actions { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.line-actions .icon-btn { width: 32px; height: 28px; min-height: 28px; padding: 0; }
-.line-actions .icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-.line-field .line-value { display: flex; align-items: center; height: 38px; padding: 0.45rem 0.65rem; border: 1px solid #444; border-radius: 6px; background: #202124; box-sizing: border-box; font-size: 0.9rem; font-weight: 400; color: #eee; }
-.line-row { grid-template-columns: minmax(140px, 1fr) 80px 64px 92px 32px !important; }
-.line-row.membership-controls { grid-template-columns: minmax(140px, 1fr) 80px 64px 112px 92px 32px !important; }
-.line-row.detail-line-row.membership-controls { grid-template-columns: minmax(140px, 1fr) 76px 60px 106px 176px 92px 32px !important; }
-.line-row > .line-picker { grid-column: 1 / -1 !important; grid-row: 1 !important; }
-.line-row > .line-name { grid-column: 1 !important; grid-row: 2 !important; }
-.line-row > .line-price { grid-column: 2 !important; grid-row: 2 !important; }
-.line-row > .line-price.wide-price { grid-column: 1 / span 2 !important; }
-.line-row > .line-quantity { grid-column: 3 !important; grid-row: 2 !important; }
-.line-row > .membership-toggle { grid-column: 4 !important; grid-row: 2 !important; white-space: nowrap; min-height: 38px; padding: 0.45rem 0.5rem; }
-.line-row > .points-redemption { grid-column: 5 !important; grid-row: 2 !important; min-height: 38px; }
-.line-row > .line-total { grid-column: -3 !important; grid-row: 2 !important; }
-.line-row > .line-actions { grid-column: -2 !important; grid-row: 2 !important; }
-@container (max-width: 760px) {
-  .line-row, .line-row.membership-controls, .line-row.detail-line-row.membership-controls { grid-template-columns: repeat(12, minmax(0, 1fr)) !important; }
-  .line-row > .line-name { grid-column: 1 / span 8 !important; }
-  .line-row > .line-price { grid-column: 9 / span 2 !important; }
-  .line-row > .line-price.wide-price { grid-column: 1 / span 10 !important; }
-  .line-row > .line-quantity { grid-column: 11 / span 2 !important; }
-  .line-row > .membership-toggle { grid-column: 1 / span 3 !important; grid-row: 3 !important; }
-  .line-row > .points-redemption { grid-column: 4 / span 5 !important; grid-row: 3 !important; }
-  .line-row > .line-total { grid-column: 9 / span 3 !important; grid-row: 3 !important; }
-  .line-row > .line-actions { grid-column: 12 !important; grid-row: 3 !important; }
-}
-@container (max-width: 520px) {
-  .line-row > .line-actions { flex-direction: row; }
-  .line-row, .line-row.membership-controls, .line-row.detail-line-row.membership-controls { grid-template-columns: minmax(0, 1fr) !important; }
-  .line-row > .line-picker, .line-row > .line-name, .line-row > .line-price,
-  .line-row > .line-quantity, .line-row > .line-total, .line-row > .line-actions,
-  .line-row > .membership-toggle, .line-row > .points-redemption { grid-column: 1 !important; grid-row: auto !important; }
-  .line-row > .line-price.wide-price { grid-column: 1 !important; grid-row: auto !important; }
+.sheet-overlay { box-sizing: border-box; }
+.work-order-sheet { box-sizing: border-box; flex-shrink: 0; width: min(1480px, 100%) !important; max-width: 1480px !important; max-height: 92dvh; overflow-y: auto; overscroll-behavior: contain; padding: 0 !important; }
+.work-order-sheet > .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--admin-border, #444); margin: 0; position: sticky; top: 0; background: var(--admin-surface, #181818); z-index: 30; }
+.work-order-sheet .work-order-form, .work-order-sheet .detail-grid { gap: 20px; padding: 20px 24px 0; }
+.work-order-sheet .detail-grid { display: grid; grid-template-columns: 1fr; }
+.work-order-sheet .compact-basic-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.work-order-sheet .compact-basic-grid > .work-order-status-field { grid-column: 2; grid-row: 3; }
+.work-order-sheet .compact-basic-grid > .vehicle-status-field { grid-column: 3; grid-row: 3; }
+.work-order-sheet .sheet-lines { margin: 0 16px !important; }
+.sheet-add-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 64px; }
+.sheet-add-row > span { color: var(--admin-muted, #999); font-size: 12px; }
+.sheet-add-row small { font-size: inherit; }
+.sheet-footer { position: sticky; bottom: -1px; z-index: 25; background: var(--admin-surface, #1d1d1d); border-top: 1px solid var(--admin-border, #4a4a4a); box-shadow: 0 -8px 24px #0003; padding: 16px 24px; margin-top: 20px; }
+.create-footer { margin: 0 -24px !important; }
+.sheet-totals { display: grid; grid-template-columns: 1fr 1fr 1.2fr; border: 1px solid var(--admin-border, #444); }
+.sheet-totals > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; min-width: 0; }
+.sheet-totals > div + div { border-left: 1px solid var(--admin-border, #444); }
+.sheet-totals span { color: var(--admin-muted, #aaa); font-size: 13px; }
+.sheet-totals strong { color: var(--admin-text, #ddd); font-size: 16px; font-variant-numeric: tabular-nums; }
+.sheet-totals .grand-total { background: rgba(var(--admin-accent-rgb, 239,83,80), 0.04314); }
+.sheet-totals .grand-total strong { color: var(--admin-danger, #ef7777); font-size: 24px; }
+.sheet-totals .discount-total strong { color: var(--admin-success, #82c991); }
+.sheet-footer-bottom { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 14px; }
+.eligible-caption { font-size: 12px; color: var(--admin-success, #8abb93); }
+.sheet-buttons { display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
+.completed-caption { color: var(--admin-success, #8abb93); }
+.checkout-section > summary { padding: 16px; color: var(--admin-text, #eee); cursor: pointer; font-weight: 700; }
+.checkout-section > summary span { margin-left: 16px; color: var(--admin-muted, #999); font-size: 12px; font-weight: 400; }
+.checkout-section > summary::marker { color: var(--admin-danger, #ef7777); }
+.work-order-sheet .detail-section-actions { flex-wrap: wrap; gap: 8px; }
+@media (max-width: 900px) {
+  .work-order-sheet .compact-basic-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .work-order-sheet .compact-basic-grid > .work-order-status-field,
+  .work-order-sheet .compact-basic-grid > .vehicle-status-field { grid-column: auto; grid-row: auto; }
+  .sheet-totals > div { flex-wrap: wrap; gap: 6px; padding: 10px 12px; }
 }
 @media (max-width: 600px) {
-  .line-row > .line-actions { flex-direction: row; }
-  .line-row, .line-row.membership-controls, .line-row.detail-line-row.membership-controls { grid-template-columns: minmax(0, 1fr) !important; }
-  .line-row > .line-picker, .line-row > .line-name, .line-row > .line-price,
-  .line-row > .line-quantity, .line-row > .line-total, .line-row > .line-actions,
-  .line-row > .membership-toggle, .line-row > .points-redemption { grid-column: 1 !important; grid-row: auto !important; }
-  .line-row > .line-price.wide-price { grid-column: 1 !important; grid-row: auto !important; }
+  .admin-work-orders .sheet-overlay { padding: 0; }
+  .work-order-sheet { width: 100% !important; max-height: 100dvh; border-radius: 0 !important; }
+  .work-order-sheet > .modal-header { padding: 14px 16px; }
+  .work-order-sheet .work-order-form, .work-order-sheet .detail-grid { padding: 16px 12px 0; gap: 16px; }
+  .work-order-sheet .compact-basic-grid { grid-template-columns: 1fr; }
+  .work-order-sheet .sheet-lines { margin: 0 12px !important; }
+  .sheet-footer { padding: 12px 12px max(12px, env(safe-area-inset-bottom)); }
+  .create-footer { margin: 0 -12px !important; }
+  .sheet-totals { grid-template-columns: 1fr 1fr 1.15fr; }
+  .sheet-totals > div { display: grid; gap: 6px; padding: 9px; }
+  .sheet-totals strong { font-size: 13px; }
+  .sheet-totals .grand-total strong { font-size: 20px; }
+  .sheet-footer-bottom { align-items: stretch; flex-direction: column; gap: 10px; }
+  .sheet-buttons { justify-content: end; gap: 8px; }
+  .sheet-buttons button { min-height: 44px; }
+  .sheet-add-row { flex-wrap: wrap; padding: 8px 0; }
+  .checkout-section > summary span { display: block; margin: 8px 0 0; }
 }
 </style>

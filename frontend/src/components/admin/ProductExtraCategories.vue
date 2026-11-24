@@ -82,15 +82,15 @@ function toggle(category) {
 onMounted(load);
 </script>
 <style scoped>
-.extra-categories { min-width: 0; margin: 0 0 1rem; padding: 0.8rem; border: 1px solid #444; border-radius: 6px; }
+.extra-categories { min-width: 0; margin: 0 0 1rem; padding: 0.8rem; border: 1px solid var(--admin-border, #444); border-radius: 6px; }
 .choices { display: flex; flex-wrap: wrap; gap: 0.7rem 1rem; margin-bottom: 0.7rem; }
 legend, span { font-size: 0.86rem; }
 .choices label { display: flex; flex-direction: row; align-items: center; gap: 0.4rem; font-size: 0.86rem; cursor: pointer; }
 .choices input { width: auto; margin: 0; }
-button { padding: 0.45rem 0.6rem; background: transparent; color: #ddd; border: 1px solid #555; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+button { padding: 0.45rem 0.6rem; background: transparent; color: var(--admin-text, #ddd); border: 1px solid var(--admin-border, #555); border-radius: 6px; cursor: pointer; white-space: nowrap; }
 button:disabled { opacity: 0.5; }
 .management { display: grid; gap: 0.6rem; margin-top: 0.7rem; }
 .name-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
-.name-row input { flex: 1; min-width: 100px; box-sizing: border-box; background: #101118; color: #eee; border: 1px solid #444; border-radius: 6px; padding: 0.55rem; }
-.error { color: #ffb74d; font-size: 0.85rem; }
+.name-row input { flex: 1; min-width: 100px; box-sizing: border-box; background: var(--admin-surface, #101118); color: var(--admin-text, #eee); border: 1px solid var(--admin-border, #444); border-radius: 6px; padding: 0.55rem; }
+.error { color: var(--admin-warning, #ffb74d); font-size: 0.85rem; }
 </style>

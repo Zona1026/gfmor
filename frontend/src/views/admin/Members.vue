@@ -626,7 +626,7 @@ onMounted(fetchCustomers);
 @import '../../assets/_variables.scss';
 
 .admin-customers {
-  color: $text-primary;
+  color: var(--admin-text, #{$text-primary});
 
   .section-header {
     display: flex;
@@ -637,13 +637,13 @@ onMounted(fetchCustomers);
     flex-wrap: wrap;
 
     h2 {
-      color: $primary-light;
+      color: var(--admin-accent-text, #{$primary-light});
       margin: 0 0 0.35rem;
     }
 
     p {
       margin: 0;
-      color: $text-secondary;
+      color: var(--admin-secondary, #{$text-secondary});
       font-size: 0.92rem;
     }
   }
@@ -658,15 +658,15 @@ onMounted(fetchCustomers);
     select {
       min-height: 40px;
       padding: 0.55rem 0.85rem;
-      background-color: $background-color;
-      border: 1px solid $medium-grey;
+      background-color: var(--admin-base, #{$background-color});
+      border: 1px solid var(--admin-border, #{$medium-grey});
       border-radius: $border-radius;
-      color: $text-primary;
+      color: var(--admin-text, #{$text-primary});
       font-size: 0.92rem;
 
       &:focus {
         outline: none;
-        border-color: $primary-color;
+        border-color: var(--admin-accent, #{$primary-color});
       }
     }
 
@@ -678,14 +678,14 @@ onMounted(fetchCustomers);
   .loading {
     text-align: center;
     padding: 3rem;
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
   }
 
   .table-wrap {
     overflow-x: auto;
-    border: 1px solid $medium-grey;
+    border: 1px solid var(--admin-border, #{$medium-grey});
     border-radius: $border-radius;
-    background-color: $dark-grey;
+    background-color: var(--admin-surface, #{$dark-grey});
   }
 
   .customers-table,
@@ -697,38 +697,38 @@ onMounted(fetchCustomers);
     td {
       padding: 0.8rem 0.9rem;
       text-align: left;
-      border-bottom: 1px solid $medium-grey;
+      border-bottom: 1px solid var(--admin-border, #{$medium-grey});
       vertical-align: middle;
       white-space: nowrap;
     }
 
     th {
-      background-color: $background-color;
-      color: $text-secondary;
+      background-color: var(--admin-base, #{$background-color});
+      color: var(--admin-secondary, #{$text-secondary});
       font-size: 0.82rem;
       font-weight: 700;
     }
 
     tbody tr:hover {
-      background-color: rgba($primary-color, 0.05);
+      background-color: rgba(var(--admin-accent-rgb, 229,57,53), 0.05);
     }
 
     .empty-row {
       text-align: center;
-      color: $text-disabled;
+      color: var(--admin-muted, #{$text-disabled});
       padding: 2rem;
     }
   }
 
   .secondary-line {
     display: block;
-    color: $text-disabled;
+    color: var(--admin-muted, #{$text-disabled});
     font-size: 0.78rem;
     margin-top: 0.2rem;
   }
 
   .amount {
-    color: $primary-light;
+    color: var(--admin-accent-text, #{$primary-light});
     font-weight: 700;
   }
 
@@ -741,38 +741,38 @@ onMounted(fetchCustomers);
     border-radius: 999px;
     font-size: 0.78rem;
     font-weight: 700;
-    background-color: rgba($medium-grey, 0.45);
-    color: $text-secondary;
+    background-color: rgba(var(--admin-border-rgb, 66,66,66), 0.45);
+    color: var(--admin-secondary, #{$text-secondary});
 
     &.member {
-      color: #64b5f6;
-      background-color: rgba(#64b5f6, 0.14);
+      color: var(--admin-info, #64b5f6);
+      background-color: rgba(var(--admin-info-fill-rgb, 100,181,246), 0.14);
     }
 
     &.guest {
-      color: #ffb74d;
-      background-color: rgba(#ffb74d, 0.14);
+      color: var(--admin-warning, #ffb74d);
+      background-color: rgba(var(--admin-warning-fill-rgb, 255,183,77), 0.14);
     }
 
     &.active {
-      color: #81c784;
-      background-color: rgba(#81c784, 0.14);
+      color: var(--admin-success, #81c784);
+      background-color: rgba(var(--admin-success-fill-rgb, 129,199,132), 0.14);
     }
   }
 
   .btn {
     min-height: 34px;
     padding: 0.45rem 0.85rem;
-    border: 1px solid $primary-color;
+    border: 1px solid var(--admin-accent, #{$primary-color});
     background-color: transparent;
-    color: $primary-color;
+    color: var(--admin-accent-text, #{$primary-color});
     border-radius: $border-radius;
     cursor: pointer;
     font-size: 0.85rem;
     transition: all 0.2s;
 
     &:hover {
-      background-color: $primary-color;
+      background-color: var(--admin-accent, #{$primary-color});
       color: #fff;
     }
 
@@ -782,21 +782,21 @@ onMounted(fetchCustomers);
     }
 
     &.btn-primary {
-      background-color: $primary-color;
+      background-color: var(--admin-accent, #{$primary-color});
       color: #fff;
 
       &:hover {
-        background-color: $primary-dark;
+        background-color: var(--admin-accent-strong, #{$primary-dark});
       }
     }
 
     &.btn-outline {
-      border-color: $medium-grey;
-      color: $text-secondary;
+      border-color: var(--admin-border, #{$medium-grey});
+      color: var(--admin-secondary, #{$text-secondary});
 
       &:hover {
-        background-color: $medium-grey;
-        color: #fff;
+        background-color: var(--admin-surface-alt, #{$medium-grey});
+        color: var(--admin-text, #fff);
       }
     }
 
@@ -807,16 +807,16 @@ onMounted(fetchCustomers);
     }
 
     &.btn-save {
-      background-color: $primary-color;
+      background-color: var(--admin-accent, #{$primary-color});
       color: #fff;
     }
 
     &.btn-danger {
-      border-color: #e53935;
-      color: #ef5350;
+      border-color: var(--admin-danger, #e53935);
+      color: var(--admin-danger, #ef5350);
 
       &:hover {
-        background-color: #e53935;
+        background-color: var(--admin-accent, #e53935);
         color: #fff;
       }
     }
@@ -834,8 +834,8 @@ onMounted(fetchCustomers);
   }
 
   .modal {
-    background-color: $dark-grey;
-    border: 1px solid $medium-grey;
+    background-color: var(--admin-surface, #{$dark-grey});
+    border: 1px solid var(--admin-border, #{$medium-grey});
     border-radius: $border-radius;
     padding: 1.5rem;
     width: 520px;
@@ -856,20 +856,20 @@ onMounted(fetchCustomers);
     margin-bottom: 1rem;
 
     h3 {
-      color: $primary-light;
+      color: var(--admin-accent-text, #{$primary-light});
       margin: 0 0 0.25rem;
     }
 
     p {
       margin: 0;
-      color: $text-secondary;
+      color: var(--admin-secondary, #{$text-secondary});
     }
   }
 
   .tabs {
     display: flex;
     gap: 0.4rem;
-    border-bottom: 1px solid $medium-grey;
+    border-bottom: 1px solid var(--admin-border, #{$medium-grey});
     margin-bottom: 1rem;
     overflow-x: auto;
 
@@ -878,14 +878,14 @@ onMounted(fetchCustomers);
       padding: 0 0.85rem;
       background: transparent;
       border: none;
-      color: $text-secondary;
+      color: var(--admin-secondary, #{$text-secondary});
       cursor: pointer;
       white-space: nowrap;
       border-bottom: 2px solid transparent;
 
       &.active {
-        color: $primary-light;
-        border-color: $primary-light;
+        color: var(--admin-accent-text, #{$primary-light});
+        border-color: var(--admin-accent-text, #{$primary-light});
       }
     }
   }
@@ -895,7 +895,7 @@ onMounted(fetchCustomers);
   }
 
   .consumption-panel { overflow-x: auto; }
-  .record-link { color: $primary-light; text-decoration: underline; text-underline-offset: 3px; }
+  .record-link { color: var(--admin-accent-text, #{$primary-light}); text-decoration: underline; text-underline-offset: 3px; }
 
   .detail-loading {
     padding: 2rem;
@@ -907,21 +907,21 @@ onMounted(fetchCustomers);
     gap: 0.9rem;
 
     div {
-      border: 1px solid rgba($medium-grey, 0.8);
+      border: 1px solid rgba(var(--admin-border-rgb, 66,66,66), 0.8);
       border-radius: $border-radius;
       padding: 0.9rem;
-      background-color: rgba($background-color, 0.55);
+      background-color: rgba(var(--admin-base-rgb, 18,18,18), 0.55);
     }
 
     span {
       display: block;
-      color: $text-disabled;
+      color: var(--admin-muted, #{$text-disabled});
       font-size: 0.78rem;
       margin-bottom: 0.35rem;
     }
 
     strong {
-      color: $text-primary;
+      color: var(--admin-text, #{$text-primary});
       font-size: 0.96rem;
     }
   }
@@ -934,18 +934,18 @@ onMounted(fetchCustomers);
     margin-bottom: 0.8rem;
 
     h4 {
-      color: $text-primary;
+      color: var(--admin-text, #{$text-primary});
       margin: 0;
     }
 
     span {
-      color: $text-disabled;
+      color: var(--admin-muted, #{$text-disabled});
       font-size: 0.82rem;
     }
   }
 
   .mini-table {
-    border: 1px solid $medium-grey;
+    border: 1px solid var(--admin-border, #{$medium-grey});
     border-radius: $border-radius;
     overflow: hidden;
     display: table;
@@ -961,16 +961,16 @@ onMounted(fetchCustomers);
   textarea {
     width: 100%;
     padding: 0.48rem 0.65rem;
-    background-color: $background-color;
-    border: 1px solid $medium-grey;
+    background-color: var(--admin-base, #{$background-color});
+    border: 1px solid var(--admin-border, #{$medium-grey});
     border-radius: $border-radius;
-    color: $text-primary;
+    color: var(--admin-text, #{$text-primary});
     font-size: 0.86rem;
     box-sizing: border-box;
 
     &:focus {
       outline: none;
-      border-color: $primary-color;
+      border-color: var(--admin-accent, #{$primary-color});
     }
   }
 
@@ -984,7 +984,7 @@ onMounted(fetchCustomers);
     flex-direction: row;
     align-items: center;
     gap: 0.45rem;
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
 
     input[type='checkbox'] {
       width: 18px;
@@ -995,10 +995,10 @@ onMounted(fetchCustomers);
   .guest-motor-form {
     margin-top: 1.2rem;
     padding-top: 1rem;
-    border-top: 1px solid $medium-grey;
+    border-top: 1px solid var(--admin-border, #{$medium-grey});
 
     h4 {
-      color: $text-primary;
+      color: var(--admin-text, #{$text-primary});
       margin: 0 0 0.8rem;
     }
   }
@@ -1010,7 +1010,7 @@ onMounted(fetchCustomers);
     margin-bottom: 1rem;
 
     label {
-      color: $text-secondary;
+      color: var(--admin-secondary, #{$text-secondary});
       font-size: 0.82rem;
       display: flex;
       flex-direction: column;
@@ -1020,7 +1020,7 @@ onMounted(fetchCustomers);
 
   .text-muted,
   .empty-text {
-    color: $text-disabled;
+    color: var(--admin-muted, #{$text-disabled});
     font-size: 0.9rem;
   }
 

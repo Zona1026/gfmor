@@ -37,11 +37,11 @@ onMounted(load);
 </script>
 <style scoped>
 .vehicle-brand-fields { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: .3rem; min-width: 0; }
-label { display: flex; flex-direction: column; gap: .5rem; min-width: 0; color: #bdbdbd; font-size: .88rem; }
-select { width: 100%; min-width: 0; box-sizing: border-box; padding: .65rem .35rem; border: 1px solid #424242; border-radius: 8px; background: #212121; color: #eee; font: inherit; }
-select:focus { outline: 2px solid #ef5350; outline-offset: 1px; }
+label { display: flex; flex-direction: column; gap: .5rem; min-width: 0; color: var(--admin-muted, #bdbdbd); font-size: .88rem; }
+select { width: 100%; min-width: 0; box-sizing: border-box; padding: .65rem .35rem; border: 1px solid var(--admin-border, #424242); border-radius: 8px; background: var(--admin-surface, #212121); color: var(--admin-text, #eee); font: inherit; }
+select:focus { outline: 2px solid var(--admin-accent, #ef5350); outline-offset: 1px; }
 select:disabled { opacity: .65; }
-.separator { align-self: end; padding-bottom: .7rem; color: #bdbdbd; }
-small { grid-column: 1 / -1; color: #ffb4ab; }
-button { cursor: pointer; border: 1px solid #ef5350; border-radius: 6px; background: transparent; color: #ef5350; }
+.separator { align-self: end; padding-bottom: .7rem; color: var(--admin-muted, #bdbdbd); }
+small { grid-column: 1 / -1; color: var(--admin-danger, #ffb4ab); }
+button { cursor: pointer; border: 1px solid var(--admin-danger, #ef5350); border-radius: 6px; background: transparent; color: var(--admin-danger, #ef5350); }
 </style>

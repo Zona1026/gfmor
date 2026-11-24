@@ -67,9 +67,32 @@ def login_admin(login_data: admin_schema.AdminLogin, db: Session = Depends(datab
         "username": admin.username,
         "full_name": admin.full_name,
         "role": admin.role,
+        "theme_preference": admin.theme_preference,
         "access_token": access_token,
         "token_type": "bearer"
     }
+
+
+def _preferences_account(context, db):
+    account = db.query(models.Admin).filter(models.Admin.username == context["username"]).first()
+    if account is None:
+        raise HTTPException(status_code=401, detail="管理員帳號不存在，請重新登入")
+    return account
+
+
+@router.get("/me/preferences", response_model=admin_schema.AdminPreferences, summary="讀取個人後台偏好")
+def get_admin_preferences(admin=Depends(require_admin), db: Session = Depends(database.get_db)):
+    account = _preferences_account(admin, db)
+    return {"theme": account.theme_preference}
+
+
+@router.patch("/me/preferences", response_model=admin_schema.AdminPreferences, summary="更新個人後台偏好")
+def update_admin_preferences(payload: admin_schema.AdminPreferences, admin=Depends(require_admin),
+                             db: Session = Depends(database.get_db)):
+    account = _preferences_account(admin, db)
+    account.theme_preference = payload.theme
+    db.commit()
+    return {"theme": account.theme_preference}
 
 
 @router.post(

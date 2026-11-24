@@ -768,7 +768,7 @@ onMounted(fetchAll);
 @import '../../assets/_variables.scss';
 
 .admin-accounting {
-  color: $text-primary;
+  color: var(--admin-text, #{$text-primary});
 }
 
 .section-header,
@@ -791,7 +791,7 @@ onMounted(fetchAll);
 
   p {
     margin: 0.35rem 0 0;
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
   }
 }
 
@@ -800,7 +800,7 @@ onMounted(fetchAll);
   flex-direction: column;
   gap: 0.35rem;
   min-width: 180px;
-  color: $text-secondary;
+  color: var(--admin-secondary, #{$text-secondary});
   font-size: 0.9rem;
 }
 
@@ -814,9 +814,9 @@ onMounted(fetchAll);
 .report-summary-item {
   min-width: 0;
   padding: 0.9rem;
-  border: 1px solid $medium-grey;
+  border: 1px solid var(--admin-border, #{$medium-grey});
   border-radius: 6px;
-  background: $background-color;
+  background: var(--admin-base, #{$background-color});
 
   span,
   strong {
@@ -825,19 +825,19 @@ onMounted(fetchAll);
 
   span {
     margin-bottom: 0.35rem;
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
     font-size: 0.82rem;
   }
 
   strong {
-    color: $text-primary;
+    color: var(--admin-text, #{$text-primary});
     font-size: 1.05rem;
   }
 
-  &.income strong { color: #86efac; }
+  &.income strong { color: var(--admin-success, #86efac); }
   &.refund strong,
-  &.expense strong { color: #fca5a5; }
-  &.net strong { color: $primary-light; }
+  &.expense strong { color: var(--admin-danger, #fca5a5); }
+  &.net strong { color: var(--admin-accent-text, #{$primary-light}); }
 }
 
 .report-table {
@@ -853,11 +853,11 @@ onMounted(fetchAll);
   }
 
   h2 {
-    color: $primary-light;
+    color: var(--admin-accent-text, #{$primary-light});
   }
 
   p {
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
     margin-top: 0.35rem;
   }
 }
@@ -867,26 +867,26 @@ onMounted(fetchAll);
   margin-bottom: 1rem;
 
   button {
-    border: 1px solid rgba($primary-light, 0.35);
+    border: 1px solid rgba(var(--admin-accent-text-rgb, 239,83,80), 0.35);
     border-radius: 6px;
     padding: 0.65rem 0.95rem;
-    color: $text-primary;
-    background: rgba($background-color, 0.72);
+    color: var(--admin-text, #{$text-primary});
+    background: rgba(var(--admin-base-rgb, 18,18,18), 0.72);
     cursor: pointer;
 
     &.active {
-      color: $background-color;
-      background: $primary-light;
+      color: var(--admin-base, #{$background-color});
+      background: var(--admin-accent-text, #{$primary-light});
     }
   }
 }
 
 .panel {
-  border: 1px solid $medium-grey;
+  border: 1px solid var(--admin-border, #{$medium-grey});
   border-radius: $border-radius;
   padding: 1rem;
   overflow: auto;
-  background-color: $dark-grey;
+  background-color: var(--admin-surface, #{$dark-grey});
 }
 
 .panel-title {
@@ -908,7 +908,7 @@ onMounted(fetchAll);
     flex: 1 1 150px;
     flex-direction: column;
     gap: 0.35rem;
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
   }
 
   &.payable-form label {
@@ -918,11 +918,11 @@ onMounted(fetchAll);
 
 .lookup-state {
   margin: -0.25rem 0 1rem;
-  color: $text-secondary;
+  color: var(--admin-secondary, #{$text-secondary});
   font-size: 0.9rem;
 
   .error-text {
-    color: #fca5a5;
+    color: var(--admin-danger, #fca5a5);
   }
 }
 
@@ -933,7 +933,7 @@ onMounted(fetchAll);
 
   th,
   td {
-    border-bottom: 1px solid $medium-grey;
+    border-bottom: 1px solid var(--admin-border, #{$medium-grey});
     padding: 0.85rem 1rem;
     text-align: left;
     vertical-align: middle;
@@ -941,18 +941,18 @@ onMounted(fetchAll);
   }
 
   th {
-    color: $text-secondary;
-    background-color: $background-color;
+    color: var(--admin-secondary, #{$text-secondary});
+    background-color: var(--admin-base, #{$background-color});
     font-size: 0.9rem;
     font-weight: 700;
   }
 
   .amount {
-    color: $primary-light;
+    color: var(--admin-accent-text, #{$primary-light});
     font-weight: 700;
 
     &.negative {
-      color: #fca5a5;
+      color: var(--admin-danger, #fca5a5);
     }
   }
 
@@ -962,7 +962,7 @@ onMounted(fetchAll);
   }
 
   small {
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
     margin-top: 0.25rem;
   }
 }
@@ -977,16 +977,16 @@ onMounted(fetchAll);
 }
 
 .btn {
-  border: 1px solid rgba($primary-light, 0.35);
+  border: 1px solid rgba(var(--admin-accent-text-rgb, 239,83,80), 0.35);
   border-radius: 6px;
   padding: 0.55rem 0.8rem;
-  color: $text-primary;
-  background: rgba($background-color, 0.72);
+  color: var(--admin-text, #{$text-primary});
+  background: rgba(var(--admin-base-rgb, 18,18,18), 0.72);
   cursor: pointer;
 
   &.btn-primary {
-    color: $background-color;
-    background: $primary-light;
+    color: var(--admin-base, #{$background-color});
+    background: var(--admin-accent-text, #{$primary-light});
   }
 
   &.btn-outline {
@@ -995,7 +995,7 @@ onMounted(fetchAll);
 
   &.text {
     border-color: transparent;
-    color: $primary-light;
+    color: var(--admin-accent-text, #{$primary-light});
     background: transparent;
   }
 
@@ -1007,42 +1007,42 @@ onMounted(fetchAll);
 
 input,
 select {
-  border: 1px solid $medium-grey;
+  border: 1px solid var(--admin-border, #{$medium-grey});
   border-radius: 6px;
   padding: 0.55rem 0.65rem;
-  color: $text-primary;
-  background: $background-color;
+  color: var(--admin-text, #{$text-primary});
+  background: var(--admin-base, #{$background-color});
 }
 
 .status-tag {
   display: inline-flex;
   border-radius: 999px;
   padding: 0.25rem 0.55rem;
-  background-color: rgba($medium-grey, 0.4);
+  background-color: rgba(var(--admin-border-rgb, 66,66,66), 0.4);
 
   &.PENDING,
   &.UNPAID,
   &.VERIFYING {
-    color: #facc15;
-    background-color: rgba(#facc15, 0.15);
+    color: var(--admin-warning, #facc15);
+    background-color: rgba(var(--admin-warning-fill-rgb, 250,204,21), 0.15);
   }
 
   &.FAILED,
   &.REFUNDED,
   &.CANCELED {
-    color: #fca5a5;
-    background-color: rgba(#fca5a5, 0.14);
+    color: var(--admin-danger, #fca5a5);
+    background-color: rgba(var(--admin-danger-fill-rgb, 252,165,165), 0.14);
   }
 
   &.PARTIALLY_REFUNDED,
   &.PARTIALLY_PAID {
-    color: #fb923c;
-    background-color: rgba(#fb923c, 0.14);
+    color: var(--admin-warning, #fb923c);
+    background-color: rgba(var(--admin-warning-fill-rgb, 251,146,60), 0.14);
   }
 
   &.PAID {
-    color: #86efac;
-    background-color: rgba(#86efac, 0.14);
+    color: var(--admin-success, #86efac);
+    background-color: rgba(var(--admin-success-fill-rgb, 134,239,172), 0.14);
   }
 }
 
@@ -1050,7 +1050,7 @@ select {
 .empty-state {
   padding: 3rem;
   text-align: center;
-  color: $text-disabled;
+  color: var(--admin-muted, #{$text-disabled});
 }
 
 @media (max-width: 760px) {

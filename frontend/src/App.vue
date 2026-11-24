@@ -14,13 +14,25 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
+import { useAuthStore } from './store/auth';
+import { useAdminThemeStore } from './store/adminTheme';
+import { isAdminThemeRoute } from './utils/adminTheme';
 import { useRoute } from 'vue-router';
 import Navbar from './components/layout/Navbar.vue';
 import Footer from './components/layout/Footer.vue';
 import PWABadge from './components/PWABadge.vue';
 
 const route = useRoute();
+const auth = useAuthStore();
+const adminTheme = useAdminThemeStore();
+watch([() => route.path, () => auth.adminToken, () => auth.adminUser?.username], () => {
+  if (!route.matched.length) return;
+  adminTheme.activate({
+    inAdmin: isAdminThemeRoute(route.path), token: auth.adminToken,
+    username: auth.adminUser?.username, preferredTheme: auth.adminUser?.theme_preference,
+  });
+}, { immediate: true });
 
 const isAdminRoute = computed(() => {
   return route && route.path && route.path.startsWith('/admin');

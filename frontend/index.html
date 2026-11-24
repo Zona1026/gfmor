@@ -12,6 +12,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   </head>
   <body>
+    <script>
+      // Restore this account's cached appearance before the first app paint.
+      try {
+        const path = location.pathname;
+        if ((path === '/admin' || path.startsWith('/admin/')) && localStorage.getItem('adminToken')) {
+          const user = JSON.parse(localStorage.getItem('adminUser') || 'null');
+          if (user && user.username) {
+            const cached = localStorage.getItem('gf.admin-theme:' + encodeURIComponent(user.username));
+            const theme = user.theme_preference || cached;
+            document.documentElement.dataset.adminTheme = theme === 'light' ? 'light' : 'dark';
+          }
+        }
+      } catch (_) { /* Unavailable storage uses the default dark theme. */ }
+    </script>
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
   </body>

@@ -29,10 +29,10 @@ function changeCategory() { picker.supplier = ''; picker.productId = ''; }
 function add() { if (!canAdd.value) return; emit('update:modelValue', props.multiple ? [...props.modelValue, Number(picker.productId)] : [Number(picker.productId)]); picker.productId = ''; }
 </script>
 <style scoped>
-fieldset { min-width: 0; border: 1px solid #555; border-radius: 6px; padding: .8rem; }
+fieldset { min-width: 0; border: 1px solid var(--admin-border, #555); border-radius: 6px; padding: .8rem; }
 .picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; margin-bottom: .8rem; }
-label { display: grid; gap: .4rem; } select { min-width: 0; width: 100%; box-sizing: border-box; background: #111; color: #eee; padding: .65rem; border: 1px solid #444; border-radius: 6px; }
-button { padding: .65rem .9rem; border: 1px solid #444; border-radius: 8px; background: #222; color: #eee; font: inherit; cursor: pointer; } button:disabled { opacity: .5; cursor: default; }
+label { display: grid; gap: .4rem; } select { min-width: 0; width: 100%; box-sizing: border-box; background: var(--admin-surface, #111); color: var(--admin-text, #eee); padding: .65rem; border: 1px solid var(--admin-border, #444); border-radius: 6px; }
+button { padding: .65rem .9rem; border: 1px solid var(--admin-border, #444); border-radius: 8px; background: var(--admin-surface, #222); color: var(--admin-text, #eee); font: inherit; cursor: pointer; } button:disabled { opacity: .5; cursor: default; }
 .selected-list { display: grid; gap: .65rem; max-height: 180px; overflow-y: auto; }
 .selected { display: flex; justify-content: space-between; align-items: center; gap: .65rem; } span { overflow-wrap: anywhere; }
 @media (max-width: 600px) { .picker { grid-template-columns: 1fr; } }

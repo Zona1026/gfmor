@@ -221,33 +221,33 @@ onMounted(() => fetchReviews());
 <style lang="scss" scoped>
 @import '../../assets/_variables.scss';
 .work-order-reviews {
-  color: $text-primary;
+  color: var(--admin-text, #{$text-primary});
   .section-header, .search-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; }
-  h2, h3, h4 { margin: 0; color: $primary-light; }
-  p { color: $text-secondary; }
+  h2, h3, h4 { margin: 0; color: var(--admin-accent-text, #{$primary-light}); }
+  p { color: var(--admin-secondary, #{$text-secondary}); }
   .search-row input { flex: 1; min-width: 180px; }
-  .btn, input, select { padding: 0.6rem 0.8rem; border: 1px solid $medium-grey; border-radius: $border-radius; background: $dark-grey; color: $text-primary; font: inherit; }
+  .btn, input, select { padding: 0.6rem 0.8rem; border: 1px solid var(--admin-border, #{$medium-grey}); border-radius: $border-radius; background: var(--admin-surface, #{$dark-grey}); color: var(--admin-text, #{$text-primary}); font: inherit; }
   .btn { cursor: pointer; }
-  .btn-primary { background: $primary-color; border-color: $primary-color; color: #fff; }
+  .btn-primary { background: var(--admin-accent, #{$primary-color}); border-color: var(--admin-accent, #{$primary-color}); color: #fff; }
   :disabled { opacity: 0.55; cursor: not-allowed; }
-  .table-wrap { overflow: auto; border: 1px solid $medium-grey; border-radius: $border-radius; }
+  .table-wrap { overflow: auto; border: 1px solid var(--admin-border, #{$medium-grey}); border-radius: $border-radius; }
   table { width: 100%; border-collapse: collapse; }
-  th, td { padding: 0.8rem; text-align: left; border-bottom: 1px solid $medium-grey; vertical-align: top; }
-  th { color: $text-secondary; background: $background-color; white-space: nowrap; }
+  th, td { padding: 0.8rem; text-align: left; border-bottom: 1px solid var(--admin-border, #{$medium-grey}); vertical-align: top; }
+  th { color: var(--admin-secondary, #{$text-secondary}); background: var(--admin-base, #{$background-color}); white-space: nowrap; }
   td select { min-width: 110px; }
-  .secondary-line { display: block; color: $text-secondary; font-size: 0.85rem; margin-top: 0.3rem; }
+  .secondary-line { display: block; color: var(--admin-secondary, #{$text-secondary}); font-size: 0.85rem; margin-top: 0.3rem; }
   .empty-state { text-align: center; padding: 2rem; }
   .load-more { margin-top: 1rem; }
-  .error-message { color: #ffb74d; }
+  .error-message { color: var(--admin-warning, #ffb74d); }
   .modal-overlay { position: fixed; inset: 0; z-index: 1000; overflow-y: auto; padding: 2rem 1rem; background: rgba(0, 0, 0, 0.7); }
-  .review-modal { box-sizing: border-box; width: min(100%, 1180px); margin: 0 auto; padding: 1.5rem; background: $dark-grey; border: 1px solid $medium-grey; border-radius: $border-radius; }
+  .review-modal { box-sizing: border-box; width: min(100%, 1180px); margin: 0 auto; padding: 1.5rem; background: var(--admin-surface, #{$dark-grey}); border: 1px solid var(--admin-border, #{$medium-grey}); border-radius: $border-radius; }
   .review-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
   .review-summary div { min-width: 0; }
-  dt { color: $text-secondary; }
+  dt { color: var(--admin-secondary, #{$text-secondary}); }
   dd { margin: 0.3rem 0 0; overflow-wrap: anywhere; }
   section { margin-top: 1.5rem; }
   .approval-list { list-style: none; padding: 0; }
-  .approval-list li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.75rem 0; border-bottom: 1px solid $medium-grey; }
+  .approval-list li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.75rem 0; border-bottom: 1px solid var(--admin-border, #{$medium-grey}); }
   @media (max-width: 700px) { .review-summary { grid-template-columns: 1fr; } .review-modal { padding: 1rem; } }
 }
 </style>

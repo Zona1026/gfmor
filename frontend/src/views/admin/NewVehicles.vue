@@ -184,7 +184,7 @@ onBeforeUnmount(() => {
 @use '../../assets/_variables.scss' as *;
 
 .new-vehicles-page {
-  color: $text-primary;
+  color: var(--admin-text, #{$text-primary});
 }
 
 .section-header {
@@ -194,8 +194,8 @@ onBeforeUnmount(() => {
   gap: 1rem;
   margin-bottom: 1.5rem;
 
-  h2 { margin: 0 0 0.35rem; color: $primary-color; }
-  p { margin: 0; color: $text-secondary; }
+  h2 { margin: 0 0 0.35rem; color: var(--admin-accent-text, #{$primary-color}); }
+  p { margin: 0; color: var(--admin-secondary, #{$text-secondary}); }
 }
 
 .search-bar {
@@ -206,16 +206,16 @@ onBeforeUnmount(() => {
     width: min(340px, 42vw);
     min-width: 0;
     padding: 0.65rem 0.8rem;
-    border: 1px solid $medium-grey;
-    background: $background-color;
-    color: $text-primary;
+    border: 1px solid var(--admin-border, #{$medium-grey});
+    background: var(--admin-base, #{$background-color});
+    color: var(--admin-text, #{$text-primary});
   }
 
   button {
     flex: 0 0 64px;
     border: 0;
     padding: 0.65rem 1rem;
-    background: $primary-color;
+    background: var(--admin-accent, #{$primary-color});
     color: #fff;
     cursor: pointer;
     white-space: nowrap;
@@ -226,20 +226,20 @@ onBeforeUnmount(() => {
   min-height: 260px;
   display: grid;
   place-items: center;
-  border: 1px solid $medium-grey;
-  color: $text-disabled;
+  border: 1px solid var(--admin-border, #{$medium-grey});
+  color: var(--admin-muted, #{$text-disabled});
 }
 
 .workspace {
-  border: 1px solid $medium-grey;
+  border: 1px solid var(--admin-border, #{$medium-grey});
   min-height: 600px;
 }
 
 .vehicle-list {
   display: flex;
   overflow-x: auto;
-  border-bottom: 1px solid $medium-grey;
-  background: $background-color;
+  border-bottom: 1px solid var(--admin-border, #{$medium-grey});
+  background: var(--admin-base, #{$background-color});
 
   button {
     min-width: 240px;
@@ -247,21 +247,21 @@ onBeforeUnmount(() => {
     gap: 0.3rem;
     padding: 1rem;
     border: 0;
-    border-right: 1px solid $medium-grey;
+    border-right: 1px solid var(--admin-border, #{$medium-grey});
     border-bottom: 3px solid transparent;
     background: transparent;
-    color: $text-primary;
+    color: var(--admin-text, #{$text-primary});
     text-align: left;
     cursor: pointer;
 
     &:hover,
     &.active {
-      border-bottom-color: $primary-color;
-      background: rgba($primary-color, 0.1);
+      border-bottom-color: var(--admin-accent, #{$primary-color});
+      background: rgba(var(--admin-accent-rgb, 229,57,53), 0.1);
     }
 
     span,
-    small { color: $text-secondary; }
+    small { color: var(--admin-secondary, #{$text-secondary}); }
   }
 }
 
@@ -276,14 +276,14 @@ onBeforeUnmount(() => {
   align-items: flex-start;
   gap: 1rem;
 
-  h3 { margin: 0 0 0.3rem; color: $primary-light; }
-  p { margin: 0; color: $text-secondary; }
+  h3 { margin: 0 0 0.3rem; color: var(--admin-accent-text, #{$primary-light}); }
+  p { margin: 0; color: var(--admin-secondary, #{$text-secondary}); }
 }
 
 .vehicle-type {
   padding: 0.3rem 0.55rem;
-  border: 1px solid $medium-grey;
-  color: $text-secondary;
+  border: 1px solid var(--admin-border, #{$medium-grey});
+  color: var(--admin-secondary, #{$text-secondary});
   font-size: 0.82rem;
 }
 
@@ -292,11 +292,11 @@ onBeforeUnmount(() => {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1px;
   margin: 1.25rem 0;
-  background: $medium-grey;
-  border: 1px solid $medium-grey;
+  background: var(--admin-surface-alt, #{$medium-grey});
+  border: 1px solid var(--admin-border, #{$medium-grey});
 
-  div { padding: 0.8rem; background: $dark-grey; }
-  dt { color: $text-disabled; font-size: 0.78rem; }
+  div { padding: 0.8rem; background: var(--admin-surface, #{$dark-grey}); }
+  dt { color: var(--admin-muted, #{$text-disabled}); font-size: 0.78rem; }
   dd { margin: 0.25rem 0 0; font-weight: 700; }
 }
 
@@ -310,12 +310,12 @@ table {
   th,
   td {
     padding: 0.55rem;
-    border-bottom: 1px solid $medium-grey;
+    border-bottom: 1px solid var(--admin-border, #{$medium-grey});
     text-align: left;
     white-space: nowrap;
   }
 
-  th { color: $text-secondary; font-size: 0.8rem; }
+  th { color: var(--admin-secondary, #{$text-secondary}); font-size: 0.8rem; }
   td { font-size: 0.86rem; }
 
   input[type='date'],
@@ -325,22 +325,22 @@ table {
     min-width: 110px;
     box-sizing: border-box;
     padding: 0.45rem 0.55rem;
-    border: 1px solid $medium-grey;
-    background: $background-color;
-    color: $text-primary;
+    border: 1px solid var(--admin-border, #{$medium-grey});
+    background: var(--admin-base, #{$background-color});
+    color: var(--admin-text, #{$text-primary});
   }
 
   input[type='text'] { min-width: 180px; }
   input[type='checkbox'] { width: 18px; height: 18px; }
 }
 
-.target-mileage { color: $primary-light; font-weight: 700; }
+.target-mileage { color: var(--admin-accent-text, #{$primary-light}); font-weight: 700; }
 
 .save-button {
-  border: 1px solid $primary-color;
+  border: 1px solid var(--admin-accent, #{$primary-color});
   padding: 0.45rem 0.7rem;
   background: transparent;
-  color: $primary-light;
+  color: var(--admin-accent-text, #{$primary-light});
   cursor: pointer;
 
   &:disabled { opacity: 0.55; cursor: wait; }

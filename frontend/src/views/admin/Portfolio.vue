@@ -215,14 +215,14 @@ onMounted(fetchItems);
 @import '../../assets/_variables.scss';
 
 .admin-portfolio {
-  color: $text-primary;
+  color: var(--admin-text, #{$text-primary});
 
   .section-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1rem;
-    h2 { color: $primary-light; margin: 0; }
+    h2 { color: var(--admin-accent-text, #{$primary-light}); margin: 0; }
 
     .section-title {
       display: flex;
@@ -231,7 +231,7 @@ onMounted(fetchItems);
     }
 
     .permission-badge {
-      color: $text-secondary;
+      color: var(--admin-secondary, #{$text-secondary});
       font-size: 0.78rem;
       font-weight: 700;
     }
@@ -245,24 +245,24 @@ onMounted(fetchItems);
 
     .filter-btn {
       padding: 0.4rem 1rem;
-      border: 1px solid $medium-grey;
+      border: 1px solid var(--admin-border, #{$medium-grey});
       background: transparent;
-      color: $text-secondary;
+      color: var(--admin-secondary, #{$text-secondary});
       border-radius: 20px;
       cursor: pointer;
       font-size: 0.85rem;
       transition: all 0.2s;
 
       &.active {
-        background: $primary-color;
-        border-color: $primary-color;
+        background: var(--admin-accent, #{$primary-color});
+        border-color: var(--admin-accent, #{$primary-color});
         color: #fff;
       }
-      &:hover:not(.active) { border-color: $light-grey; }
+      &:hover:not(.active) { border-color: var(--admin-muted, #{$light-grey}); }
     }
   }
 
-  .loading, .empty { text-align: center; padding: 3rem; color: $text-disabled; }
+  .loading, .empty { text-align: center; padding: 3rem; color: var(--admin-muted, #{$text-disabled}); }
 
   .portfolio-grid {
     display: grid;
@@ -271,8 +271,8 @@ onMounted(fetchItems);
   }
 
   .portfolio-card {
-    background: $dark-grey;
-    border: 1px solid $medium-grey;
+    background: var(--admin-surface, #{$dark-grey});
+    border: 1px solid var(--admin-border, #{$medium-grey});
     border-radius: 8px;
     overflow: hidden;
     display: flex;
@@ -291,21 +291,21 @@ onMounted(fetchItems);
       .category-tag {
         display: inline-block;
         padding: 0.15rem 0.6rem;
-        background: rgba($primary-color, 0.15);
-        color: $primary-color;
+        background: rgba(var(--admin-accent-rgb, 229,57,53), 0.15);
+        color: var(--admin-accent-text, #{$primary-color});
         border-radius: 12px;
         font-size: 0.75rem;
         font-weight: 600;
         margin-bottom: 0.5rem;
       }
 
-      h3 { margin: 0 0 0.3rem; color: $text-primary; font-size: 1rem; }
-      .desc { margin: 0; color: $text-secondary; font-size: 0.85rem; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+      h3 { margin: 0 0 0.3rem; color: var(--admin-text, #{$text-primary}); font-size: 1rem; }
+      .desc { margin: 0; color: var(--admin-secondary, #{$text-secondary}); font-size: 0.85rem; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     }
 
     .card-actions {
       padding: 0.8rem 1rem;
-      border-top: 1px solid $medium-grey;
+      border-top: 1px solid var(--admin-border, #{$medium-grey});
       display: flex;
       gap: 0.5rem;
     }
@@ -313,26 +313,26 @@ onMounted(fetchItems);
 
   .btn {
     padding: 0.4rem 0.9rem;
-    border: 1px solid $primary-color;
+    border: 1px solid var(--admin-accent, #{$primary-color});
     background: transparent;
-    color: $primary-color;
+    color: var(--admin-accent-text, #{$primary-color});
     border-radius: $border-radius;
     cursor: pointer;
     font-size: 0.85rem;
     transition: all 0.2s;
-    &:hover { background: $primary-color; color: #fff; }
+    &:hover { background: var(--admin-accent, #{$primary-color}); color: #fff; }
   }
 
   .btn-primary {
-    background: $primary-color; color: #fff; border: none;
+    background: var(--admin-accent, #{$primary-color}); color: #fff; border: none;
     padding: 0.5rem 1.2rem; font-weight: bold;
-    &:hover { background: $primary-dark; }
+    &:hover { background: var(--admin-accent-strong, #{$primary-dark}); }
     &:disabled { opacity: 0.5; cursor: not-allowed; }
   }
 
   .btn-danger {
-    border-color: #ff6b6b; color: #ff6b6b;
-    &:hover { background: #ff6b6b; color: #fff; }
+    border-color: var(--admin-danger, #ff6b6b); color: var(--admin-danger, #ff6b6b);
+    &:hover { background: var(--admin-danger-fill, #ff6b6b); color: #fff; }
   }
 
   /* Modal */
@@ -343,40 +343,40 @@ onMounted(fetchItems);
   }
 
   .modal {
-    background: $dark-grey; border: 1px solid $medium-grey;
+    background: var(--admin-surface, #{$dark-grey}); border: 1px solid var(--admin-border, #{$medium-grey});
     border-radius: 8px; padding: 2rem; width: 600px;
     max-width: 90%; max-height: 90vh; overflow-y: auto;
 
-    h3 { color: $primary-light; margin: 0 0 1rem; }
+    h3 { color: var(--admin-accent-text, #{$primary-light}); margin: 0 0 1rem; }
 
     .form-group {
       margin-bottom: 1rem;
       display: flex; flex-direction: column; gap: 0.4rem;
 
-      label { color: $text-secondary; font-weight: 600; font-size: 0.9rem; }
+      label { color: var(--admin-secondary, #{$text-secondary}); font-weight: 600; font-size: 0.9rem; }
 
       input[type="text"], textarea, select {
-        padding: 0.7rem; background: $background-color;
-        border: 1px solid $medium-grey; border-radius: $border-radius;
-        color: $text-primary; font-size: 0.95rem;
-        &:focus { outline: none; border-color: $primary-color; }
+        padding: 0.7rem; background: var(--admin-base, #{$background-color});
+        border: 1px solid var(--admin-border, #{$medium-grey}); border-radius: $border-radius;
+        color: var(--admin-text, #{$text-primary}); font-size: 0.95rem;
+        &:focus { outline: none; border-color: var(--admin-accent, #{$primary-color}); }
       }
 
       select { cursor: pointer; }
 
-      input[type="file"] { color: $text-secondary; font-size: 0.9rem; }
+      input[type="file"] { color: var(--admin-secondary, #{$text-secondary}); font-size: 0.9rem; }
     }
 
     .preview-section {
       margin-bottom: 1rem;
-      h4 { color: $text-secondary; margin: 0 0 0.6rem; }
+      h4 { color: var(--admin-secondary, #{$text-secondary}); margin: 0 0 0.6rem; }
     }
 
     .preview-card {
-      border: 1px solid $medium-grey;
+      border: 1px solid var(--admin-border, #{$medium-grey});
       border-radius: 8px;
       overflow: hidden;
-      background: $dark-grey;
+      background: var(--admin-surface, #{$dark-grey});
 
       .preview-image { width: 100%; max-height: 300px; object-fit: cover; }
 
@@ -386,16 +386,16 @@ onMounted(fetchItems);
         .category-tag {
           display: inline-block;
           padding: 0.15rem 0.6rem;
-          background: rgba($primary-color, 0.15);
-          color: $primary-color;
+          background: rgba(var(--admin-accent-rgb, 229,57,53), 0.15);
+          color: var(--admin-accent-text, #{$primary-color});
           border-radius: 12px;
           font-size: 0.75rem;
           font-weight: 600;
           margin-bottom: 0.5rem;
         }
 
-        h3 { margin: 0 0 0.3rem; color: $text-primary; }
-        p { margin: 0; color: $text-secondary; font-size: 0.9rem; }
+        h3 { margin: 0 0 0.3rem; color: var(--admin-text, #{$text-primary}); }
+        p { margin: 0; color: var(--admin-secondary, #{$text-secondary}); font-size: 0.9rem; }
       }
     }
 
@@ -404,9 +404,9 @@ onMounted(fetchItems);
 
       .btn-outline {
         padding: 0.5rem 1.2rem; background: transparent;
-        border: 1px solid $medium-grey; color: $text-secondary;
+        border: 1px solid var(--admin-border, #{$medium-grey}); color: var(--admin-secondary, #{$text-secondary});
         border-radius: $border-radius; cursor: pointer;
-        &:hover { background: $medium-grey; }
+        &:hover { background: var(--admin-surface-alt, #{$medium-grey}); }
       }
     }
   }

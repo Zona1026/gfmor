@@ -126,24 +126,24 @@ const quote = value => value === '' || value === null || value === undefined ? '
 @import '../../assets/_variables.scss';
 .product-details-fields { display: flex; flex-direction: column; gap: 0.8rem; }
 .details-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
-label { display: flex; flex-direction: column; gap: 0.42rem; color: $text-secondary; font-size: 0.86rem; min-width: 0; }
-input, select { width: 100%; min-height: 38px; padding: 0.52rem 0.72rem; box-sizing: border-box; background: $background-color; border: 1px solid $medium-grey; border-radius: $border-radius; color: $text-primary; font-size: 0.9rem; }
-input:focus, select:focus { outline: none; border-color: $primary-color; }
+label { display: flex; flex-direction: column; gap: 0.42rem; color: var(--admin-secondary, #{$text-secondary}); font-size: 0.86rem; min-width: 0; }
+input, select { width: 100%; min-height: 38px; padding: 0.52rem 0.72rem; box-sizing: border-box; background: var(--admin-base, #{$background-color}); border: 1px solid var(--admin-border, #{$medium-grey}); border-radius: $border-radius; color: var(--admin-text, #{$text-primary}); font-size: 0.9rem; }
+input:focus, select:focus { outline: none; border-color: var(--admin-accent, #{$primary-color}); }
 .vehicle-field { display: flex; flex-direction: column; gap: 0.42rem; min-width: 0; }
-.field-label { color: $text-secondary; font-size: 0.86rem; }
+.field-label { color: var(--admin-secondary, #{$text-secondary}); font-size: 0.86rem; }
 .selected-vehicle-models { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
-.vehicle-tag { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.15rem 0.45rem; border: 1px solid $medium-grey; border-radius: $border-radius; color: $text-primary; font-size: 0.82rem; overflow-wrap: anywhere; }
+.vehicle-tag { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.15rem 0.45rem; border: 1px solid var(--admin-border, #{$medium-grey}); border-radius: $border-radius; color: var(--admin-text, #{$text-primary}); font-size: 0.82rem; overflow-wrap: anywhere; }
 .vehicle-tag button { min-height: 24px; padding: 0 0.2rem; border: none; font-size: 1rem; }
 .vehicle-control, .new-model-row { display: flex; gap: 0.5rem; align-items: end; }
 .vehicle-control select, .new-model-row label { flex: 1; min-width: 0; }
 .vehicle-control button, .new-model-row button { flex-shrink: 0; white-space: nowrap; }
-.model-error { color: #ffb74d; font-size: 0.85rem; margin: 0; }
-button { padding: 0.45rem 0.7rem; border: 1px solid $medium-grey; background: transparent; color: $text-secondary; border-radius: $border-radius; cursor: pointer; min-height: 38px; }
-button:hover { border-color: $primary-color; color: $primary-light; }
+.model-error { color: var(--admin-warning, #ffb74d); font-size: 0.85rem; margin: 0; }
+button { padding: 0.45rem 0.7rem; border: 1px solid var(--admin-border, #{$medium-grey}); background: transparent; color: var(--admin-secondary, #{$text-secondary}); border-radius: $border-radius; cursor: pointer; min-height: 38px; }
+button:hover { border-color: var(--admin-accent, #{$primary-color}); color: var(--admin-accent-text, #{$primary-light}); }
 .supplier-heading { display: flex; justify-content: space-between; align-items: center; gap: 0.7rem; }
 .supplier-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: 0.65rem; align-items: end; }
-.field-note { color: $text-secondary; margin: 0; font-size: 0.82rem; line-height: 1.6; }
-.label-preview { background: $background-color; border: 1px dashed $medium-grey; border-radius: $border-radius; padding: 0.85rem; font-size: 0.85rem; line-height: 1.8; overflow-wrap: anywhere; }
-.label-preview strong { display: block; color: $primary-light; margin-bottom: 0.3rem; }
+.field-note { color: var(--admin-secondary, #{$text-secondary}); margin: 0; font-size: 0.82rem; line-height: 1.6; }
+.label-preview { background: var(--admin-base, #{$background-color}); border: 1px dashed var(--admin-border, #{$medium-grey}); border-radius: $border-radius; padding: 0.85rem; font-size: 0.85rem; line-height: 1.8; overflow-wrap: anywhere; }
+.label-preview strong { display: block; color: var(--admin-accent-text, #{$primary-light}); margin-bottom: 0.3rem; }
 @media (max-width: 600px) { .details-grid { grid-template-columns: 1fr; } .supplier-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .supplier-row label:first-child { grid-column: 1 / -1; } .supplier-row button { grid-column: 2; } }
 </style>

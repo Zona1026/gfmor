@@ -156,7 +156,7 @@ onMounted(loadData);
   align-items: center;
   margin-bottom: 2rem;
   
-  h2 { color: $primary-light; margin: 0; }
+  h2 { color: var(--admin-accent-text, #{$primary-light}); margin: 0; }
 
   @media (max-width: 768px) {
     flex-direction: column;
@@ -164,11 +164,11 @@ onMounted(loadData);
     gap: 1rem;
     
     h2 {
-      background-color: rgba($primary-color, 0.1);
+      background-color: rgba(var(--admin-accent-rgb, 229,57,53), 0.1);
       padding: 0.8rem;
       border-radius: $border-radius;
       text-align: center;
-      border-left: 4px solid $primary-color;
+      border-left: 4px solid var(--admin-accent, #{$primary-color});
     }
     
     .btn { width: 100%; }
@@ -186,8 +186,8 @@ onMounted(loadData);
 }
 
 .settings-card {
-  background: linear-gradient(145deg, #2a2a2a, #1f1f1f);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: linear-gradient(145deg, var(--admin-surface, #2a2a2a), var(--admin-surface, #1f1f1f));
+  border: 1px solid rgba(var(--admin-ink-rgb, 255,255,255), 0.05);
   border-radius: 12px;
   padding: 2rem;
   box-shadow: 0 5px 15px rgba(0,0,0,0.2);
@@ -197,11 +197,11 @@ onMounted(loadData);
     align-items: center;
     gap: 0.8rem;
     margin-bottom: 1.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(var(--admin-ink-rgb, 255,255,255), 0.1);
     padding-bottom: 0.8rem;
 
     .icon { font-size: 1.4rem; }
-    h3 { margin: 0; color: $primary-light; font-size: 1.2rem; }
+    h3 { margin: 0; color: var(--admin-accent-text, #{$primary-light}); font-size: 1.2rem; }
   }
 }
 
@@ -210,7 +210,7 @@ onMounted(loadData);
 
   label {
     display: block;
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
     margin-bottom: 0.5rem;
     font-size: 0.9rem;
   }
@@ -218,24 +218,24 @@ onMounted(loadData);
   input, textarea {
     width: 100%;
     padding: 0.8rem 1rem;
-    background-color: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: rgba(var(--admin-ink-rgb, 255,255,255), 0.05);
+    border: 1px solid rgba(var(--admin-ink-rgb, 255,255,255), 0.1);
     border-radius: 8px;
-    color: $text-primary;
+    color: var(--admin-text, #{$text-primary});
     font-size: 1rem;
     transition: all 0.3s;
 
     &:focus {
       outline: none;
-      border-color: $primary-color;
-      background-color: rgba(255, 255, 255, 0.1);
-      box-shadow: 0 0 10px rgba($primary-color, 0.2);
+      border-color: var(--admin-accent, #{$primary-color});
+      background-color: rgba(var(--admin-ink-rgb, 255,255,255), 0.1);
+      box-shadow: 0 0 10px rgba(var(--admin-accent-rgb, 229,57,53), 0.2);
     }
   }
 
   .help-text {
     font-size: 0.8rem;
-    color: $text-disabled;
+    color: var(--admin-muted, #{$text-disabled});
     margin-top: 0.4rem;
   }
 }
@@ -245,7 +245,7 @@ onMounted(loadData);
     display: flex;
     align-items: center;
     gap: 0.6rem;
-    color: $text-primary;
+    color: var(--admin-text, #{$text-primary});
     cursor: pointer;
   }
 
@@ -261,7 +261,7 @@ onMounted(loadData);
   align-items: center;
   justify-content: center;
   padding: 5rem;
-  color: $text-disabled;
+  color: var(--admin-muted, #{$text-disabled});
 }
 
 .btn-primary {
@@ -269,7 +269,7 @@ onMounted(loadData);
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  background-color: $primary-color;
+  background-color: var(--admin-accent, #{$primary-color});
   color: #fff;
   border: none;
   padding: 0.8rem 1.5rem;
@@ -279,9 +279,9 @@ onMounted(loadData);
   transition: all 0.3s;
 
   &:hover:not(:disabled) {
-    background-color: $primary-dark;
+    background-color: var(--admin-accent-strong, #{$primary-dark});
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba($primary-color, 0.3);
+    box-shadow: 0 4px 12px rgba(var(--admin-accent-rgb, 229,57,53), 0.3);
   }
 
   &:disabled {
@@ -296,8 +296,8 @@ onMounted(loadData);
 }
 
 .loader {
-  border: 4px solid rgba(255, 255, 255, 0.1);
-  border-top: 4px solid $primary-color;
+  border: 4px solid rgba(var(--admin-ink-rgb, 255,255,255), 0.1);
+  border-top: 4px solid var(--admin-accent, #{$primary-color});
   border-radius: 50%;
   width: 40px;
   height: 40px;

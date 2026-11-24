@@ -124,7 +124,8 @@ const handleSubmit = async () => {
     authStore.setAdminUser({
       username: res.username,
       full_name: res.full_name,
-      role: res.role
+      role: res.role,
+      theme_preference: res.theme_preference || 'dark'
     });
     router.push('/admin');
   } catch (error) {

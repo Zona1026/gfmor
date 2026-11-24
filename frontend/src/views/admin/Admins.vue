@@ -376,14 +376,14 @@ onMounted(fetchAdmins);
     justify-content: space-between;
     align-items: center;
     margin-bottom: 2rem;
-    h2 { margin: 0; color: $primary-light; }
+    h2 { margin: 0; color: var(--admin-accent-text, #{$primary-light}); }
   }
 
-  .loading { text-align: center; padding: 3rem; color: $text-disabled; }
+  .loading { text-align: center; padding: 3rem; color: var(--admin-muted, #{$text-disabled}); }
 
   .admin-table-wrap {
-    background: $background-color;
-    border: 1px solid $medium-grey;
+    background: var(--admin-base, #{$background-color});
+    border: 1px solid var(--admin-border, #{$medium-grey});
     border-radius: 8px;
     overflow: hidden;
 
@@ -394,24 +394,24 @@ onMounted(fetchAdmins);
       th, td {
         padding: 1rem;
         text-align: left;
-        border-bottom: 1px solid rgba($medium-grey, 0.5);
+        border-bottom: 1px solid rgba(var(--admin-border-rgb, 66,66,66), 0.5);
       }
 
       th {
-        background: rgba($medium-grey, 0.2);
-        color: $text-disabled;
+        background: rgba(var(--admin-border-rgb, 66,66,66), 0.2);
+        color: var(--admin-muted, #{$text-disabled});
         font-size: 0.8rem;
         font-weight: 600;
         text-transform: uppercase;
       }
 
-      .username { font-weight: bold; color: $primary-light; }
+      .username { font-weight: bold; color: var(--admin-accent-text, #{$primary-light}); }
       .email {
-        color: $text-secondary;
+        color: var(--admin-secondary, #{$text-secondary});
         font-size: 0.9rem;
         overflow-wrap: anywhere;
       }
-      .time { color: $text-disabled; font-size: 0.85rem; }
+      .time { color: var(--admin-muted, #{$text-disabled}); font-size: 0.85rem; }
 
       .actions {
         display: flex;
@@ -430,19 +430,19 @@ onMounted(fetchAdmins);
         white-space: nowrap;
       }
       .btn-edit {
-        background-color: $primary-color;
-        color: $background-color;
-        &:hover { background-color: $primary-dark; }
+        background-color: var(--admin-accent, #{$primary-color});
+        color: var(--admin-base, #{$background-color});
+        &:hover { background-color: var(--admin-accent-strong, #{$primary-dark}); }
       }
       .btn-reset {
-        background-color: #faad14;
-        color: #1f1f1f;
-        &:hover { background-color: #ffc53d; }
+        background-color: var(--admin-warning-fill, #faad14);
+        color: var(--admin-text, #1f1f1f);
+        &:hover { background-color: var(--admin-warning-fill, #ffc53d); }
       }
       .btn-delete {
-        background-color: #ff4d4f;
+        background-color: var(--admin-danger-fill, #ff4d4f);
         color: white;
-        &:hover { background-color: #ff7875; }
+        &:hover { background-color: var(--admin-danger-fill, #ff7875); }
         &:disabled { opacity: 0.3; cursor: not-allowed; }
       }
     }
@@ -451,8 +451,8 @@ onMounted(fetchAdmins);
       padding: 1rem;
       margin: 0;
       font-size: 0.85rem;
-      color: $text-disabled;
-      background: rgba($medium-grey, 0.1);
+      color: var(--admin-muted, #{$text-disabled});
+      background: rgba(var(--admin-border-rgb, 66,66,66), 0.1);
     }
   }
 
@@ -464,8 +464,8 @@ onMounted(fetchAdmins);
     border: none;
     transition: 0.2s;
 
-    &.btn-primary { background: $primary-color; color: #fff; &:hover { background: $primary-dark; } }
-    &.btn-outline { background: transparent; border: 1px solid $medium-grey; color: $text-secondary; &:hover { background: $medium-grey; } }
+    &.btn-primary { background: var(--admin-accent, #{$primary-color}); color: #fff; &:hover { background: var(--admin-accent-strong, #{$primary-dark}); } }
+    &.btn-outline { background: transparent; border: 1px solid var(--admin-border, #{$medium-grey}); color: var(--admin-secondary, #{$text-secondary}); &:hover { background: var(--admin-surface-alt, #{$medium-grey}); } }
     &.btn-sm { padding: 0.25rem 0.6rem; font-size: 0.8rem; }
   }
 
@@ -475,26 +475,26 @@ onMounted(fetchAdmins);
     background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000;
   }
   .modal {
-    background: $dark-grey; border: 1px solid $medium-grey; border-radius: 12px;
+    background: var(--admin-surface, #{$dark-grey}); border: 1px solid var(--admin-border, #{$medium-grey}); border-radius: 12px;
     padding: 2rem; width: 400px; max-width: 90%;
-    h3 { margin-top: 0; color: $primary-light; margin-bottom: 1.5rem; }
+    h3 { margin-top: 0; color: var(--admin-accent-text, #{$primary-light}); margin-bottom: 1.5rem; }
     .modal-note {
       margin: -0.5rem 0 1.5rem;
-      color: $text-secondary;
+      color: var(--admin-secondary, #{$text-secondary});
       line-height: 1.5;
-      strong { color: $primary-light; }
+      strong { color: var(--admin-accent-text, #{$primary-light}); }
     }
     .form-group {
       margin-bottom: 1.2rem;
-      label { display: block; margin-bottom: 0.5rem; color: $text-secondary; font-size: 0.9rem; }
+      label { display: block; margin-bottom: 0.5rem; color: var(--admin-secondary, #{$text-secondary}); font-size: 0.9rem; }
       input, .form-select {
-        width: 100%; padding: 0.8rem; background: $background-color; border: 1px solid $medium-grey;
-        border-radius: $border-radius; color: $text-primary;
-        &:focus { border-color: $primary-color; outline: none; }
+        width: 100%; padding: 0.8rem; background: var(--admin-base, #{$background-color}); border: 1px solid var(--admin-border, #{$medium-grey});
+        border-radius: $border-radius; color: var(--admin-text, #{$text-primary});
+        &:focus { border-color: var(--admin-accent, #{$primary-color}); outline: none; }
       }
       .form-select {
         cursor: pointer;
-        option { background: $dark-grey; color: $text-primary; }
+        option { background: var(--admin-surface, #{$dark-grey}); color: var(--admin-text, #{$text-primary}); }
       }
     }
     .form-actions { display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 2rem; }
@@ -502,9 +502,9 @@ onMounted(fetchAdmins);
 
   /* Roles & Permission styles */
   .permission-alert {
-    background: rgba(#ff4d4f, 0.08);
-    border: 1px dashed rgba(#ff4d4f, 0.3);
-    color: #ff7875;
+    background: rgba(var(--admin-danger-fill-rgb, 255,77,79), 0.08);
+    border: 1px dashed rgba(var(--admin-danger-rgb, 255,77,79), 0.3);
+    color: var(--admin-danger, #ff7875);
     padding: 0.8rem 1.2rem;
     border-radius: 8px;
     margin-bottom: 1.5rem;
@@ -520,28 +520,28 @@ onMounted(fetchAdmins);
     text-align: center;
 
     &.role-super {
-      background: linear-gradient(135deg, rgba(#ff4d4f, 0.25) 0%, rgba(#fa8c16, 0.25) 100%);
-      color: #ffa940;
-      border: 1px solid rgba(#fa8c16, 0.45);
+      background: linear-gradient(135deg, rgba(var(--admin-danger-fill-rgb, 255,77,79), 0.25) 0%, rgba(var(--admin-warning-fill-rgb, 250,140,22), 0.25) 100%);
+      color: var(--admin-warning, #ffa940);
+      border: 1px solid rgba(var(--admin-warning-rgb, 250,140,22), 0.45);
     }
     &.role-manager {
-      background: linear-gradient(135deg, rgba(#722ed1, 0.25) 0%, rgba(#13c2c2, 0.25) 100%);
-      color: #d3adf7;
-      border: 1px solid rgba(#d3adf7, 0.45);
+      background: linear-gradient(135deg, rgba(var(--admin-purple-fill-rgb, 114,46,209), 0.25) 0%, rgba(var(--admin-info-fill-rgb, 19,194,194), 0.25) 100%);
+      color: var(--admin-purple, #d3adf7);
+      border: 1px solid rgba(var(--admin-purple-rgb, 211,173,247), 0.45);
     }
     &.role-staff {
-      background: linear-gradient(135deg, rgba(#1890ff, 0.2) 0%, rgba(#52c41a, 0.2) 100%);
-      color: #40a9ff;
-      border: 1px solid rgba(#40a9ff, 0.4);
+      background: linear-gradient(135deg, rgba(var(--admin-info-fill-rgb, 24,144,255), 0.2) 0%, rgba(var(--admin-success-fill-rgb, 82,196,26), 0.2) 100%);
+      color: var(--admin-info, #40a9ff);
+      border: 1px solid rgba(var(--admin-info-rgb, 64,169,255), 0.4);
     }
   }
 
   .btn:disabled, .btn-edit:disabled, .btn-reset:disabled, .btn-delete:disabled {
     opacity: 0.4 !important;
     cursor: not-allowed !important;
-    background-color: #434343 !important;
-    color: #a6a6a6 !important;
-    border-color: #303030 !important;
+    background-color: var(--admin-surface, #434343) !important;
+    color: var(--admin-muted, #a6a6a6) !important;
+    border-color: var(--admin-border, #303030) !important;
   }
 }
 </style>

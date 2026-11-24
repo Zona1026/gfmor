@@ -925,7 +925,7 @@ onMounted(fetchAll);
 @import '../../assets/_variables.scss';
 
 .admin-inventory {
-  color: #eef2f7;
+  color: var(--admin-text, #eef2f7);
 }
 
 .section-header,
@@ -948,11 +948,11 @@ onMounted(fetchAll);
 }
 
 .role-chip {
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  border: 1px solid rgba(var(--admin-border-rgb, 148,163,184), 0.35);
   border-radius: 999px;
   padding: 6px 12px;
-  color: #cbd5e1;
-  background: rgba(15, 23, 42, 0.72);
+  color: var(--admin-secondary, #cbd5e1);
+  background: rgba(var(--admin-surface-rgb, 15,23,42), 0.72);
 }
 
 .tabs {
@@ -963,19 +963,19 @@ onMounted(fetchAll);
 
 .tabs button,
 .btn {
-  border: 1px solid rgba(148, 163, 184, 0.28);
+  border: 1px solid rgba(var(--admin-border-rgb, 148,163,184), 0.28);
   border-radius: 6px;
   padding: 9px 14px;
-  color: #e2e8f0;
-  background: rgba(15, 23, 42, 0.78);
+  color: var(--admin-text, #e2e8f0);
+  background: rgba(var(--admin-surface-rgb, 15,23,42), 0.78);
   cursor: pointer;
 }
 
 .tabs button.active,
 .btn-primary {
-  border-color: #38bdf8;
-  color: #082f49;
-  background: #38bdf8;
+  border-color: var(--admin-accent, #38bdf8);
+  color: var(--admin-on-accent, #082f49);
+  background: var(--admin-accent, #38bdf8);
 }
 
 .btn-outline {
@@ -983,10 +983,10 @@ onMounted(fetchAll);
 }
 
 .panel {
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  border: 1px solid rgba(var(--admin-border-rgb, 148,163,184), 0.2);
   border-radius: 8px;
   padding: 18px;
-  background: rgba(15, 23, 42, 0.54);
+  background: rgba(var(--admin-surface-rgb, 15,23,42), 0.54);
 }
 
 .inventory-panel {
@@ -1011,7 +1011,7 @@ onMounted(fetchAll);
 }
 
 .parts-filters span {
-  color: $text-secondary;
+  color: var(--admin-secondary, #{$text-secondary});
   font-size: 0.88rem;
 }
 
@@ -1022,17 +1022,17 @@ onMounted(fetchAll);
 .inventory-table-block :deep(.table-wrap) {
   width: 100%;
   overflow-x: auto;
-  border: 1px solid $medium-grey;
+  border: 1px solid var(--admin-border, #{$medium-grey});
   border-radius: $border-radius;
-  background-color: $dark-grey;
+  background-color: var(--admin-surface, #{$dark-grey});
 }
 
 .table-wrap {
   width: 100%;
   overflow-x: auto;
-  border: 1px solid $medium-grey;
+  border: 1px solid var(--admin-border, #{$medium-grey});
   border-radius: $border-radius;
-  background-color: $dark-grey;
+  background-color: var(--admin-surface, #{$dark-grey});
 }
 
 .data-table {
@@ -1043,7 +1043,7 @@ onMounted(fetchAll);
 
 .data-table th,
 .data-table td {
-  border-bottom: 1px solid $medium-grey;
+  border-bottom: 1px solid var(--admin-border, #{$medium-grey});
   padding: 0.8rem 0.9rem;
   text-align: left;
   vertical-align: middle;
@@ -1051,8 +1051,8 @@ onMounted(fetchAll);
 }
 
 .data-table th {
-  color: $text-secondary;
-  background-color: $background-color;
+  color: var(--admin-secondary, #{$text-secondary});
+  background-color: var(--admin-base, #{$background-color});
   font-size: 0.82rem;
   font-weight: 700;
 }
@@ -1062,7 +1062,7 @@ onMounted(fetchAll);
 }
 
 .data-table tbody tr:hover {
-  background-color: rgba($primary-color, 0.05);
+  background-color: rgba(var(--admin-accent-rgb, 229,57,53), 0.05);
 }
 
 .inventory-table-block :deep(.inventory-table) {
@@ -1075,7 +1075,7 @@ onMounted(fetchAll);
 .inventory-table-block :deep(.inventory-table th),
 .inventory-table-block :deep(.inventory-table td) {
   padding: 0.8rem 0.5rem;
-  border-bottom: 1px solid $medium-grey;
+  border-bottom: 1px solid var(--admin-border, #{$medium-grey});
   text-align: left;
   vertical-align: middle;
   white-space: normal;
@@ -1083,8 +1083,8 @@ onMounted(fetchAll);
 }
 
 .inventory-table-block :deep(.inventory-table th) {
-  color: $text-secondary;
-  background-color: $background-color;
+  color: var(--admin-secondary, #{$text-secondary});
+  background-color: var(--admin-base, #{$background-color});
   font-size: 0.82rem;
   font-weight: 700;
 }
@@ -1094,7 +1094,7 @@ onMounted(fetchAll);
 }
 
 .inventory-table-block :deep(.inventory-table tbody tr:hover) {
-  background-color: rgba($primary-color, 0.05);
+  background-color: rgba(var(--admin-accent-rgb, 229,57,53), 0.05);
 }
 
 .inventory-table-block :deep(.inventory-table .action-cell) {
@@ -1106,7 +1106,7 @@ onMounted(fetchAll);
 }
 
 .inventory-table :deep(.product-name) {
-  color: #ff5656;
+  color: var(--admin-danger, #ff5656);
   font-weight: 700;
 }
 
@@ -1117,44 +1117,44 @@ onMounted(fetchAll);
 }
 
 .positive {
-  color: #86efac;
+  color: var(--admin-success, #86efac);
 }
 
 .negative {
-  color: #fca5a5;
+  color: var(--admin-danger, #fca5a5);
 }
 
 .inventory-table :deep(.low-stock .available-cell) {
-  color: #ff5656;
+  color: var(--admin-danger, #ff5656);
 }
 
 .data-table .empty-row,
 .inventory-table-block :deep(.empty-row) {
   padding: 2rem;
-  color: $text-disabled;
+  color: var(--admin-muted, #{$text-disabled});
   text-align: center;
 }
 
 .status-tag {
   border-radius: 999px;
   padding: 4px 9px;
-  background: rgba(148, 163, 184, 0.16);
+  background: rgba(var(--admin-border-rgb, 148,163,184), 0.16);
 }
 
 .status-tag.active {
-  color: #7dd3fc;
+  color: var(--admin-info, #7dd3fc);
 }
 
 .status-tag.consumed {
-  color: #86efac;
+  color: var(--admin-success, #86efac);
 }
 
 .status-tag.released {
-  color: #cbd5e1;
+  color: var(--admin-secondary, #cbd5e1);
 }
 
 .empty-row {
-  color: #94a3b8;
+  color: var(--admin-muted, #94a3b8);
   text-align: center;
 }
 
@@ -1166,7 +1166,7 @@ onMounted(fetchAll);
 .panel-description,
 .permission-note {
   margin: 6px 0 0;
-  color: $text-secondary;
+  color: var(--admin-secondary, #{$text-secondary});
   font-size: 0.88rem;
 }
 
@@ -1185,7 +1185,7 @@ onMounted(fetchAll);
 .stocktake-table small {
   display: block;
   margin-top: 4px;
-  color: $text-disabled;
+  color: var(--admin-muted, #{$text-disabled});
 }
 
 .count-input {
@@ -1201,7 +1201,7 @@ onMounted(fetchAll);
   flex: 1 1 220px;
   flex-direction: column;
   gap: 8px;
-  color: #cbd5e1;
+  color: var(--admin-secondary, #cbd5e1);
 }
 
 .reason-field {
@@ -1211,11 +1211,11 @@ onMounted(fetchAll);
 input,
 select,
 textarea {
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  border: 1px solid rgba(var(--admin-border-rgb, 148,163,184), 0.25);
   border-radius: 6px;
   padding: 10px 12px;
-  color: #e2e8f0;
-  background: rgba(2, 6, 23, 0.58);
+  color: var(--admin-text, #e2e8f0);
+  background: rgba(var(--admin-surface-rgb, 2,6,23), 0.58);
 }
 
 .modal-overlay {
@@ -1233,10 +1233,10 @@ textarea {
   width: min(680px, 100%);
   max-height: calc(100vh - 40px);
   overflow-y: auto;
-  border: 1px solid $medium-grey;
+  border: 1px solid var(--admin-border, #{$medium-grey});
   border-radius: $border-radius;
   padding: 20px;
-  background: $dark-grey;
+  background: var(--admin-surface, #{$dark-grey});
 }
 
 .modal-header,
@@ -1267,8 +1267,8 @@ textarea {
 }
 
 .inventory-category-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.category-message { color: #a9dfb4; line-height: 1.5; }
-.category-error { color: #ff9292; line-height: 1.5; }
+.category-message { color: var(--admin-success, #a9dfb4); line-height: 1.5; }
+.category-error { color: var(--admin-danger, #ff9292); line-height: 1.5; }
 
 .category-control,
 .category-create-row {
@@ -1290,10 +1290,10 @@ textarea {
 }
 
 .category-create-row {
-  border: 1px solid $medium-grey;
+  border: 1px solid var(--admin-border, #{$medium-grey});
   border-radius: $border-radius;
   padding: 12px;
-  background: $background-color;
+  background: var(--admin-base, #{$background-color});
 }
 
 .form-grid {
@@ -1309,9 +1309,9 @@ textarea {
 .item-preview {
   width: min(240px, 100%);
   overflow: hidden;
-  border: 1px solid $medium-grey;
+  border: 1px solid var(--admin-border, #{$medium-grey});
   border-radius: $border-radius;
-  background: $background-color;
+  background: var(--admin-base, #{$background-color});
 }
 
 .item-preview img {

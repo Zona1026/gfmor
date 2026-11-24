@@ -1,20 +1,20 @@
 <template>
   <div class="product-picker" :class="{ 'labor-picker': ['LABOR', 'MAJOR_MAINTENANCE'].includes(item.type) }">
-    <label>
+    <label class="picker-type">
       <span>類型</span>
       <select v-model="item.type" :disabled="disabled" @change="changeType">
         <option v-for="(label, value) in types" :key="value" :value="value">{{ label }}</option>
       </select>
     </label>
-    <label v-if="!['LABOR', 'MAJOR_MAINTENANCE'].includes(item.type)">
-      <span>分類</span>
+    <label class="picker-category" v-if="!['LABOR', 'MAJOR_MAINTENANCE'].includes(item.type)">
+      <span>零件分類</span>
       <select v-model="item.picker_category" :disabled="disabled || !['PART', 'LABOR'].includes(item.type)" @change="changeCategory">
         <option value="">{{ ['PART', 'LABOR'].includes(item.type) ? '全部分類' : '不適用' }}</option>
         <option v-if="item.type === 'PART'" :value="MANUAL_PRODUCT_CATEGORY">不綁商品 / 不扣庫存</option>
         <option v-for="category in categories" :key="category.value" :value="category.value">{{ category.name }}</option>
       </select>
     </label>
-    <label>
+    <label class="picker-manufacturer">
       <span>廠商</span>
       <select v-model="item.picker_manufacturer" :disabled="disabled || item.type !== 'PART' || isManual" @change="changeFilters">
         <option value="">{{ item.type === 'PART' && !isManual ? '全部廠商' : '不適用' }}</option>
@@ -87,10 +87,10 @@ function changeType() {
 .product-picker { display: grid; grid-template-columns: minmax(90px, 0.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.6fr); gap: 0.5rem; min-width: 0; }
 .labor-picker { grid-template-columns: minmax(90px, 0.6fr) minmax(0, 1fr) minmax(0, 1.6fr); }
 label, .product-field { display: grid; gap: 0.28rem; min-width: 0; }
-span { font-size: 0.78rem; font-weight: 700; color: #ddd; }
-input, select { width: 100%; min-width: 0; height: 38px; box-sizing: border-box; border: 1px solid #444; border-radius: 6px; background: #202124; color: #eee; padding: 0.45rem 0.65rem; }
+span { font-size: 0.78rem; font-weight: 700; color: var(--admin-text, #ddd); }
+input, select { width: 100%; min-width: 0; height: 38px; box-sizing: border-box; border: 1px solid var(--admin-border, #444); border-radius: 6px; background: var(--admin-surface, #202124); color: var(--admin-text, #eee); padding: 0.45rem 0.65rem; }
 select:disabled, input:disabled { opacity: 0.6; }
-.picker-quote { grid-column: 1 / -1; font-size: 0.78rem; line-height: 1.5; overflow-wrap: anywhere; color: #ddd; }
+.picker-quote { grid-column: 1 / -1; font-size: 0.78rem; line-height: 1.5; overflow-wrap: anywhere; color: var(--admin-text, #ddd); }
 @media (max-width: 700px) { .product-picker, .labor-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 420px) { .product-picker, .labor-picker { grid-template-columns: minmax(0, 1fr); } }
 </style>

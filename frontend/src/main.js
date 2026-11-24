@@ -4,6 +4,7 @@ import router from './router'
 import App from './App.vue'
 import backdropClose from './directives/backdropClose'
 import './assets/main.scss'
+import './assets/adminTheme.scss'
 import vue3GoogleLogin from 'vue3-google-login'
 import { ADMIN_IDLE_TIMEOUT_HOURS, useAuthStore } from './store/auth'
 

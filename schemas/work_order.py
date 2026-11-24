@@ -274,6 +274,9 @@ class WorkOrderApprovalWorkOrderSummary(BaseModel):
         from_attributes = True
 
 
+WorkOrderVehicleStatus = Literal["待內場報價", "待料中", "料到待施工", "施工中", "料件追加", "已完工"]
+
+
 class WorkOrderBase(BaseModel):
     booking_id: Optional[int] = None
     google_id: Optional[str] = None
@@ -287,6 +290,7 @@ class WorkOrderBase(BaseModel):
     vehicle_license_plate: Optional[str] = None
     vehicle_brand: Optional[str] = None
     vehicle_brand_type: Optional[str] = Field(default=None, max_length=200)
+    vehicle_status: Optional[WorkOrderVehicleStatus] = None
     vehicle_model: Optional[str] = Field(default=None, max_length=200)
     vehicle_vin: Optional[str] = None
     vehicle_mileage: Optional[int] = Field(default=None, ge=0)
@@ -335,6 +339,7 @@ class WorkOrderUpdate(BaseModel):
     vehicle_license_plate: Optional[str] = None
     vehicle_brand: Optional[str] = None
     vehicle_brand_type: Optional[str] = Field(default=None, max_length=200)
+    vehicle_status: Optional[WorkOrderVehicleStatus] = None
     vehicle_model: Optional[str] = Field(default=None, max_length=200)
     vehicle_vin: Optional[str] = None
     vehicle_mileage: Optional[int] = Field(default=None, ge=0)
@@ -381,6 +386,7 @@ class WorkOrder(BaseModel):
     vehicle_license_plate: Optional[str] = None
     vehicle_brand: Optional[str] = None
     vehicle_brand_type: Optional[str] = Field(default=None, max_length=200)
+    vehicle_status: Optional[WorkOrderVehicleStatus] = None
     vehicle_model: Optional[str] = Field(default=None, max_length=200)
     vehicle_vin: Optional[str] = None
     vehicle_mileage: Optional[int] = None

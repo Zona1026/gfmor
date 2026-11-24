@@ -166,7 +166,7 @@ onMounted(fetchApprovals);
 @import '../../assets/_variables.scss';
 
 .admin-approvals {
-  color: $text-primary;
+  color: var(--admin-text, #{$text-primary});
 
   .section-header,
   .filter-row,
@@ -182,12 +182,12 @@ onMounted(fetchApprovals);
     margin-bottom: 1rem;
 
     h2 {
-      color: $primary-light;
+      color: var(--admin-accent-text, #{$primary-light});
       margin: 0 0 0.4rem;
     }
 
     p {
-      color: $text-secondary;
+      color: var(--admin-secondary, #{$text-secondary});
       margin: 0;
     }
   }
@@ -199,40 +199,40 @@ onMounted(fetchApprovals);
   .btn,
   .filter-btn {
     padding: 0.55rem 0.9rem;
-    border: 1px solid $medium-grey;
-    background: rgba(255, 255, 255, 0.04);
-    color: $text-secondary;
+    border: 1px solid var(--admin-border, #{$medium-grey});
+    background: rgba(var(--admin-ink-rgb, 255,255,255), 0.04);
+    color: var(--admin-secondary, #{$text-secondary});
     border-radius: $border-radius;
     cursor: pointer;
     font-weight: 700;
 
     &.active,
     &:hover {
-      border-color: $primary-color;
-      color: $primary-light;
-      background: rgba($primary-color, 0.1);
+      border-color: var(--admin-accent, #{$primary-color});
+      color: var(--admin-accent-text, #{$primary-light});
+      background: rgba(var(--admin-accent-rgb, 229,57,53), 0.1);
     }
   }
 
   .btn-primary {
-    background: $primary-color;
-    border-color: $primary-color;
+    background: var(--admin-accent, #{$primary-color});
+    border-color: var(--admin-accent, #{$primary-color});
     color: #fff;
   }
 
   .btn-danger {
-    border-color: #e57373;
-    color: #e57373;
+    border-color: var(--admin-danger, #e57373);
+    color: var(--admin-danger, #e57373);
   }
 
   .btn-outline {
-    color: $primary-light;
+    color: var(--admin-accent-text, #{$primary-light});
   }
 
   .table-wrap {
-    border: 1px solid $medium-grey;
+    border: 1px solid var(--admin-border, #{$medium-grey});
     border-radius: $border-radius;
-    background-color: $dark-grey;
+    background-color: var(--admin-surface, #{$dark-grey});
     overflow: auto;
   }
 
@@ -243,15 +243,15 @@ onMounted(fetchApprovals);
     th,
     td {
       padding: 0.85rem 1rem;
-      border-bottom: 1px solid $medium-grey;
+      border-bottom: 1px solid var(--admin-border, #{$medium-grey});
       text-align: left;
       white-space: nowrap;
       vertical-align: top;
     }
 
     th {
-      background: $background-color;
-      color: $text-secondary;
+      background: var(--admin-base, #{$background-color});
+      color: var(--admin-secondary, #{$text-secondary});
       font-size: 0.88rem;
     }
   }
@@ -263,7 +263,7 @@ onMounted(fetchApprovals);
 
   .secondary-line {
     display: block;
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
     font-size: 0.82rem;
     margin-top: 0.22rem;
   }
@@ -274,16 +274,16 @@ onMounted(fetchApprovals);
     border-radius: 999px;
     font-size: 0.8rem;
 
-    &.PENDING { color: #ffb74d; background-color: rgba(#ffb74d, 0.15); }
-    &.APPROVED { color: #81c784; background-color: rgba(#81c784, 0.15); }
-    &.REJECTED { color: #e57373; background-color: rgba(#e57373, 0.15); }
+    &.PENDING { color: var(--admin-warning, #ffb74d); background-color: rgba(var(--admin-warning-fill-rgb, 255,183,77), 0.15); }
+    &.APPROVED { color: var(--admin-success, #81c784); background-color: rgba(var(--admin-success-fill-rgb, 129,199,132), 0.15); }
+    &.REJECTED { color: var(--admin-danger, #e57373); background-color: rgba(var(--admin-danger-fill-rgb, 229,115,115), 0.15); }
   }
 
   .empty-state {
-    border: 1px solid $medium-grey;
+    border: 1px solid var(--admin-border, #{$medium-grey});
     border-radius: $border-radius;
-    background-color: $dark-grey;
-    color: $text-disabled;
+    background-color: var(--admin-surface, #{$dark-grey});
+    color: var(--admin-muted, #{$text-disabled});
     padding: 3rem;
     text-align: center;
   }

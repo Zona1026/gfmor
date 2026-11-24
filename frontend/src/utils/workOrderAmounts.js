@@ -8,6 +8,12 @@ export const calculateTotal = (items) => {
   return Math.max(0, items.reduce((total, item) => total + lineItemTotal(item), 0));
 };
 
+export const summarizeWorkOrder = (items) => ({
+  subtotal: items.filter(item => item.type !== 'DISCOUNT').reduce((total, item) => total + lineItemTotal(item), 0),
+  discount: Math.max(0, -items.filter(item => item.type === 'DISCOUNT').reduce((total, item) => total + lineItemTotal(item), 0)),
+  total: calculateTotal(items),
+});
+
 export const calculateMembershipTotal = (items) => {
   const eligibleAmount = items.reduce((total, item) => {
     return item.counts_toward_membership ? total + lineItemTotal(item) : total;

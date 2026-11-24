@@ -138,8 +138,11 @@
 
     <main class="content">
       <header>
+        <div class="admin-page-heading">
         <h1>{{ $route.path === '/admin' ? '儀表板' : routeTitle }}</h1>
         <p v-if="$route.path === '/admin'">每日待辦提醒，管理員 {{ adminUser?.full_name || adminUser?.username }}。</p>
+        </div>
+        <AdminThemeToggle />
       </header>
 
       <div class="dashboard-content">
@@ -355,6 +358,7 @@
 </template>
 
 <script setup>
+import AdminThemeToggle from '../../components/admin/AdminThemeToggle.vue';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
@@ -637,8 +641,8 @@ onMounted(() => {
 .admin-dashboard {
   display: flex;
   min-height: 100vh;
-  background-color: $dark-grey;
-  color: $text-primary;
+  background-color: var(--admin-surface, #{$dark-grey});
+  color: var(--admin-text, #{$text-primary});
 
   .mobile-topbar {
     display: none;
@@ -647,8 +651,8 @@ onMounted(() => {
     left: 0;
     right: 0;
     height: 56px;
-    background-color: $background-color;
-    border-bottom: 1px solid $medium-grey;
+    background-color: var(--admin-base, #{$background-color});
+    border-bottom: 1px solid var(--admin-border, #{$medium-grey});
     align-items: center;
     padding: 0 1rem;
     gap: 1rem;
@@ -667,13 +671,13 @@ onMounted(() => {
         display: block;
         width: 24px;
         height: 2px;
-        background-color: $text-primary;
+        background-color: var(--admin-text, #{$text-primary});
         border-radius: 2px;
       }
     }
 
     .mobile-title {
-      color: $primary-light;
+      color: var(--admin-accent-text, #{$primary-light});
       font-weight: bold;
       font-size: 1.1rem;
     }
@@ -692,8 +696,8 @@ onMounted(() => {
     height: 100vh;
     position: sticky;
     top: 0;
-    background-color: $background-color;
-    border-right: 1px solid $medium-grey;
+    background-color: var(--admin-base, #{$background-color});
+    border-right: 1px solid var(--admin-border, #{$medium-grey});
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
@@ -701,8 +705,8 @@ onMounted(() => {
 
     h2 {
       padding: 1.5rem;
-      color: $primary-light;
-      border-bottom: 1px solid $medium-grey;
+      color: var(--admin-accent-text, #{$primary-light});
+      border-bottom: 1px solid var(--admin-border, #{$medium-grey});
       margin: 0;
     }
 
@@ -714,15 +718,15 @@ onMounted(() => {
 
       a {
         padding: 1rem 1.5rem;
-        color: $text-secondary;
+        color: var(--admin-secondary, #{$text-secondary});
         text-decoration: none;
         transition: 0.3s;
 
         &:hover,
         &.active {
-          background-color: rgba($primary-color, 0.1);
-          color: $primary-color;
-          border-right: 3px solid $primary-color;
+          background-color: rgba(var(--admin-accent-rgb, 229,57,53), 0.1);
+          color: var(--admin-accent-text, #{$primary-color});
+          border-right: 3px solid var(--admin-accent, #{$primary-color});
         }
       }
 
@@ -741,7 +745,7 @@ onMounted(() => {
         border: 0;
         border-right: 3px solid transparent;
         background: transparent;
-        color: $text-secondary;
+        color: var(--admin-secondary, #{$text-secondary});
         font: inherit;
         font-weight: 600;
         text-align: left;
@@ -750,12 +754,12 @@ onMounted(() => {
 
         &:hover,
         &.active {
-          background-color: rgba($primary-color, 0.1);
-          color: $primary-color;
+          background-color: rgba(var(--admin-accent-rgb, 229,57,53), 0.1);
+          color: var(--admin-accent-text, #{$primary-color});
         }
 
         &.active {
-          border-right-color: $primary-color;
+          border-right-color: var(--admin-accent, #{$primary-color});
         }
 
         &[aria-expanded='true'] .nav-group-chevron {
@@ -775,7 +779,7 @@ onMounted(() => {
 
       .nav-submenu {
         padding: 0.25rem 0 0.5rem;
-        background: rgba(255, 255, 255, 0.02);
+        background: rgba(var(--admin-ink-rgb, 255,255,255), 0.02);
 
         a {
           display: block;
@@ -810,24 +814,24 @@ onMounted(() => {
     .sidebar-footer {
       display: flex;
       flex-direction: column;
-      border-top: 1px solid $medium-grey;
+      border-top: 1px solid var(--admin-border, #{$medium-grey});
 
       .btn-logout {
         padding: 0.85rem 1rem;
         background-color: transparent;
-        color: #ff6b6b;
+        color: var(--admin-danger, #ff6b6b);
         border: none;
         cursor: pointer;
         font-weight: bold;
 
         &:hover {
-          background-color: rgba(#ff6b6b, 0.1);
+          background-color: rgba(var(--admin-danger-fill-rgb, 255,107,107), 0.1);
         }
       }
 
       .app-version {
         padding: 0 1rem 0.8rem;
-        color: $text-disabled;
+        color: var(--admin-muted, #{$text-disabled});
         font-size: 0.72rem;
         text-align: center;
       }
@@ -842,16 +846,16 @@ onMounted(() => {
 
     header {
       padding: 1.5rem 2.5rem;
-      border-bottom: 1px solid $medium-grey;
+      border-bottom: 1px solid var(--admin-border, #{$medium-grey});
 
       h1 {
         margin: 0 0 0.5rem;
-        color: $primary-color;
+        color: var(--admin-accent-text, #{$primary-color});
       }
 
       p {
         margin: 0;
-        color: $light-grey;
+        color: var(--admin-muted, #{$light-grey});
       }
     }
   }
@@ -873,22 +877,22 @@ onMounted(() => {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: $text-disabled;
+    color: var(--admin-muted, #{$text-disabled});
   }
 
   .loader-spinner {
     width: 40px;
     height: 40px;
-    border: 4px solid rgba(255, 255, 255, 0.1);
-    border-top-color: $primary-color;
+    border: 4px solid rgba(var(--admin-ink-rgb, 255,255,255), 0.1);
+    border-top-color: var(--admin-accent, #{$primary-color});
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-bottom: 1rem;
   }
 
   .reminder-card {
-    background-color: $dark-grey;
-    border: 1px solid $medium-grey;
+    background-color: var(--admin-surface, #{$dark-grey});
+    border: 1px solid var(--admin-border, #{$medium-grey});
     border-radius: $border-radius;
     min-height: 245px;
     padding: 1.25rem;
@@ -903,12 +907,12 @@ onMounted(() => {
 
       h3 {
         margin: 0 0 0.25rem;
-        color: $primary-light;
+        color: var(--admin-accent-text, #{$primary-light});
         font-size: 1.05rem;
       }
 
       span {
-        color: $text-secondary;
+        color: var(--admin-secondary, #{$text-secondary});
         font-size: 0.84rem;
       }
 
@@ -920,7 +924,7 @@ onMounted(() => {
 
         strong {
           color: #fff;
-          background-color: $primary-color;
+          background-color: var(--admin-accent, #{$primary-color});
           min-width: 30px;
           height: 26px;
           padding: 0 0.45rem;
@@ -932,7 +936,7 @@ onMounted(() => {
         }
 
         a {
-          color: $primary-light;
+          color: var(--admin-accent-text, #{$primary-light});
           text-decoration: none;
           font-size: 0.85rem;
           font-weight: 600;
@@ -953,20 +957,20 @@ onMounted(() => {
     td {
       padding: 0.62rem 0.45rem;
       text-align: left;
-      border-bottom: 1px solid rgba($medium-grey, 0.55);
+      border-bottom: 1px solid rgba(var(--admin-border-rgb, 66,66,66), 0.55);
       font-size: 0.86rem;
       vertical-align: middle;
     }
 
     th {
-      color: $text-disabled;
+      color: var(--admin-muted, #{$text-disabled});
       font-weight: 600;
       font-size: 0.76rem;
     }
 
     .time,
     .amount {
-      color: $primary-light;
+      color: var(--admin-accent-text, #{$primary-light});
       font-weight: 700;
     }
   }
@@ -976,12 +980,12 @@ onMounted(() => {
     padding: 0.18rem 0.52rem;
     border-radius: 999px;
     font-size: 0.76rem;
-    background-color: rgba($medium-grey, 0.35);
+    background-color: rgba(var(--admin-border-rgb, 66,66,66), 0.35);
 
-    &.PENDING { color: #ffc107; background-color: rgba(#ffc107, 0.14); }
+    &.PENDING { color: var(--admin-warning, #ffc107); background-color: rgba(var(--admin-warning-fill-rgb, 255,193,7), 0.14); }
     &.DEPOSIT_PAID,
-    &.AWAITING_PAYMENT { color: #ff9800; background-color: rgba(#ff9800, 0.14); }
-    &.IN_PROGRESS { color: #64b5f6; background-color: rgba(#64b5f6, 0.14); }
+    &.AWAITING_PAYMENT { color: var(--admin-warning, #ff9800); background-color: rgba(var(--admin-warning-fill-rgb, 255,152,0), 0.14); }
+    &.IN_PROGRESS { color: var(--admin-info, #64b5f6); background-color: rgba(var(--admin-info-fill-rgb, 100,181,246), 0.14); }
   }
 
   .empty-state {
@@ -989,7 +993,7 @@ onMounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: $text-disabled;
+    color: var(--admin-muted, #{$text-disabled});
     font-size: 0.9rem;
     text-align: center;
   }

@@ -97,8 +97,8 @@ async function confirmLeave() {
     confirmButtonText: '放棄修改並離開',
     cancelButtonText: '繼續編輯',
     focusCancel: true,
-    background: '#222',
-    color: '#eee',
+    background: 'var(--admin-surface, #222)',
+    color: 'var(--admin-text, #eee)',
   });
   return result.isConfirmed;
 }
@@ -182,25 +182,25 @@ function toggleCategory(category) {
 </script>
 
 <style scoped>
-.category-manager { color: #eee; background: #222; border: 1px solid #444; border-radius: 8px; padding: 1rem; }
+.category-manager { color: var(--admin-text, #eee); background: var(--admin-surface, #222); border: 1px solid var(--admin-border, #444); border-radius: 8px; padding: 1rem; }
 .heading, .category-info, .row-actions, .actions, .new-category { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
 .heading { justify-content: space-between; }
 h3 { margin: 0; }
-p { color: #bbb; line-height: 1.6; }
-button, input { border: 1px solid #555; border-radius: 5px; padding: .55rem .7rem; background: #161616; color: #eee; font: inherit; }
+p { color: var(--admin-muted, #bbb); line-height: 1.6; }
+button, input { border: 1px solid var(--admin-border, #555); border-radius: 5px; padding: .55rem .7rem; background: var(--admin-surface, #161616); color: var(--admin-text, #eee); font: inherit; }
 button { cursor: pointer; min-height: 40px; }
 button:disabled { opacity: .45; cursor: not-allowed; }
-button:focus-visible, input:focus-visible { outline: 2px solid #ff6868; outline-offset: 2px; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--admin-danger, #ff6868); outline-offset: 2px; }
 label { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
 .new-category { margin: 1rem 0; }
 .category-list { padding: 0; list-style: none; }
-li { display: flex; align-items: center; justify-content: space-between; gap: .8rem; padding: .85rem 0; border-bottom: 1px solid #444; }
+li { display: flex; align-items: center; justify-content: space-between; gap: .8rem; padding: .85rem 0; border-bottom: 1px solid var(--admin-border, #444); }
 .category-info { min-width: 0; overflow-wrap: anywhere; }
-.position { color: #aaa; min-width: 1.5rem; }
-.status { font-size: .8rem; color: #a9dfb4; }
-.inactive { color: #aaa; }
-.notice { color: #ffd08a; }
-.error { color: #ff9292; }
+.position { color: var(--admin-muted, #aaa); min-width: 1.5rem; }
+.status { font-size: .8rem; color: var(--admin-success, #a9dfb4); }
+.inactive { color: var(--admin-muted, #aaa); }
+.notice { color: var(--admin-warning, #ffd08a); }
+.error { color: var(--admin-danger, #ff9292); }
 .drag-handle { cursor: grab; }
 .dragging { opacity: .45; }
 @media (max-width: 700px) { li { align-items: flex-start; flex-direction: column; } .new-category label, input { width: 100%; box-sizing: border-box; } .row-actions { width: 100%; } }

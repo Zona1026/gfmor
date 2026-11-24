@@ -1,0 +1,87 @@
+// Values are scoped to the back office. Component fallbacks preserve every
+// original dark color; public pages and print assets keep their own palettes.
+html[data-admin-theme='dark'] { color-scheme: dark; }
+html[data-admin-theme='light'] {
+  color-scheme: light;
+  --admin-page-bg: #B4AB9B;
+  --admin-base: #F3EFE7;
+  --admin-base-strong: #E9E2D6;
+  --admin-base-rgb: 243,239,231;
+  --admin-surface: #FFFDFA;
+  --admin-surface-rgb: 255,253,250;
+  --admin-surface-alt: #EDE7DC;
+  --admin-text: #30323B;
+  --admin-text-rgb: 48,50,59;
+  --admin-secondary: #403F3D;
+  --admin-muted: #403D36;
+  --admin-muted-rgb: 64,61,54;
+  --admin-border: #A29A8B;
+  --admin-border-rgb: 162,154,139;
+  --admin-border-soft: rgba(80,74,65,.2);
+  --admin-ink-rgb: 48,50,59;
+  --admin-accent: #676C84;
+  --admin-accent-rgb: 103,108,132;
+  --admin-accent-strong: #51566E;
+  --admin-accent-strong-rgb: 81,86,110;
+  --admin-accent-text: #383D52;
+  --admin-accent-text-rgb: 56,61,82;
+  --admin-accent-glow: rgba(103,108,132,.25);
+  --admin-on-accent: #FFFFFF;
+  --admin-glass: rgba(255,253,250,.92);
+  --admin-danger: #982F32;
+  --admin-danger-rgb: 152,47,50;
+  --admin-danger-fill: #A7353C;
+  --admin-danger-fill-rgb: 167,53,60;
+  --admin-success: #22613A;
+  --admin-success-rgb: 34,97,58;
+  --admin-success-fill: #2D754B;
+  --admin-success-fill-rgb: 45,117,75;
+  --admin-warning: #75501B;
+  --admin-warning-rgb: 117,80,27;
+  --admin-warning-fill: #E2BC70;
+  --admin-warning-fill-rgb: 226,188,112;
+  --admin-info: #245C80;
+  --admin-info-rgb: 36,92,128;
+  --admin-info-fill: #326E97;
+  --admin-info-fill-rgb: 50,110,151;
+  --admin-purple: #68457F;
+  --admin-purple-rgb: 104,69,127;
+  --admin-purple-fill-rgb: 104,69,127;
+}
+
+@media screen {
+  html[data-admin-theme='light'] body { background: var(--admin-page-bg); color: var(--admin-text); }
+  html[data-admin-theme='light'] .admin-dashboard,
+  html[data-admin-theme='light'] .admin-dashboard > .content { background: var(--admin-page-bg); }
+  html[data-admin-theme='light'] .admin-dashboard a { color: var(--admin-accent-text); }
+  html[data-admin-theme='light'] .admin-dashboard .sidebar,
+  html[data-admin-theme='light'] .admin-dashboard .mobile-topbar {
+    background: #676C84;
+    --admin-base: #676C84;
+    --admin-text: #FFFFFF;
+    --admin-secondary: #F6F3ED;
+    --admin-muted: #F6F3ED;
+    --admin-border: #9297AD;
+    --admin-accent: #FFFFFF;
+    --admin-accent-text: #FFFFFF;
+    --admin-accent-rgb: 255,255,255;
+    --admin-danger: #FFE1E1;
+  }
+  html[data-admin-theme='light'] .swal2-popup {
+    background: var(--admin-surface);
+    color: var(--admin-text);
+    --swal2-background: var(--admin-surface);
+    --swal2-color: var(--admin-text);
+  }
+  html[data-admin-theme='light'] .swal2-confirm { background-color: var(--admin-accent); }
+}
+
+.admin-dashboard > .content > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+@media (max-width: 600px) {
+  .admin-dashboard > .content > header { align-items: start; flex-direction: column; gap: 12px; }
+}

@@ -179,7 +179,7 @@ onMounted(fetchAnnouncements);
 @import '../../assets/_variables.scss';
 
 .admin-announcements {
-  color: $text-primary;
+  color: var(--admin-text, #{$text-primary});
 
   .section-header {
     display: flex;
@@ -187,7 +187,7 @@ onMounted(fetchAnnouncements);
     align-items: center;
     margin-bottom: 1.5rem;
 
-    h2 { color: $primary-light; margin: 0; }
+    h2 { color: var(--admin-accent-text, #{$primary-light}); margin: 0; }
 
     @media (max-width: 768px) {
       flex-direction: column;
@@ -195,11 +195,11 @@ onMounted(fetchAnnouncements);
       gap: 1rem;
 
       h2 {
-        background-color: rgba($primary-color, 0.1);
+        background-color: rgba(var(--admin-accent-rgb, 229,57,53), 0.1);
         padding: 0.8rem;
         border-radius: $border-radius;
         text-align: center;
-        border-left: 4px solid $primary-color;
+        border-left: 4px solid var(--admin-accent, #{$primary-color});
       }
 
       .btn {
@@ -211,7 +211,7 @@ onMounted(fetchAnnouncements);
   .loading, .empty {
     text-align: center;
     padding: 3rem;
-    color: $text-disabled;
+    color: var(--admin-muted, #{$text-disabled});
   }
 
   .ann-grid {
@@ -224,8 +224,8 @@ onMounted(fetchAnnouncements);
     display: flex;
     align-items: center;
     gap: 1.2rem;
-    background-color: $dark-grey;
-    border: 1px solid $medium-grey;
+    background-color: var(--admin-surface, #{$dark-grey});
+    border: 1px solid var(--admin-border, #{$medium-grey});
     border-radius: $border-radius;
     padding: 0.8rem;
     transition: opacity 0.2s;
@@ -242,9 +242,9 @@ onMounted(fetchAnnouncements);
 
     .ann-body {
       flex: 1;
-      h3 { margin: 0 0 0.3rem; color: $primary-light; font-size: 1rem; }
-      p { margin: 0 0 0.3rem; color: $text-secondary; font-size: 0.9rem; }
-      .meta { color: $text-disabled; font-size: 0.8rem; }
+      h3 { margin: 0 0 0.3rem; color: var(--admin-accent-text, #{$primary-light}); font-size: 1rem; }
+      p { margin: 0 0 0.3rem; color: var(--admin-secondary, #{$text-secondary}); font-size: 0.9rem; }
+      .meta { color: var(--admin-muted, #{$text-disabled}); font-size: 0.8rem; }
     }
 
     .ann-actions {
@@ -256,30 +256,30 @@ onMounted(fetchAnnouncements);
 
   .btn {
     padding: 0.4rem 0.9rem;
-    border: 1px solid $primary-color;
+    border: 1px solid var(--admin-accent, #{$primary-color});
     background: transparent;
-    color: $primary-color;
+    color: var(--admin-accent-text, #{$primary-color});
     border-radius: $border-radius;
     cursor: pointer;
     font-size: 0.85rem;
     transition: all 0.2s;
-    &:hover { background: $primary-color; color: #fff; }
+    &:hover { background: var(--admin-accent, #{$primary-color}); color: #fff; }
   }
 
   .btn-primary {
-    background: $primary-color;
+    background: var(--admin-accent, #{$primary-color});
     color: #fff;
     border: none;
     padding: 0.5rem 1.2rem;
     font-weight: bold;
-    &:hover { background: $primary-dark; }
+    &:hover { background: var(--admin-accent-strong, #{$primary-dark}); }
     &:disabled { opacity: 0.5; cursor: not-allowed; }
   }
 
   .btn-danger {
-    border-color: #ff6b6b;
-    color: #ff6b6b;
-    &:hover { background: #ff6b6b; color: #fff; }
+    border-color: var(--admin-danger, #ff6b6b);
+    color: var(--admin-danger, #ff6b6b);
+    &:hover { background: var(--admin-danger-fill, #ff6b6b); color: #fff; }
   }
 
   /* Modal */
@@ -294,8 +294,8 @@ onMounted(fetchAnnouncements);
   }
 
   .modal {
-    background: $dark-grey;
-    border: 1px solid $medium-grey;
+    background: var(--admin-surface, #{$dark-grey});
+    border: 1px solid var(--admin-border, #{$medium-grey});
     border-radius: 8px;
     padding: 2rem;
     width: 550px;
@@ -303,7 +303,7 @@ onMounted(fetchAnnouncements);
     max-height: 90vh;
     overflow-y: auto;
 
-    h3 { color: $primary-light; margin: 0 0 1rem; }
+    h3 { color: var(--admin-accent-text, #{$primary-light}); margin: 0 0 1rem; }
 
     .form-group {
       margin-bottom: 1rem;
@@ -311,25 +311,25 @@ onMounted(fetchAnnouncements);
       flex-direction: column;
       gap: 0.4rem;
 
-      label { color: $text-secondary; font-weight: 600; font-size: 0.9rem; }
+      label { color: var(--admin-secondary, #{$text-secondary}); font-weight: 600; font-size: 0.9rem; }
 
       input[type="text"], input[type="number"], textarea {
         padding: 0.7rem;
-        background: $background-color;
-        border: 1px solid $medium-grey;
+        background: var(--admin-base, #{$background-color});
+        border: 1px solid var(--admin-border, #{$medium-grey});
         border-radius: $border-radius;
-        color: $text-primary;
+        color: var(--admin-text, #{$text-primary});
         font-size: 0.95rem;
-        &:focus { outline: none; border-color: $primary-color; }
+        &:focus { outline: none; border-color: var(--admin-accent, #{$primary-color}); }
       }
 
       input[type="file"] {
-        color: $text-secondary;
+        color: var(--admin-secondary, #{$text-secondary});
         font-size: 0.9rem;
       }
 
       .tip {
-        color: $text-disabled;
+        color: var(--admin-muted, #{$text-disabled});
         font-size: 0.8rem;
       }
     }
@@ -339,7 +339,7 @@ onMounted(fetchAnnouncements);
       img {
         width: 100%;
         border-radius: $border-radius;
-        border: 1px solid $medium-grey;
+        border: 1px solid var(--admin-border, #{$medium-grey});
       }
     }
 
@@ -351,11 +351,11 @@ onMounted(fetchAnnouncements);
       .btn-outline {
         padding: 0.5rem 1.2rem;
         background: transparent;
-        border: 1px solid $medium-grey;
-        color: $text-secondary;
+        border: 1px solid var(--admin-border, #{$medium-grey});
+        color: var(--admin-secondary, #{$text-secondary});
         border-radius: $border-radius;
         cursor: pointer;
-        &:hover { background: $medium-grey; }
+        &:hover { background: var(--admin-surface-alt, #{$medium-grey}); }
       }
     }
   }

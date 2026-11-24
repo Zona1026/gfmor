@@ -462,7 +462,7 @@ onMounted(() => {
 @import '../../assets/_variables.scss';
 
 .admin-bookings {
-  color: $text-primary;
+  color: var(--admin-text, #{$text-primary});
 
   .header-actions {
     display: flex;
@@ -473,7 +473,7 @@ onMounted(() => {
 
     h2 {
       margin: 0;
-      color: $primary-light;
+      color: var(--admin-accent-text, #{$primary-light});
       flex-shrink: 0;
     }
 
@@ -487,9 +487,9 @@ onMounted(() => {
       .date-picker,
       .status-filter {
         padding: 0.5rem;
-        background-color: $dark-grey;
-        color: $text-primary;
-        border: 1px solid $medium-grey;
+        background-color: var(--admin-surface, #{$dark-grey});
+        color: var(--admin-text, #{$text-primary});
+        border: 1px solid var(--admin-border, #{$medium-grey});
         border-radius: $border-radius;
       }
 
@@ -497,7 +497,7 @@ onMounted(() => {
         display: inline-flex;
         align-items: center;
         gap: 0.5rem;
-        color: $text-secondary;
+        color: var(--admin-secondary, #{$text-secondary});
         font-size: 0.88rem;
         font-weight: 700;
         cursor: pointer;
@@ -508,9 +508,9 @@ onMounted(() => {
           width: 36px;
           height: 20px;
           margin: 0;
-          border: 1px solid $medium-grey;
+          border: 1px solid var(--admin-border, #{$medium-grey});
           border-radius: 999px;
-          background-color: $dark-grey;
+          background-color: var(--admin-surface, #{$dark-grey});
           cursor: pointer;
           position: relative;
           transition: 0.2s;
@@ -523,22 +523,22 @@ onMounted(() => {
             width: 14px;
             height: 14px;
             border-radius: 50%;
-            background-color: $text-secondary;
+            background-color: var(--admin-secondary, #{$text-secondary});
             transition: 0.2s;
           }
 
           &:checked {
-            border-color: $primary-color;
-            background-color: rgba($primary-color, 0.35);
+            border-color: var(--admin-accent, #{$primary-color});
+            background-color: rgba(var(--admin-accent-rgb, 229,57,53), 0.35);
 
             &::after {
               left: 18px;
-              background-color: $primary-light;
+              background-color: var(--admin-accent-text, #{$primary-light});
             }
           }
 
           &:focus-visible {
-            outline: 2px solid $primary-light;
+            outline: 2px solid var(--admin-accent-text, #{$primary-light});
             outline-offset: 2px;
           }
         }
@@ -562,35 +562,35 @@ onMounted(() => {
     }
 
     &-primary {
-      background-color: $primary-color;
+      background-color: var(--admin-accent, #{$primary-color});
       color: #fff;
-      &:hover { background-color: $primary-dark; }
+      &:hover { background-color: var(--admin-accent-strong, #{$primary-dark}); }
     }
 
     &-danger {
       background-color: transparent;
-      border: 1px solid #ff5252;
-      color: #ff5252;
-      &:hover { background-color: rgba(#ff5252, 0.1); }
+      border: 1px solid var(--admin-danger, #ff5252);
+      color: var(--admin-danger, #ff5252);
+      &:hover { background-color: rgba(var(--admin-danger-fill-rgb, 255,82,82), 0.1); }
     }
 
     &-outline {
       background-color: transparent;
-      border: 1px solid $medium-grey;
-      color: $text-secondary;
-      &:hover { border-color: $primary-light; color: $primary-light; }
+      border: 1px solid var(--admin-border, #{$medium-grey});
+      color: var(--admin-secondary, #{$text-secondary});
+      &:hover { border-color: var(--admin-accent-text, #{$primary-light}); color: var(--admin-accent-text, #{$primary-light}); }
     }
 
     &-convert {
-      background-color: rgba($primary-color, 0.16);
-      border: 1px solid rgba($primary-color, 0.55);
-      color: $primary-light;
+      background-color: rgba(var(--admin-accent-rgb, 229,57,53), 0.16);
+      border: 1px solid rgba(var(--admin-accent-rgb, 229,57,53), 0.55);
+      color: var(--admin-accent-text, #{$primary-light});
     }
 
     &-link {
       padding: 0;
       background: transparent;
-      color: $primary-light;
+      color: var(--admin-accent-text, #{$primary-light});
       text-align: left;
 
       &:hover {
@@ -600,10 +600,10 @@ onMounted(() => {
   }
 
   .table-container {
-    background-color: $background-color;
+    background-color: var(--admin-base, #{$background-color});
     border-radius: $border-radius;
     padding: 1rem;
-    border: 1px solid $medium-grey;
+    border: 1px solid var(--admin-border, #{$medium-grey});
     overflow-x: auto;
 
     table {
@@ -614,12 +614,12 @@ onMounted(() => {
       td {
         padding: 0.9rem;
         text-align: left;
-        border-bottom: 1px solid $medium-grey;
+        border-bottom: 1px solid var(--admin-border, #{$medium-grey});
         vertical-align: top;
       }
 
       th {
-        color: $primary-light;
+        color: var(--admin-accent-text, #{$primary-light});
         font-weight: 600;
         white-space: nowrap;
       }
@@ -628,16 +628,16 @@ onMounted(() => {
         background-color: rgba(#000, 0.2);
 
         td {
-          color: $text-disabled;
+          color: var(--admin-muted, #{$text-disabled});
         }
       }
 
       select {
         min-width: 112px;
         padding: 0.4rem;
-        background-color: $dark-grey;
-        color: $text-primary;
-        border: 1px solid $medium-grey;
+        background-color: var(--admin-surface, #{$dark-grey});
+        color: var(--admin-text, #{$text-primary});
+        border: 1px solid var(--admin-border, #{$medium-grey});
         border-radius: $border-radius;
         outline: none;
       }
@@ -646,14 +646,14 @@ onMounted(() => {
     .empty-state {
       padding: 3rem;
       text-align: center;
-      color: $text-disabled;
+      color: var(--admin-muted, #{$text-disabled});
     }
   }
 
   .secondary-line {
     display: block;
     margin-top: 0.25rem;
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
     font-size: 0.82rem;
   }
 
@@ -676,21 +676,21 @@ onMounted(() => {
     padding: 0.35rem 0.65rem;
     border-radius: 999px;
     font-size: 0.82rem;
-    background-color: rgba($medium-grey, 0.4);
+    background-color: rgba(var(--admin-border-rgb, 66,66,66), 0.4);
   }
 
-  .status-pending { color: #64b5f6; }
-  .status-confirmed { color: #4fc3f7; }
-  .status-arrived { color: #81c784; }
-  .status-converted-to-work-order { color: #b39ddb; background-color: rgba(#b39ddb, 0.15); }
-  .status-completed { color: #81c784; }
-  .status-timeout { color: #ffb74d; }
+  .status-pending { color: var(--admin-info, #64b5f6); }
+  .status-confirmed { color: var(--admin-info, #4fc3f7); }
+  .status-arrived { color: var(--admin-success, #81c784); }
+  .status-converted-to-work-order { color: var(--admin-purple, #b39ddb); background-color: rgba(var(--admin-purple-fill-rgb, 179,157,219), 0.15); }
+  .status-completed { color: var(--admin-success, #81c784); }
+  .status-timeout { color: var(--admin-warning, #ffb74d); }
   .status-canceled,
-  .status-no-show { color: #e57373; }
-  .status-system-closed { color: #9e9e9e; background-color: #424242; }
+  .status-no-show { color: var(--admin-danger, #e57373); }
+  .status-system-closed { color: var(--admin-muted, #9e9e9e); background-color: var(--admin-surface, #424242); }
 
   .text-center { text-align: center; }
-  .text-muted { color: $text-disabled; }
+  .text-muted { color: var(--admin-muted, #{$text-disabled}); }
 
   .modal-overlay {
     position: fixed;
@@ -702,17 +702,17 @@ onMounted(() => {
     z-index: 1000;
 
     .modal-content {
-      background-color: $dark-grey;
+      background-color: var(--admin-surface, #{$dark-grey});
       padding: 2.5rem;
       border-radius: $border-radius;
       width: min(92vw, 520px);
-      border: 1px solid $medium-grey;
+      border: 1px solid var(--admin-border, #{$medium-grey});
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 
       h3 {
         margin-top: 0;
         margin-bottom: 1.5rem;
-        color: $primary-light;
+        color: var(--admin-accent-text, #{$primary-light});
       }
 
       .row {
@@ -734,7 +734,7 @@ onMounted(() => {
       .search-results {
         margin-bottom: 1.5rem;
         padding: 1rem;
-        background-color: $background-color;
+        background-color: var(--admin-base, #{$background-color});
         border-radius: $border-radius;
 
         .motor-select {
@@ -750,7 +750,7 @@ onMounted(() => {
 
         label {
           font-size: 0.9rem;
-          color: $text-secondary;
+          color: var(--admin-secondary, #{$text-secondary});
           margin-bottom: 0.4rem;
         }
 
@@ -763,7 +763,7 @@ onMounted(() => {
             align-items: center;
             gap: 0.5rem;
             margin: 0;
-            color: #ffb74d;
+            color: var(--admin-warning, #ffb74d);
           }
         }
 
@@ -772,14 +772,14 @@ onMounted(() => {
         textarea {
           padding: 0.8rem;
           border-radius: $border-radius;
-          border: 1px solid $medium-grey;
-          background-color: $background-color;
-          color: $text-primary;
+          border: 1px solid var(--admin-border, #{$medium-grey});
+          background-color: var(--admin-base, #{$background-color});
+          color: var(--admin-text, #{$text-primary});
           font-family: inherit;
 
           &:focus {
             outline: none;
-            border-color: $primary-light;
+            border-color: var(--admin-accent-text, #{$primary-light});
           }
         }
       }

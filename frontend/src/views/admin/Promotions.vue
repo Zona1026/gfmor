@@ -120,29 +120,29 @@ onUnmounted(() => window.clearInterval(refresh));
 <style scoped>
 .section-header, .actions { display: flex; align-items: center; gap: .65rem; flex-wrap: wrap; }
 .section-header { justify-content: space-between; margin-bottom: 1.2rem; }
-.btn { padding: .65rem .9rem; border: 1px solid #444; border-radius: 8px; background: #222; color: #eee; font: inherit; cursor: pointer; }
-.btn-primary { background: #e53935; border-color: #e53935; color: white; }
+.btn { padding: .65rem .9rem; border: 1px solid var(--admin-border, #444); border-radius: 8px; background: var(--admin-surface, #222); color: var(--admin-text, #eee); font: inherit; cursor: pointer; }
+.btn-primary { background: var(--admin-accent, #e53935); border-color: var(--admin-danger, #e53935); color: white; }
 .btn:disabled { opacity: .5; cursor: default; }
-.btn:focus-visible { outline: 2px solid #ffb74d; outline-offset: 2px; }
-h2, h3 { color: #ef4444; } h4 { font-size: 1.1rem; margin: 0; }
+.btn:focus-visible { outline: 2px solid var(--admin-warning, #ffb74d); outline-offset: 2px; }
+h2, h3 { color: var(--admin-danger, #ef4444); } h4 { font-size: 1.1rem; margin: 0; }
 .activity-group { margin-bottom: 1.8rem; } .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 1rem; }
-.activity-card { padding: 1.2rem; border: 1px solid #444; background: #161616; border-radius: 8px; overflow-wrap: anywhere; }
-.description { white-space: pre-wrap; } .discount { color: #ffb74d; font-weight: bold; }
-.empty, .tip { color: #bbb; } .error { color: #ffb74d; }
+.activity-card { padding: 1.2rem; border: 1px solid var(--admin-border, #444); background: var(--admin-surface, #161616); border-radius: 8px; overflow-wrap: anywhere; }
+.description { white-space: pre-wrap; } .discount { color: var(--admin-warning, #ffb74d); font-weight: bold; }
+.empty, .tip { color: var(--admin-muted, #bbb); } .error { color: var(--admin-warning, #ffb74d); }
 .modal-overlay { position: fixed; inset: 0; z-index: 1000; background: #000a; display: flex; align-items: center; justify-content: center; padding: 1rem; }
-.activity-modal { width: 720px; max-width: 100%; max-height: calc(100dvh - 2rem); overflow-y: auto; background: #222; padding: 1.3rem; border: 1px solid #444; border-radius: 8px; box-sizing: border-box; }
-form { display: grid; gap: 1rem; } label { display: grid; gap: .4rem; } input, textarea, select { min-width: 0; width: 100%; box-sizing: border-box; background: #111; color: #eee; padding: .65rem; border: 1px solid #444; border-radius: 6px; }
+.activity-modal { width: 720px; max-width: 100%; max-height: calc(100dvh - 2rem); overflow-y: auto; background: var(--admin-surface, #222); padding: 1.3rem; border: 1px solid var(--admin-border, #444); border-radius: 8px; box-sizing: border-box; }
+form { display: grid; gap: 1rem; } label { display: grid; gap: .4rem; } input, textarea, select { min-width: 0; width: 100%; box-sizing: border-box; background: var(--admin-surface, #111); color: var(--admin-text, #eee); padding: .65rem; border: 1px solid var(--admin-border, #444); border-radius: 6px; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .checkbox { display: flex; align-items: center; gap: .5rem; } .checkbox input { width: auto; }
-fieldset { min-width: 0; border: 1px solid #555; border-radius: 6px; padding: .8rem; } .product-list { display: grid; gap: .65rem; max-height: 180px; overflow-y: auto; }
+fieldset { min-width: 0; border: 1px solid var(--admin-border, #555); border-radius: 6px; padding: .8rem; } .product-list { display: grid; gap: .65rem; max-height: 180px; overflow-y: auto; }
 .number-with-unit { position: relative; display: flex; align-items: center; }
 .number-with-unit input { padding-right: 3rem; }
-.unit { position: absolute; right: 1.6rem; pointer-events: none; color: #ddd; }
+.unit { position: absolute; right: 1.6rem; pointer-events: none; color: var(--admin-text, #ddd); }
 .product-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; margin-bottom: .8rem; }
 .selected-product { display: flex; justify-content: space-between; align-items: center; gap: .65rem; }
 .selected-product span { overflow-wrap: anywhere; }
 @media (max-width: 600px) { .form-grid, .number-with-unit { position: relative; display: flex; align-items: center; }
 .number-with-unit input { padding-right: 3rem; }
-.unit { position: absolute; right: 1.6rem; pointer-events: none; color: #ddd; }
+.unit { position: absolute; right: 1.6rem; pointer-events: none; color: var(--admin-text, #ddd); }
 .product-picker { grid-template-columns: 1fr; } }
 </style>

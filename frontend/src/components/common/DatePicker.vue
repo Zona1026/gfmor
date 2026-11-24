@@ -184,24 +184,24 @@ const selectDate = (day) => {
     justify-content: space-between;
     align-items: center;
     padding: 0.8rem;
-    border: 1px solid $medium-grey;
+    border: 1px solid var(--admin-border, #{$medium-grey});
     border-radius: $border-radius;
-    background-color: $background-color;
+    background-color: var(--admin-base, #{$background-color});
     cursor: pointer;
-    color: $text-primary;
+    color: var(--admin-text, #{$text-primary});
     transition: border-color 0.3s;
 
     &:hover {
-      border-color: $primary-light;
+      border-color: var(--admin-accent-text, #{$primary-light});
     }
 
     .placeholder {
-      color: $text-disabled;
+      color: var(--admin-muted, #{$text-disabled});
     }
 
     .formatted-value {
       font-weight: 500;
-      color: $primary-light;
+      color: var(--admin-accent-text, #{$primary-light});
     }
 
     .icon {
@@ -220,8 +220,8 @@ const selectDate = (day) => {
 }
 
 .custom-datepicker {
-  background-color: $dark-grey;
-  border: 1px solid $medium-grey;
+  background-color: var(--admin-surface, #{$dark-grey});
+  border: 1px solid var(--admin-border, #{$medium-grey});
   border-radius: $border-radius;
   padding: 1rem;
   width: 100%;
@@ -235,22 +235,22 @@ const selectDate = (day) => {
     margin-bottom: 1rem;
 
     .month-title {
-      color: $primary-light;
+      color: var(--admin-accent-text, #{$primary-light});
       font-weight: bold;
       font-size: 1.1rem;
     }
 
     .btn-nav {
-      background: $medium-grey;
+      background: var(--admin-surface-alt, #{$medium-grey});
       border: none;
-      color: $text-primary;
+      color: var(--admin-text, #{$text-primary});
       padding: 0.3rem 0.8rem;
       border-radius: 4px;
       cursor: pointer;
       font-weight: bold;
       
       &:hover {
-        background: $primary-color;
+        background: var(--admin-accent, #{$primary-color});
       }
     }
   }
@@ -263,10 +263,10 @@ const selectDate = (day) => {
 
     .weekday {
       font-size: 0.85rem;
-      color: $text-secondary;
+      color: var(--admin-secondary, #{$text-secondary});
       margin-bottom: 0.5rem;
       &.holiday {
-        color: #ff6b6b;
+        color: var(--admin-danger, #ff6b6b);
       }
     }
 
@@ -281,8 +281,8 @@ const selectDate = (day) => {
       transition: all 0.2s;
 
       &:not(.empty):not(.disabled):hover {
-        background-color: rgba($primary-light, 0.2);
-        color: $primary-light;
+        background-color: rgba(var(--admin-accent-text-rgb, 239,83,80), 0.2);
+        color: var(--admin-accent-text, #{$primary-light});
       }
 
       &.empty {
@@ -291,17 +291,17 @@ const selectDate = (day) => {
       }
 
       &.disabled {
-        color: $medium-grey;
+        color: var(--admin-muted, #{$medium-grey});
         cursor: not-allowed;
         background-color: transparent;
       }
 
       &.today {
-        border: 1px solid $medium-grey;
+        border: 1px solid var(--admin-border, #{$medium-grey});
       }
 
       &.selected {
-        background-color: $primary-color !important;
+        background-color: var(--admin-accent, #{$primary-color}) !important;
         color: white !important;
         font-weight: bold;
         box-shadow: 0 0 8px rgba($primary-color, 0.6);

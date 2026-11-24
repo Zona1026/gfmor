@@ -34,9 +34,9 @@ async function addOption() {
 </script>
 <style scoped>
 .vehicle-model-input { display: grid; gap: .35rem; min-width: 0; }
-input { width: 100%; min-width: 0; box-sizing: border-box; padding: .65rem .75rem; border: 1px solid #424242; border-radius: 8px; background: #212121; color: #eee; font: inherit; }
-input:focus { outline: 2px solid #ef5350; outline-offset: 1px; }
+input { width: 100%; min-width: 0; box-sizing: border-box; padding: .65rem .75rem; border: 1px solid var(--admin-border, #424242); border-radius: 8px; background: var(--admin-surface, #212121); color: var(--admin-text, #eee); font: inherit; }
+input:focus { outline: 2px solid var(--admin-accent, #ef5350); outline-offset: 1px; }
 input:disabled { opacity: .65; }
-small { color: #ffb4ab; }
-button { cursor: pointer; padding: .45rem; border: 1px solid #ef5350; border-radius: 6px; background: transparent; color: #ef5350; }
+small { color: var(--admin-danger, #ffb4ab); }
+button { cursor: pointer; padding: .45rem; border: 1px solid var(--admin-danger, #ef5350); border-radius: 6px; background: transparent; color: var(--admin-danger, #ef5350); }
 </style>

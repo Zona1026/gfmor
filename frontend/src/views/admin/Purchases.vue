@@ -743,7 +743,7 @@ onMounted(fetchRequests);
 @import '../../assets/_variables.scss';
 
 .admin-purchases {
-  color: $text-primary;
+  color: var(--admin-text, #{$text-primary});
 }
 
 .section-header,
@@ -761,12 +761,12 @@ onMounted(fetchRequests);
   margin-bottom: 1.4rem;
 
   h2 {
-    color: $primary-light;
+    color: var(--admin-accent-text, #{$primary-light});
     margin: 0 0 0.35rem;
   }
 
   p {
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
     margin: 0;
   }
 }
@@ -777,16 +777,16 @@ onMounted(fetchRequests);
   margin-bottom: 1rem;
 
   button {
-    border: 1px solid rgba($primary-light, 0.35);
+    border: 1px solid rgba(var(--admin-accent-text-rgb, 239,83,80), 0.35);
     border-radius: 6px;
     padding: 0.65rem 0.95rem;
-    color: $text-primary;
-    background: rgba($background-color, 0.72);
+    color: var(--admin-text, #{$text-primary});
+    background: rgba(var(--admin-base-rgb, 18,18,18), 0.72);
     cursor: pointer;
 
     &.active {
-      color: $background-color;
-      background: $primary-light;
+      color: var(--admin-base, #{$background-color});
+      background: var(--admin-accent-text, #{$primary-light});
     }
 
     span {
@@ -797,10 +797,10 @@ onMounted(fetchRequests);
 }
 
 .table-wrap {
-  border: 1px solid $medium-grey;
+  border: 1px solid var(--admin-border, #{$medium-grey});
   border-radius: $border-radius;
   overflow: auto;
-  background-color: $dark-grey;
+  background-color: var(--admin-surface, #{$dark-grey});
 }
 
 .purchase-table,
@@ -810,7 +810,7 @@ onMounted(fetchRequests);
 
   th,
   td {
-    border-bottom: 1px solid rgba($medium-grey, 0.9);
+    border-bottom: 1px solid rgba(var(--admin-border-rgb, 66,66,66), 0.9);
     padding: 0.85rem 1rem;
     text-align: left;
     vertical-align: middle;
@@ -818,8 +818,8 @@ onMounted(fetchRequests);
   }
 
   th {
-    color: $text-secondary;
-    background: rgba($background-color, 0.78);
+    color: var(--admin-secondary, #{$text-secondary});
+    background: rgba(var(--admin-base-rgb, 18,18,18), 0.78);
     font-weight: 700;
   }
 
@@ -829,7 +829,7 @@ onMounted(fetchRequests);
   }
 
   small {
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
     margin-top: 0.25rem;
   }
 }
@@ -841,16 +841,16 @@ onMounted(fetchRequests);
 }
 
 .btn {
-  border: 1px solid rgba($primary-light, 0.35);
+  border: 1px solid rgba(var(--admin-accent-text-rgb, 239,83,80), 0.35);
   border-radius: 6px;
   padding: 0.55rem 0.8rem;
-  color: $text-primary;
-  background: rgba($background-color, 0.72);
+  color: var(--admin-text, #{$text-primary});
+  background: rgba(var(--admin-base-rgb, 18,18,18), 0.72);
   cursor: pointer;
 
   &.btn-primary {
-    color: $background-color;
-    background: $primary-light;
+    color: var(--admin-base, #{$background-color});
+    background: var(--admin-accent-text, #{$primary-light});
   }
 
   &.btn-outline {
@@ -860,12 +860,12 @@ onMounted(fetchRequests);
   &.text {
     border-color: transparent;
     padding: 0.35rem 0.45rem;
-    color: $primary-light;
+    color: var(--admin-accent-text, #{$primary-light});
     background: transparent;
   }
 
   &.danger {
-    color: #ff6b6b;
+    color: var(--admin-danger, #ff6b6b);
   }
 }
 
@@ -873,26 +873,26 @@ onMounted(fetchRequests);
   display: inline-flex;
   border-radius: 999px;
   padding: 0.25rem 0.55rem;
-  color: $text-primary;
-  background: rgba($medium-grey, 0.35);
+  color: var(--admin-text, #{$text-primary});
+  background: rgba(var(--admin-border-rgb, 66,66,66), 0.35);
 
   &.PENDING_ORDER,
   &.ORDERED,
   &.PARTIAL_ARRIVED,
   &.ARRIVED_PENDING_ASSIGNMENT {
-    color: #facc15;
-    background: rgba(#facc15, 0.16);
+    color: var(--admin-warning, #facc15);
+    background: rgba(var(--admin-warning-fill-rgb, 250,204,21), 0.16);
   }
 
   &.ASSIGNED_TO_WORK_ORDER,
   &.COMPLETED {
-    color: #86efac;
-    background: rgba(#86efac, 0.14);
+    color: var(--admin-success, #86efac);
+    background: rgba(var(--admin-success-fill-rgb, 134,239,172), 0.14);
   }
 
   &.CANCELED {
-    color: #fca5a5;
-    background: rgba(#fca5a5, 0.14);
+    color: var(--admin-danger, #fca5a5);
+    background: rgba(var(--admin-danger-fill-rgb, 252,165,165), 0.14);
   }
 }
 
@@ -902,16 +902,16 @@ onMounted(fetchRequests);
   margin-bottom: 1rem;
 
   button {
-    border: 1px solid $medium-grey;
+    border: 1px solid var(--admin-border, #{$medium-grey});
     padding: 0.65rem;
-    color: $text-primary;
-    background: $background-color;
+    color: var(--admin-text, #{$text-primary});
+    background: var(--admin-base, #{$background-color});
     cursor: pointer;
 
     &.active {
-      border-color: $primary-light;
-      color: $background-color;
-      background: $primary-light;
+      border-color: var(--admin-accent-text, #{$primary-light});
+      color: var(--admin-base, #{$background-color});
+      background: var(--admin-accent-text, #{$primary-light});
     }
 
     &:disabled {
@@ -932,7 +932,7 @@ onMounted(fetchRequests);
 }
 
 .muted-hint {
-  color: $text-secondary;
+  color: var(--admin-secondary, #{$text-secondary});
   font-size: 0.86rem;
 }
 
@@ -951,10 +951,10 @@ onMounted(fetchRequests);
   width: min(980px, 96vw);
   max-height: 90vh;
   overflow: auto;
-  border: 1px solid $medium-grey;
+  border: 1px solid var(--admin-border, #{$medium-grey});
   border-radius: $border-radius;
   padding: 1.25rem;
-  background: $dark-grey;
+  background: var(--admin-surface, #{$dark-grey});
 
   &.small {
     width: min(520px, 96vw);
@@ -965,7 +965,7 @@ onMounted(fetchRequests);
     flex-direction: column;
     gap: 0.4rem;
     margin-bottom: 0.85rem;
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
   }
 }
 
@@ -978,14 +978,14 @@ onMounted(fetchRequests);
   }
 
   p {
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
     margin-top: 0.25rem;
   }
 }
 
 .icon-btn {
   border: 0;
-  color: $text-primary;
+  color: var(--admin-text, #{$text-primary});
   background: transparent;
   cursor: pointer;
   font-size: 1.4rem;
@@ -998,11 +998,11 @@ onMounted(fetchRequests);
 }
 
 .detail-panel {
-  border: 1px solid rgba($medium-grey, 0.8);
+  border: 1px solid rgba(var(--admin-border-rgb, 66,66,66), 0.8);
   border-radius: $border-radius;
   padding: 1rem;
   margin-bottom: 1rem;
-  background: rgba($background-color, 0.4);
+  background: rgba(var(--admin-base-rgb, 18,18,18), 0.4);
 
   h4 {
     margin: 0 0 0.85rem;
@@ -1016,7 +1016,7 @@ onMounted(fetchRequests);
   }
 
   dt {
-    color: $text-secondary;
+    color: var(--admin-secondary, #{$text-secondary});
     font-size: 0.85rem;
   }
 
@@ -1040,11 +1040,11 @@ onMounted(fetchRequests);
 input,
 select,
 textarea {
-  border: 1px solid $medium-grey;
+  border: 1px solid var(--admin-border, #{$medium-grey});
   border-radius: 6px;
   padding: 0.65rem 0.75rem;
-  color: $text-primary;
-  background: $background-color;
+  color: var(--admin-text, #{$text-primary});
+  background: var(--admin-base, #{$background-color});
 }
 
 .loading,
@@ -1052,7 +1052,7 @@ textarea {
 .muted-line {
   padding: 2.5rem;
   text-align: center;
-  color: $text-disabled;
+  color: var(--admin-muted, #{$text-disabled});
 }
 
 @media (max-width: 760px) {

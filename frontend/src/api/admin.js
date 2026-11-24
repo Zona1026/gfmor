@@ -22,6 +22,9 @@ export const loginAdmin = async (credentials) => {
   return response;
 };
 
+export const getAdminPreferences = token => api.get('/admin/me/preferences', { headers: { Authorization: `Bearer ${token}` } });
+export const updateAdminPreferences = (theme, token) => api.patch('/admin/me/preferences', { theme }, { headers: { Authorization: `Bearer ${token}` } });
+
 export const requestAdminPasswordReset = async (data) => {
   return await api.post('/admin/password-reset/request', data);
 };

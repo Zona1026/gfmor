@@ -27,5 +27,5 @@ watch(() => props.value, async value => {
 <style scoped>
 .barcode-preview { margin-top: 0.6rem; max-width: 100%; overflow-x: auto; }
 svg { display: block; max-width: 100%; height: auto; }
-span { color: #ffb74d; }
+span { color: var(--admin-warning, #ffb74d); }
 </style>

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
+from typing import Literal, Optional
 from datetime import datetime
 
 class AdminLogin(BaseModel):
@@ -10,8 +10,16 @@ class AdminResponse(BaseModel):
     username: str
     full_name: Optional[str] = None
     role: Optional[str] = None
+    theme_preference: Literal["dark", "light"] = "dark"
     access_token: str
     token_type: str = "bearer"
+
+
+class AdminPreferences(BaseModel):
+    theme: Literal["dark", "light"]
+
+    class Config:
+        extra = "forbid"
 
 class AdminBase(BaseModel):
     username: str

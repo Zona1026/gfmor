@@ -85,14 +85,14 @@ function printLabels() {
 <style src="../../assets/productLabels.css"></style>
 <style lang="scss" scoped>
 @import '../../assets/_variables.scss';
-.product-label-previews { padding:0.85rem; border:1px dashed $medium-grey; border-radius:$border-radius; background:$background-color; }
+.product-label-previews { padding:0.85rem; border:1px dashed var(--admin-border, #{$medium-grey}); border-radius:$border-radius; background:var(--admin-base, #{$background-color}); }
 .label-heading { display:flex; align-items:center; justify-content:space-between; gap:0.5rem; flex-wrap:wrap; }
-.label-heading strong { color:$primary-light; }
-.label-heading button { border:1px solid $medium-grey; border-radius:$border-radius; background:transparent; color:$text-primary; padding:0.45rem 0.7rem; cursor:pointer; }
+.label-heading strong { color:var(--admin-accent-text, #{$primary-light}); }
+.label-heading button { border:1px solid var(--admin-border, #{$medium-grey}); border-radius:$border-radius; background:transparent; color:var(--admin-text, #{$text-primary}); padding:0.45rem 0.7rem; cursor:pointer; }
 .label-heading button:disabled { opacity:0.5; cursor:not-allowed; }
-.label-note, .label-caption { font-size:0.8rem; color:$text-secondary; }
+.label-note, .label-caption { font-size:0.8rem; color:var(--admin-secondary, #{$text-secondary}); }
 .label-pair { display:flex; gap:1rem; flex-wrap:wrap; }
 .label-caption { display:block; margin-bottom:0.4rem; }
 .barcode-placeholder { font-size:7pt; }
-.label-error { color:#ffb74d; font-size:0.85rem; margin-bottom:0; }
+.label-error { color:var(--admin-warning, #ffb74d); font-size:0.85rem; margin-bottom:0; }
 </style>

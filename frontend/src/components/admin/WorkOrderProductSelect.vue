@@ -92,13 +92,13 @@ function handleFocusOut(event) { if (!event.currentTarget.contains(event.related
 
 <style scoped>
 .search-select { position: relative; min-width: 0; }
-input { width: 100%; min-width: 0; height: 38px; box-sizing: border-box; border: 1px solid #444; border-radius: 6px; background: #202124; color: #eee; padding: .45rem .65rem; font: inherit; }
-input:focus-visible { outline: 2px solid #ef5350; outline-offset: 1px; }
+input { width: 100%; min-width: 0; height: 38px; box-sizing: border-box; border: 1px solid var(--admin-border, #444); border-radius: 6px; background: var(--admin-surface, #202124); color: var(--admin-text, #eee); padding: .45rem .65rem; font: inherit; }
+input:focus-visible { outline: 2px solid var(--admin-accent, #ef5350); outline-offset: 1px; }
 input:disabled { opacity: .6; }
-ul { position: absolute; z-index: 20; top: 100%; left: 0; right: 0; max-height: 260px; overflow-y: auto; overscroll-behavior: contain; margin: .25rem 0 0; padding: .25rem; list-style: none; background: #202124; color: #eee; border: 1px solid #666; border-radius: 6px; box-shadow: 0 4px 12px #0008; }
+ul { position: absolute; z-index: 20; top: 100%; left: 0; right: 0; max-height: 260px; overflow-y: auto; overscroll-behavior: contain; margin: .25rem 0 0; padding: .25rem; list-style: none; background: var(--admin-surface, #202124); color: var(--admin-text, #eee); border: 1px solid var(--admin-border, #666); border-radius: 6px; box-shadow: 0 4px 12px #0008; }
 li { padding: .65rem .5rem; min-height: 44px; box-sizing: border-box; overflow-wrap: anywhere; cursor: pointer; }
-li.active, li:hover:not(.empty) { background: #52292b; }
+li.active, li:hover:not(.empty) { background: var(--admin-surface, #52292b); }
 li[aria-selected=true] { font-weight: 700; }
-li.empty { cursor: default; color: #bbb; }
+li.empty { cursor: default; color: var(--admin-muted, #bbb); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 </style>

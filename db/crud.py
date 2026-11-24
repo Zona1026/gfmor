@@ -1177,6 +1177,7 @@ def create_work_order(db: Session, work_order: WorkOrderCreate):
         ordered_date=ordered_date,
         completed_date_override=work_order.completed_date,
         vehicle_brand_type=(work_order.vehicle_brand_type or '').strip() or None,
+        vehicle_status=work_order.vehicle_status,
         consumption_date=work_order.consumption_date or ordered_date,
         notes=work_order.notes,
         line_items=line_items,
@@ -1287,6 +1288,7 @@ def create_historical_work_order(
         backfilled_by=actor,
         backfill_reason=backfill_reason,
         vehicle_brand_type=(work_order.vehicle_brand_type or '').strip() or None,
+        vehicle_status=work_order.vehicle_status,
         line_items=line_items,
     )
     _hydrate_direct_customer(db, db_work_order, work_order)

@@ -68,7 +68,7 @@ h2, p { margin: 0; }
 .toolbar, .actions { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
 .table-scroll { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
-th, td { text-align: left; vertical-align: middle; padding: .75rem; border-bottom: 1px solid #ddd; }
-input { max-width: 100%; box-sizing: border-box; padding: .65rem; border: 1px solid #424242; border-radius: 8px; background: #212121; color: #eee; font: inherit; }
-[role=alert] { color: #ffb4ab; }
+th, td { text-align: left; vertical-align: middle; padding: .75rem; border-bottom: 1px solid var(--admin-border, #ddd); }
+input { max-width: 100%; box-sizing: border-box; padding: .65rem; border: 1px solid var(--admin-border, #424242); border-radius: 8px; background: var(--admin-surface, #212121); color: var(--admin-text, #eee); font: inherit; }
+[role=alert] { color: var(--admin-danger, #ffb4ab); }
 </style>
