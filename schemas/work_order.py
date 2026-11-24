@@ -274,6 +274,9 @@ class WorkOrderApprovalWorkOrderSummary(BaseModel):
         from_attributes = True
 
 
+WorkOrderProgressStatus = Literal["待廠商回應", "已報價待客確認", "待訂購", "待到貨", "部分到貨", "全數到貨", "已出貨", "已完單"]
+
+
 WorkOrderVehicleStatus = Literal["待內場報價", "待料中", "料到待施工", "施工中", "料件追加", "已完工"]
 
 
@@ -290,6 +293,7 @@ class WorkOrderBase(BaseModel):
     vehicle_license_plate: Optional[str] = None
     vehicle_brand: Optional[str] = None
     vehicle_brand_type: Optional[str] = Field(default=None, max_length=200)
+    progress_status: Optional[WorkOrderProgressStatus] = None
     vehicle_status: Optional[WorkOrderVehicleStatus] = None
     vehicle_model: Optional[str] = Field(default=None, max_length=200)
     vehicle_vin: Optional[str] = None
@@ -339,6 +343,7 @@ class WorkOrderUpdate(BaseModel):
     vehicle_license_plate: Optional[str] = None
     vehicle_brand: Optional[str] = None
     vehicle_brand_type: Optional[str] = Field(default=None, max_length=200)
+    progress_status: Optional[WorkOrderProgressStatus] = None
     vehicle_status: Optional[WorkOrderVehicleStatus] = None
     vehicle_model: Optional[str] = Field(default=None, max_length=200)
     vehicle_vin: Optional[str] = None
@@ -386,6 +391,7 @@ class WorkOrder(BaseModel):
     vehicle_license_plate: Optional[str] = None
     vehicle_brand: Optional[str] = None
     vehicle_brand_type: Optional[str] = Field(default=None, max_length=200)
+    progress_status: Optional[WorkOrderProgressStatus] = None
     vehicle_status: Optional[WorkOrderVehicleStatus] = None
     vehicle_model: Optional[str] = Field(default=None, max_length=200)
     vehicle_vin: Optional[str] = None

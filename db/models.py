@@ -645,6 +645,7 @@ class WorkOrder(Base):
     vehicle_license_plate = Column(String(45), nullable=True, index=True)
     vehicle_brand = Column(String(45), nullable=True)
     vehicle_brand_type = Column(String(200), nullable=True)
+    progress_status = Column(String(50), nullable=True)
     vehicle_status = Column(String(50), nullable=True)
     vehicle_model = Column(String(200), nullable=True)
     vehicle_vin = Column(String(45), nullable=True)

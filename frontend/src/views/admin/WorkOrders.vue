@@ -52,19 +52,34 @@
 
     <div v-else class="table-wrap">
       <table v-if="workOrders.length" class="work-order-table">
+        <colgroup>
+          <col class="order-column" />
+          <col class="customer-column" />
+          <col class="vehicle-column" />
+          <col class="service-column" />
+          <col class="progress-column" />
+          <col class="vehicle-status-column" />
+          <col class="payment-column" />
+          <col class="staff-column" />
+          <col class="ordered-date-column" />
+          <col class="date-column" />
+          <col class="date-column" />
+          <col class="amount-column" />
+        </colgroup>
         <thead>
           <tr>
             <th>工單</th>
             <th>客戶</th>
             <th>車輛 / 設備</th>
-            <th>服務類型</th>
+            <th class="service-type-cell">服務類型</th>
             <th>工單狀態</th>
+            <th>車輛狀態</th>
             <th>付款狀態</th>
             <th>接單者</th>
             <th>接單日期</th>
             <th>預約日</th>
             <th>完工日</th>
-            <th>總金額</th>
+            <th class="amount-heading">總金額</th>
           </tr>
         </thead>
         <tbody>
@@ -72,17 +87,21 @@
             <td class="strong-cell">#{{ workOrder.id }}</td>
             <td>
               <strong>{{ workOrder.customer_name || workOrder.booking?.user?.name || '-' }}</strong>
-              <span class="secondary-line">{{ workOrder.customer_phone || workOrder.booking?.user?.phone || '-' }}</span>
+              <span class="secondary-line customer-phone">{{ workOrder.customer_phone || workOrder.booking?.user?.phone || '-' }}</span>
             </td>
             <td class="strong-cell">
               {{ workOrder.vehicle_license_plate || workOrder.booking?.motor?.license_plate || '-' }}
               <span class="secondary-line">{{ workOrder.vehicle_model || workOrder.booking?.motor?.model_name || '-' }}</span>
             </td>
-            <td>{{ serviceTypeMap[workOrder.service_type] || workOrder.service_type }}</td>
+            <td class="service-type-cell">{{ serviceTypeMap[workOrder.service_type] || workOrder.service_type }}</td>
             <td>
               <span class="status-tag" :class="workOrder.status">
-                {{ statusMap[workOrder.status] || workOrder.status }}
+                {{ workOrder.progress_status || '—' }}
               </span>
+            </td>
+            <td>
+              <span v-if="workOrder.vehicle_status" class="vehicle-status-tag">{{ workOrder.vehicle_status }}</span>
+              <span v-else class="empty-value">—</span>
             </td>
             <td>
               <span class="payment-tag" :class="workOrder.payment_status">
@@ -90,9 +109,9 @@
               </span>
             </td>
             <td>{{ workOrder.responsible_staff || '-' }}</td>
-            <td>{{ formatDate(workOrder.ordered_date) }}</td>
-            <td>{{ formatDateTime(workOrder.scheduled_at || workOrder.booking?.booking_time) }}</td>
-            <td>{{ formatDate(completionDateValue(workOrder)) }}</td>
+            <td class="date-cell">{{ formatDate(workOrder.ordered_date) }}</td>
+            <td class="date-cell appointment-cell">{{ formatDateTime(workOrder.scheduled_at || workOrder.booking?.booking_time) }}</td>
+            <td class="date-cell">{{ formatDate(completionDateValue(workOrder)) }}</td>
             <td class="amount">NT$ {{ workOrder.total_amount?.toLocaleString() || 0 }}</td>
           </tr>
         </tbody>
@@ -182,7 +201,7 @@
               </label>
               <label>施工者<select v-model="createForm.technician"><option v-for="name in technicianOptions" :key="name" :value="name">{{ name }}</option></select></label>
               <div class="vehicle-brand-cell"><WorkOrderVehicleBrandFields v-model:brand="createForm.vehicle_brand" v-model:brand-type="createForm.vehicle_brand_type" /></div>
-              <label class="work-order-status-field">工單狀態<select :value="createMode === 'historical' ? 'COMPLETED' : 'INSPECTION_PENDING'" disabled><option value="INSPECTION_PENDING">待檢查</option><option value="COMPLETED">已完工</option></select></label>
+              <label class="work-order-status-field">工單狀態<select v-model="createForm.progress_status"><option :value="null"></option><option v-for="status in progressStatusOptions" :key="status" :value="status">{{ status }}</option></select></label>
               <label class="vehicle-status-field">車輛狀態<select v-model="createForm.vehicle_status"><option :value="null">未填寫</option><option v-for="status in vehicleStatusOptions" :key="status" :value="status">{{ status }}</option></select></label>
               <label><span>車種 <span class="required-mark">*</span></span><VehicleModelInput v-model="createForm.vehicle_model" required /></label>
               <label><span>車牌 <span class="required-mark">*</span></span><input v-model.trim="createForm.vehicle_license_plate" maxlength="45" required /></label>
@@ -328,7 +347,7 @@
               </label>
               <label>施工者<select v-model="detailForm.technician" :disabled="!canEditWorkOrder"><option :value="null">未填寫</option><option v-for="name in technicianOptions" :key="name" :value="name">{{ name }}</option></select></label>
               <div class="vehicle-brand-cell"><WorkOrderVehicleBrandFields v-model:brand="detailForm.vehicle_brand" v-model:brand-type="detailForm.vehicle_brand_type" :disabled="!canEditWorkOrder || supervisorReviewLocked" /></div>
-              <label class="work-order-status-field">工單狀態<select v-model="detailForm.status" :disabled="!canEditWorkOrder"><option v-for="(label, value) in statusMap" :key="value" :value="value" :disabled="isGatedStatus(value) && hasBlockingApproval(selectedWorkOrder, value)">{{ label }}</option></select></label>
+              <label class="work-order-status-field">工單狀態<select v-model="detailForm.progress_status" :disabled="!canEditWorkOrder"><option :value="null"></option><option v-for="status in progressStatusOptions" :key="status" :value="status">{{ status }}</option></select></label>
               <label class="vehicle-status-field">車輛狀態<select v-model="detailForm.vehicle_status" :disabled="!canEditWorkOrder"><option :value="null">未填寫</option><option v-for="status in vehicleStatusOptions" :key="status" :value="status">{{ status }}</option></select></label>
               <label><span>車種 <span class="required-mark">*</span></span><VehicleModelInput v-model="detailForm.vehicle_model" required :disabled="!canEditWorkOrder || supervisorReviewLocked" /></label>
               <label><span>車牌 <span class="required-mark">*</span></span><input v-model.trim="detailForm.vehicle_license_plate" maxlength="45" required :disabled="!canEditWorkOrder || supervisorReviewLocked" /></label>
@@ -726,16 +745,7 @@ const serviceTypeMap = {
   MODIFICATION: '改裝'
 };
 
-const statusMap = {
-  INSPECTION_PENDING: '待檢查',
-  QUOTE_PENDING: '待報價',
-  CUSTOMER_CONFIRMATION_PENDING: '等待客戶確認',
-  SUPERVISOR_APPROVAL_PENDING: '待主管確認',
-  IN_PROGRESS: '施工中',
-  AWAITING_PAYMENT: '待收款',
-  COMPLETED: '已完工',
-  CANCELED: '已取消'
-};
+const progressStatusOptions = ['待廠商回應', '已報價待客確認', '待訂購', '待到貨', '部分到貨', '全數到貨', '已出貨', '已完單'];
 
 const paymentStatusMap = {
   UNPAID: '未付款',
@@ -767,10 +777,8 @@ const serviceTypeFilterOptions = [
 ];
 
 const statusFilterOptions = [
-  { label: '待檢查', value: 'INSPECTION_PENDING' },
-  { label: '施工中', value: 'IN_PROGRESS' },
-  { label: '待收款', value: 'AWAITING_PAYMENT' },
-  { label: '已完工', value: 'COMPLETED' }
+  { label: '未填寫', value: 'blank' },
+  ...progressStatusOptions.map(status => ({ label: status, value: status }))
 ];
 
 const selectableStatusFilterValues = new Set(statusFilterOptions.map(option => option.value));
@@ -781,7 +789,6 @@ const statusSelectFilter = computed({
   }
 });
 
-const gatedStatuses = ['IN_PROGRESS', 'AWAITING_PAYMENT', 'COMPLETED'];
 
 const memberMotorOptions = computed(() => {
   const options = [];
@@ -860,6 +867,7 @@ function defaultCreateForm() {
     vehicle_license_plate: '',
     vehicle_brand: '',
     vehicle_brand_type: '',
+    progress_status: null,
     vehicle_status: null,
     vehicle_model: '',
     vehicle_vin: '',
@@ -985,7 +993,10 @@ const buildQuery = () => {
 const filterToParams = () => {
   const params = { skip: 0, limit: 200 };
   if (serviceTypeFilter.value) params.service_type = serviceTypeFilter.value;
-  if (statusFilter.value) params.status = statusFilter.value;
+  if (statusFilter.value) {
+    const key = selectableStatusFilterValues.has(statusFilter.value) ? 'progress_status' : 'status';
+    params[key] = statusFilter.value;
+  }
   if (searchKeyword.value) params.q = searchKeyword.value;
   if (filterDate.value) params.date_str = filterDate.value;
   return params;
@@ -1438,6 +1449,7 @@ const openDetail = async (id) => {
       vehicle_purchase_date: '',
       service_type: workOrder.service_type,
       status: workOrder.status,
+      progress_status: workOrder.progress_status || null,
       motor_id: workOrder.motor_id,
       guest_motor_id: workOrder.guest_motor_id,
       vehicle_license_plate: workOrder.vehicle_license_plate || '',
@@ -1526,6 +1538,7 @@ const saveWorkOrder = async () => {
       vehicle_mileage: Number(detailForm.value.vehicle_mileage),
       scheduled_at: detailForm.value.scheduled_at || null
     };
+    if (payload.status === selectedWorkOrder.value.status) delete payload.status;
     if (!payload.responsible_staff_id) {
       // Preserve legacy text when no account has been selected.
       delete payload.responsible_staff;
@@ -1557,6 +1570,8 @@ const saveWorkOrder = async () => {
     }
     if (!isCurrent()) return;
     selectedWorkOrder.value = normalizeWorkOrderResponsibleStaff(updatedOrder);
+    detailForm.value.status = selectedWorkOrder.value.status;
+    detailForm.value.progress_status = selectedWorkOrder.value.progress_status || null;
     detailForm.value.completed_date = completionDateValue(selectedWorkOrder.value);
     detailForm.value.vehicle_is_new = false;
     detailLineItems.value = (selectedWorkOrder.value.line_items || []).map(item => ({ ...item }));
@@ -1632,7 +1647,6 @@ watch([showCreateModal, selectedWorkOrder], ([createOpen, order]) => {
   if ((quickProductTarget.value === 'create' && !createOpen) || (quickProductTarget.value === 'detail' && !order)) quickProductTarget.value = '';
 });
 
-const isGatedStatus = (status) => gatedStatuses.includes(status);
 const hasBlockingApproval = (workOrder, targetStatus = null) => {
   const pending = (workOrder.approvals || []).filter(approval => approval.status === 'PENDING');
   if (targetStatus === 'AWAITING_PAYMENT') {
@@ -1660,6 +1674,7 @@ const submitReopen = async () => {
       actor: adminUser.value?.username || adminUser.value?.full_name || '最高級管理員'
     });
     detailForm.value.status = selectedWorkOrder.value.status;
+    detailForm.value.progress_status = selectedWorkOrder.value.progress_status || null;
     detailLineItems.value = (selectedWorkOrder.value.line_items || []).map(item => ({ ...item }));
     closeReopenModal();
     await fetchWorkOrders();
@@ -2060,6 +2075,49 @@ watch(
     }
   }
 
+  .work-order-table {
+    min-width: 1368px;
+    table-layout: fixed;
+
+    .order-column { width: 64px; }
+    .customer-column { width: 128px; }
+    .vehicle-column { width: 152px; }
+    .service-column { width: 96px; }
+    .progress-column { width: 160px; }
+    .vehicle-status-column { width: 120px; }
+    .payment-column { width: 104px; }
+    .staff-column { width: 88px; }
+    .ordered-date-column { width: 112px; }
+    .date-column { width: 112px; }
+    .amount-column { width: 120px; }
+
+    th,
+    td {
+      padding: 0.85rem 0.75rem;
+      vertical-align: middle;
+      font-size: 0.86rem;
+    }
+
+    td {
+      white-space: normal;
+      overflow-wrap: anywhere;
+      line-height: 1.5;
+    }
+
+    .date-cell,
+    .amount {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .date-cell { white-space: nowrap; }
+    .customer-phone { white-space: nowrap; overflow-wrap: normal; }
+    .service-type-cell { text-align: center; white-space: nowrap; padding-left: 0; padding-right: calc(1.5rem + 24px); }
+    .appointment-cell { white-space: normal; overflow-wrap: normal; }
+    .amount-heading,
+    .amount { text-align: right; white-space: nowrap; }
+    .empty-value { color: var(--admin-muted, #{$text-disabled}); }
+  }
+
   .strong-cell,
   .amount {
     color: var(--admin-accent-text, #{$primary-light});
@@ -2076,12 +2134,19 @@ watch(
   }
 
   .status-tag,
+  .vehicle-status-tag,
   .payment-tag {
     display: inline-flex;
     padding: 0.2rem 0.55rem;
     border-radius: 999px;
     font-size: 0.8rem;
     background-color: rgba(var(--admin-border-rgb, 66,66,66), 0.4);
+    white-space: nowrap;
+  }
+
+  .vehicle-status-tag {
+    color: var(--admin-info, #64b5f6);
+    background-color: rgba(var(--admin-info-fill-rgb, 100,181,246), 0.15);
   }
 
   .INSPECTION_PENDING,

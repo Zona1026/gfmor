@@ -422,6 +422,7 @@ def _taipei_date(value: datetime) -> date:
 
 def _mark_work_order_completed(work_order, completed_at: datetime = None):
     completed_at = completed_at or work_order.completed_at or datetime.utcnow()
+    work_order.progress_status = "已完單"
     work_order.completed_at = completed_at
     work_order.consumption_date = _taipei_date(completed_at)
 
@@ -1034,6 +1035,7 @@ def get_work_orders(
     responsible_staff: str = None,
     include_deleted: bool = False,
     review_pending: bool = False,
+    progress_status: str = None,
 ):
     """
     獲取工單列表，支援分頁、狀態、日期與關鍵字搜尋。
@@ -1085,6 +1087,9 @@ def get_work_orders(
             )
         else:
             query = query.filter(models.WorkOrder.status == models.WorkOrderStatus(status))
+    if progress_status:
+        query = query.filter(models.WorkOrder.progress_status.is_(None) if progress_status == "blank"
+                             else models.WorkOrder.progress_status == progress_status)
     if service_type:
         query = query.filter(models.WorkOrder.service_type == models.WorkOrderServiceType(service_type))
     if payment_status:
@@ -1177,6 +1182,7 @@ def create_work_order(db: Session, work_order: WorkOrderCreate):
         ordered_date=ordered_date,
         completed_date_override=work_order.completed_date,
         vehicle_brand_type=(work_order.vehicle_brand_type or '').strip() or None,
+        progress_status=work_order.progress_status,
         vehicle_status=work_order.vehicle_status,
         consumption_date=work_order.consumption_date or ordered_date,
         notes=work_order.notes,
@@ -1288,6 +1294,7 @@ def create_historical_work_order(
         backfilled_by=actor,
         backfill_reason=backfill_reason,
         vehicle_brand_type=(work_order.vehicle_brand_type or '').strip() or None,
+        progress_status=work_order.progress_status or "已完單",
         vehicle_status=work_order.vehicle_status,
         line_items=line_items,
     )
@@ -1466,6 +1473,9 @@ def update_work_order(db: Session, work_order_id: int, work_order_update: WorkOr
 
         points_service.sync_work_order_point_redemption(db, db_work_order)
 
+    # Apply progress first so a successful completion can set its final label.
+    if "progress_status" in update_data:
+        db_work_order.progress_status = update_data.pop("progress_status")
     for key, value in update_data.items():
         if key == "status":
             target_status = value
@@ -1826,6 +1836,7 @@ def reopen_work_order(db: Session, work_order_id: int, reopen, actor: str = None
     db_work_order.status = models.WorkOrderStatus.QUOTE_PENDING
     db_work_order.supervisor_reviewed_at = None
     db_work_order.supervisor_reviewed_by = None
+    db_work_order.progress_status = None
     db_work_order.completed_at = None
     db_work_order.completed_date_override = None
     for approval in db_work_order.approvals:
