@@ -478,9 +478,9 @@
         </div>
         <div v-if="!detailLoading" class="sheet-footer">
           <div class="sheet-totals">
-            <div><span>小計</span><strong>NT$ {{ detailSummary.subtotal.toLocaleString() }}</strong></div>
-            <div class="discount-total"><span>折扣</span><strong>− NT$ {{ detailSummary.discount.toLocaleString() }}</strong></div>
-            <div class="grand-total"><span>總計</span><strong>NT$ {{ detailTotal.toLocaleString() }}</strong></div>
+            <div><span>總計</span><strong>NT$ {{ detailTotal.toLocaleString() }}</strong></div>
+            <div class="deposit-total"><span>訂金</span><strong>NT$ {{ selectedWorkOrder.paid_amount?.toLocaleString() || 0 }}</strong></div>
+            <div class="grand-total"><span>尾款</span><strong>NT$ {{ detailBalanceAmount.toLocaleString() }}</strong></div>
           </div>
           <div class="sheet-footer-bottom">
             <span class="eligible-caption">可列入會員累積 NT$ {{ detailMembershipTotal.toLocaleString() }}<template v-if="detailRedeemedPoints"> · 本單使用 {{ detailRedeemedPoints }} 點</template></span>
@@ -826,8 +826,8 @@ const guestMotorOptions = computed(() => {
 
 const createTotal = computed(() => calculateTotal(createLineItems.value));
 const detailTotal = computed(() => calculateTotal(detailLineItems.value));
+const detailBalanceAmount = computed(() => Math.max(0, detailTotal.value - Number(selectedWorkOrder.value?.paid_amount || 0)));
 const createSummary = computed(() => summarizeWorkOrder(createLineItems.value));
-const detailSummary = computed(() => summarizeWorkOrder(detailLineItems.value));
 const createMembershipTotal = computed(() => calculateMembershipTotal(createLineItems.value));
 const detailMembershipTotal = computed(() => calculateMembershipTotal(detailLineItems.value));
 const detailRedeemedPoints = computed(() => detailLineItems.value.reduce(
@@ -2828,6 +2828,7 @@ watch(
 .sheet-totals .grand-total { background: rgba(var(--admin-accent-rgb, 239,83,80), 0.04314); }
 .sheet-totals .grand-total strong { color: var(--admin-danger, #ef7777); font-size: 24px; }
 .sheet-totals .discount-total strong { color: var(--admin-success, #82c991); }
+.sheet-totals .deposit-total strong { color: var(--admin-success, #82c991); }
 .sheet-footer-bottom { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 14px; }
 .eligible-caption { font-size: 12px; color: var(--admin-success, #8abb93); }
 .sheet-buttons { display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
