@@ -45,7 +45,7 @@
     </form>
 
     <Teleport to="body"><div v-if="draft" class="estimate-preview-overlay" :class="{ 'is-visible': showPreview }" role="dialog" aria-modal="true" aria-labelledby="estimate-preview-title" @keydown.esc="showPreview = false">
-      <div class="estimate-preview-toolbar"><h3 id="estimate-preview-title">車禍估價單列印預覽</h3><span>內部備註不會列印{{ dirty ? ' · 此預覽包含尚未儲存的修改' : '' }}</span><button @click="printEstimate">列印 / 另存 PDF</button><button ref="previewClose" @click="showPreview = false">關閉預覽</button></div>
+      <div class="estimate-preview-toolbar"><h3 id="estimate-preview-title">車禍估價單列印預覽</h3><span>內部備註不會列印或匯出{{ dirty ? ' · 此預覽包含尚未儲存的修改' : '' }}</span><button :disabled="exportingPdf" @click="printEstimate">列印</button><button :disabled="exportingPdf" @click="downloadPdf">{{ exportingPdf ? 'PDF 產生中…' : '下載 PDF' }}</button><button ref="previewClose" :disabled="exportingPdf" @click="showPreview = false">關閉預覽</button><p v-if="pdfError" role="alert">{{ pdfError }}</p></div>
       <!-- Only this public document is copied into the print frame. Private notes never enter it. -->
       <div ref="printDocument" class="estimate-print-document"><article class="estimate-paper">
         <header class="estimate-paper-heading"><div class="estimate-paper-brand" aria-label="GFmotor">GF<span>motor</span></div><div><h1>{{ draft.store_name }}</h1><h2>車禍估價單</h2></div></header>
@@ -68,11 +68,13 @@ import { onBeforeRouteLeave } from 'vue-router';
 import api from '../../api';
 import { useSiteStore } from '../../store/site';
 import printStyles from '../../assets/accidentEstimatePrint.css?inline';
+import { downloadAccidentEstimatePdf, estimatePdfFilename } from '../../utils/accidentEstimatePdf';
 
 const site = useSiteStore();
 const estimates = ref([]), search = ref(''), page = ref(0), loading = ref(false), busy = ref(false);
 const listError = ref(''), editorError = ref(''), notice = ref(''), draft = ref(null), snapshot = ref('');
 const editor = ref(null), showPreview = ref(false), printDocument = ref(null), previewClose = ref(null);
+const exportingPdf = ref(false), pdfError = ref('');
 const pageSize = 50, endpoint = '/admin/accident-estimates';
 let printFrame = null;
 let pagePrintStyle = null;
@@ -121,7 +123,19 @@ async function save() {
 }
 async function preview() {
   if (!editor.value.reportValidity()) return;
+  pdfError.value = '';
   showPreview.value = true; await nextTick(); previewClose.value?.focus();
+}
+async function downloadPdf() {
+  if (exportingPdf.value) return;
+  exportingPdf.value = true; pdfError.value = '';
+  try {
+    await downloadAccidentEstimatePdf(printDocument.value, estimatePdfFilename(draft.value), printStyles);
+  } catch (error) {
+    pdfError.value = error.message || 'PDF 下載失敗，請重試。';
+  } finally {
+    exportingPdf.value = false;
+  }
 }
 async function printEstimate() {
   printFrame?.remove();
