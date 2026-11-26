@@ -12,7 +12,7 @@
       <label class="quantity-field"><span>數量</span><input v-model.number="item.quantity" type="number" min="1" step="1" required :disabled="rowLocked(item)" /></label>
       <label class="price-field"><span>售價</span>
         <input v-if="canEnterDetails(item)" v-model.number="item.unit_price" type="number" min="0" :disabled="rowLocked(item)" />
-        <span v-else class="field-value">{{ money(item.unit_price) }}</span>
+        <span v-else class="field-value">{{ Number(item.unit_price || 0) }}</span>
       </label>
       <label v-if="manageMembership" class="membership-field" title="消費可累積點數">
         <span>累積消費</span><input v-model="item.counts_toward_membership" type="checkbox" :disabled="disabled || membershipLocked || Boolean(item.promotion_gift_id)" />
